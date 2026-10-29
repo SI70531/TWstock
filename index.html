@@ -85,6 +85,7 @@
     [data-mode="pin"] .acct, [data-mode="setpin"] .acct { display: none; }
     [data-mode="pin"] .pinrow, [data-mode="setpin"] .pinrow { display: block; }
     [data-mode="setpin"] .confirm { display: block; }
+    [data-mode="pin"] .go { display: none; }       /* the four boxes submit by themselves */
 
     .cells { display: flex; gap: 10px; }
     .cell { flex: 1; }
@@ -96,7 +97,6 @@
     .cell input.mask { -webkit-text-security: disc; }
     .cell input:focus { outline: none; border-color: var(--c4); box-shadow: 0 0 0 4px rgba(142,182,155,.2); transform: translateY(-2px); }
     .cell input.on { border-color: var(--c4); background: var(--c2); }
-    .cell input.scatter { animation: scatter .55s cubic-bezier(.5,0,.8,.4) forwards; }
 
     .go {
       display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; margin-top: 18px;
@@ -127,6 +127,15 @@
     .overlay .verify, .overlay .done { display: none; flex-direction: column; align-items: center; gap: 6px; }
     .overlay[data-stage="verify"] .verify { display: flex; }
     .overlay[data-stage="done"] .done { display: flex; }
+    .orbitbox { display: none; position: relative; width: 190px; height: 150px; margin-bottom: 8px; }
+    .overlay[data-stage="orbit"] .verify { display: flex; }
+    .overlay[data-stage="orbit"] .ring { display: none; }
+    .overlay[data-stage="orbit"] .orbitbox { display: block; }
+    .orbitbox .tile {
+      position: absolute; left: 50%; top: 50%; width: 50px; height: 58px; margin: -29px 0 0 -25px; display: grid; place-items: center;
+      border-radius: 13px; background: var(--c2); border: 1px solid var(--c4); font-size: 24px; font-weight: 600; color: var(--c5);
+      box-shadow: 0 8px 22px rgba(0,0,0,.45), 0 0 14px rgba(142,182,155,.25); will-change: transform;
+    }
     .ring { position: relative; width: 104px; height: 104px; margin-bottom: 8px; }
     .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
     .ring .track { fill: none; stroke: var(--c2); stroke-width: 6; }
@@ -139,11 +148,6 @@
 
     @keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
     @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes scatter {
-      0% { transform: none; opacity: 1; }
-      35% { transform: translate(calc(var(--dx) * .5), calc(var(--dy) * .5 - 14px)) rotate(calc(var(--rot) * .5)); opacity: 1; }
-      100% { transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(.85); opacity: 0; }
-    }
     @keyframes shake { 0%,100% { transform: none; } 20% { transform: translateX(-9px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
     @keyframes checkPop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     @keyframes draw { to { stroke-dashoffset: 0; } }
@@ -219,6 +223,7 @@
 
       <div class="overlay" role="status" aria-live="polite">
         <div class="verify">
+          <div class="orbitbox" aria-hidden="true"></div>
           <div class="ring">
             <svg viewBox="0 0 104 104" aria-hidden="true"><circle class="track" cx="52" cy="52" r="42"/><circle class="arc" cx="52" cy="52" r="42"/></svg>
             <div class="pct">0</div>
@@ -305,17 +310,8 @@
     ticket.requestSubmit();
   }
   function clearCells() {
-    cellsets.forEach(g => cells(g).forEach(x => { x.value = ""; x.classList.remove("on", "scatter"); }));
+    cellsets.forEach(g => cells(g).forEach(x => { x.value = ""; x.classList.remove("on"); }));
   }
-  function scatterCells(g) {
-    cells(g).forEach(x => {
-      x.style.setProperty("--dx", (Math.random() * 170 - 85).toFixed(0) + "px");
-      x.style.setProperty("--dy", (Math.random() * 150 - 75).toFixed(0) + "px");
-      x.style.setProperty("--rot", (Math.random() * 90 - 45).toFixed(0) + "deg");
-      x.classList.add("scatter");
-    });
-  }
-
   /* ---------- show / hide ---------- */
   function toggleEye(btn, apply) {
     btn.addEventListener("click", () => {
@@ -397,19 +393,49 @@
   });
 
   /* ---------- verifying → granted ---------- */
-  async function run(labels, fn) {
+  /* the typed digits circle the middle of the card (orbit), then the ring counts up while the request finishes */
+  function startOrbit(digits) {
+    const box = overlay.querySelector(".orbitbox");
+    box.innerHTML = "";
+    const tiles = [...digits].map(d => { const t = document.createElement("div"); t.className = "tile"; t.textContent = d; box.append(t); return t; });
+    const t0 = performance.now();
+    let on = true;
+    (function frame(now) {
+      if (!on) return;
+      const t = (now - t0) / 1000, k = Math.min(t / 0.55, 1), ease = 1 - Math.pow(1 - k, 3);
+      const R = 56 + 120 * (1 - ease);                    /* the boxes slide in from the row to the circle */
+      tiles.forEach((el, i) => {
+        const a = i * Math.PI / 2 + t * 4.6;
+        const x = Math.cos(a) * R * 1.18, y = Math.sin(a) * R * 0.8;
+        el.style.transform = "translate(" + x.toFixed(1) + "px," + y.toFixed(1) + "px) rotate(" + (16 * Math.sin(t * 3 + i * 1.7)).toFixed(1) + "deg)";
+      });
+      requestAnimationFrame(frame);
+    })(t0);
+    return () => { on = false; };
+  }
+  async function run(labels, fn, digits) {
     const arc = overlay.querySelector(".arc"), pct = overlay.querySelector(".pct");
     $("#vT").textContent = labels.verify[0]; $("#vS").textContent = labels.verify[1];
     $("#dT").textContent = labels.done[0]; $("#dS").textContent = labels.done[1];
     const setPct = p => { pct.textContent = Math.round(p); arc.style.strokeDashoffset = 264 * (1 - p / 100); };
     busy = true;
-    overlay.dataset.stage = "verify";
-    let p = 0, target = 88, k = 0.05, running = true;
-    setPct(0);
-    (function tick() { if (!running) return; p += (target - p) * k; setPct(p); requestAnimationFrame(tick); })();
+    const req = fn();                                  /* the request starts right away, the animation runs beside it */
+    req.catch(() => {});
+    let running = false;
     try {
-      const res = await fn();
-      target = 100; k = 0.22;                      /* the request is back: run the ring up to 100 */
+      if (digits && !reduced) {
+        overlay.dataset.stage = "orbit";
+        const stop = startOrbit(digits);
+        await sleep(1300);
+        stop();
+      }
+      overlay.dataset.stage = "verify";
+      let p = 0, target = 88, k = 0.05;
+      running = true;
+      setPct(0);
+      (function tick() { if (!running) return; p += (target - p) * k; setPct(p); requestAnimationFrame(tick); })();
+      const res = await req;
+      target = 100; k = 0.22;                        /* the request is back: run the ring up to 100 */
       const t0 = performance.now();
       while (p < 99.4 && performance.now() - t0 < 1000) await new Promise(requestAnimationFrame);
       running = false; setPct(100);
@@ -442,8 +468,7 @@
       } else if (m === "pin") {
         const pin = val(cellsets[0]);
         if (pin.length < 4) return bad(cellsets[0], "請輸入 4 位數的 PIN 碼。");
-        if (!reduced) { scatterCells(cellsets[0]); busy = true; await sleep(540); busy = false; }
-        await run(LABELS.login, () => A.pinLogin(pin));
+        await run(LABELS.login, () => A.pinLogin(pin), pin);
         closeGate();
       } else if (m === "setpin") {
         const a = val(cellsets[0]), b = val(cellsets[1]);
@@ -454,7 +479,6 @@
       }
     } catch (err) {
       if (m === "pin") {
-        clearCells();                      /* bring the scattered boxes back at once, then shake */
         bad(cellsets[0], A.errMsg(err));
         if (err.code === "nopin" || err.code === "pinlocked") setTimeout(() => setMode("login", true, A.errMsg(err)), 1200);
       } else if (m === "setpin") bad(cellsets[0], A.errMsg(err));
