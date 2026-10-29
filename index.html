@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TWstock 台股研究</title>
+  <style>
+    :root {
+      --bg: #f6f5f1; --paper: #ffffff; --ink: #1d1d1b; --muted: #6b6a64; --line: #d9d7cf;
+      --accent: #2f5d50; --accent-ink: #ffffff; --seal: #b03a2e; --ok: #2f7d4f; --warn: #a06a00;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #161614; --paper: #22221f; --ink: #ecebe6; --muted: #9c9a91; --line: #3a3a35;
+        --accent: #7fb8a5; --accent-ink: #10201b; --seal: #e07a6e; --ok: #7fc69a; --warn: #e0b35a;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #161614; --paper: #22221f; --ink: #ecebe6; --muted: #9c9a91; --line: #3a3a35;
+      --accent: #7fb8a5; --accent-ink: #10201b; --seal: #e07a6e; --ok: #7fc69a; --warn: #e0b35a;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Noto Sans TC", sans-serif; }
+    main { max-width: 760px; margin: 0 auto; padding: 16px; }
+    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 16px; }
+    h1 { font-size: 22px; margin: 0; }
+    h2 { font-size: 17px; margin: 0 0 8px; }
+    .small { color: var(--muted); font-size: 14px; }
+    button, input { font: inherit; }
+    .btn { min-height: 40px; padding: 0 14px; border: 1.5px solid var(--ink); border-radius: 8px; background: var(--paper); color: var(--ink); cursor: pointer; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+    .btn:disabled { opacity: .5; cursor: default; }
+    .card { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    input[type="text"], input[type="password"], input[type="tel"] {
+      min-height: 40px; padding: 0 10px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); min-width: 0;
+    }
+    input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .list { list-style: none; padding: 0; margin: 0; }
+    .list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+    .list li:first-child { border-top: 0; }
+    .code { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
+    .price { color: var(--muted); font-size: 14px; }
+    .status { font-size: 14px; color: var(--muted); min-height: 1.4em; }
+    .status[data-state="ok"] { color: var(--ok); }
+    .status[data-state="err"] { color: var(--seal); }
+    .status[data-state="sync"] { color: var(--warn); }
+    .err { color: var(--seal); font-size: 14px; min-height: 1.2em; margin: 6px 0 0; }
+    /* modal */
+    dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--paper); color: var(--ink); width: min(92vw, 380px); padding: 20px; }
+    dialog::backdrop { background: rgba(0,0,0,.35); }
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+    .tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+    .stack { display: flex; flex-direction: column; gap: 10px; }
+    .stack label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; color: var(--muted); }
+    .pin { letter-spacing: .4em; font-size: 22px; text-align: center; }
+    @media (max-width: 480px) {
+      header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>TWstock 台股研究</h1>
+      <div class="small">自選股</div>
+    </div>
+    <div class="row">
+      <span id="who" class="small"></span>
+      <button class="btn" id="accountBtn" type="button">登入</button>
+    </div>
+  </header>
+
+  <section class="card" aria-labelledby="wlTitle">
+    <div class="row" style="justify-content: space-between; margin-bottom: 10px;">
+      <h2 id="wlTitle">自選股</h2>
+      <span id="status" class="status" role="status"></span>
+    </div>
+    <form id="addForm" class="row" autocomplete="off">
+      <input id="symbol" type="text" inputmode="numeric" maxlength="8" placeholder="股票代號，例如 2330" aria-label="股票代號" style="flex: 1 1 160px;">
+      <button class="btn primary" type="submit">加入</button>
+    </form>
+    <p id="formErr" class="err" role="alert"></p>
+    <ul id="list" class="list" aria-live="polite"></ul>
+    <p id="empty" class="small" hidden>還沒有自選股，輸入代號加入。</p>
+    <p class="small" style="margin-top: 12px;">報價與財務資料尚未接上，目前只顯示代號與名稱。</p>
+  </section>
+</main>
+
+<!-- sign in / sign up -->
+<dialog id="authDlg" aria-labelledby="authTitle">
+  <h2 id="authTitle">登入</h2>
+  <div class="tabs" role="tablist">
+    <button class="btn" type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
+    <button class="btn" type="button" role="tab" id="tabReg" aria-selected="false">註冊</button>
+  </div>
+  <form id="authForm" class="stack">
+    <label>帳號（英文、數字、底線，最多 20 字）
+      <input id="authUser" type="text" autocomplete="username" required maxlength="20">
+    </label>
+    <label>密碼（至少 6 字）
+      <input id="authPass" type="password" autocomplete="current-password" required minlength="6">
+    </label>
+    <p id="authErr" class="err" role="alert"></p>
+    <div class="row" style="justify-content: flex-end;">
+      <button class="btn" type="button" data-close>取消</button>
+      <button class="btn primary" id="authSubmit" type="submit">登入</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- optional: remember a PIN on this device -->
+<dialog id="pinSetDlg" aria-labelledby="pinSetTitle">
+  <h2 id="pinSetTitle">設定這台裝置的 PIN</h2>
+  <p class="small">之後在這台裝置用 4 位數 PIN 就能登入，不用再輸入密碼。PIN 只對這台裝置有效。</p>
+  <form id="pinSetForm" class="stack">
+    <label>4 位數字
+      <input id="pinSetInput" class="pin" type="tel" inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="off" required>
+    </label>
+    <p id="pinSetErr" class="err" role="alert"></p>
+    <div class="row" style="justify-content: flex-end;">
+      <button class="btn" type="button" data-close>之後再說</button>
+      <button class="btn primary" type="submit">設定</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- PIN sign-in on a device that has one -->
+<dialog id="pinLoginDlg" aria-labelledby="pinLoginTitle">
+  <h2 id="pinLoginTitle">輸入 PIN 登入</h2>
+  <form id="pinLoginForm" class="stack">
+    <label>這台裝置的 PIN
+      <input id="pinLoginInput" class="pin" type="tel" inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="off" required>
+    </label>
+    <p id="pinLoginErr" class="err" role="alert"></p>
+    <div class="row" style="justify-content: space-between;">
+      <button class="btn" type="button" id="usePassword">改用帳號和密碼</button>
+      <div class="row">
+        <button class="btn" type="button" data-close>略過</button>
+        <button class="btn primary" type="submit">登入</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<script src="./assets/twaccount.js"></script>
+<script>
+(function () {
+  const A = window.TWAccount;
+  /* a few names for the codes people usually add; anything else shows just the code */
+  const NAMES = {
+    "2330": "台積電", "2317": "鴻海", "2454": "聯發科", "2412": "中華電", "2881": "富邦金",
+    "2882": "國泰金", "2603": "長榮", "0050": "元大台灣50",
+  };
+  const $ = id => document.getElementById(id);
+  let symbols = [];
+
+  function setStatus(text, state) {
+    const s = $("status");
+    s.textContent = text || "";
+    s.dataset.state = state || "";
+  }
+
+  function render() {
+    const list = $("list");
+    list.innerHTML = "";
+    $("empty").hidden = symbols.length > 0;
+    symbols.forEach(code => {
+      const li = document.createElement("li");
+      const left = document.createElement("div");
+      const c = document.createElement("span");
+      c.className = "code";
+      c.textContent = code;
+      const n = document.createElement("span");
+      n.textContent = " " + (NAMES[code] || "");
+      left.append(c, n);
+      const p = document.createElement("div");
+      p.className = "price";
+      p.textContent = "報價待接上";
+      const btn = document.createElement("button");
+      btn.className = "btn";
+      btn.type = "button";
+      btn.textContent = "移除";
+      btn.setAttribute("aria-label", "移除 " + code);
+      btn.addEventListener("click", () => update(symbols.filter(x => x !== code)));
+      const right = document.createElement("div");
+      right.className = "row";
+      right.append(p, btn);
+      li.append(left, right);
+      list.append(li);
+    });
+  }
+
+  /* the list is saved on this browser first, so a failed upload keeps the change here and says so */
+  async function update(next) {
+    symbols = next;
+    render();
+    setStatus("儲存中…", "sync");
+    try {
+      symbols = await A.saveWatchlist(next);
+      render();
+      setStatus(A.account() ? "已同步到帳號" : "已存在這台裝置", "ok");
+    } catch (e) {
+      render();
+      setStatus(A.errMsg(e), "err");
+    }
+  }
+
+  function renderAccount() {
+    const a = A.account();
+    $("accountBtn").textContent = a ? "登出" : "登入";
+    $("who").textContent = a ? "帳號：" + a.username : "";
+  }
+
+  async function loadAll() {
+    setStatus("同步中…", "sync");
+    try {
+      symbols = await A.loadWatchlist();
+      setStatus(A.account() ? "已同步" : "只存在這台裝置", A.account() ? "ok" : "");
+    } catch (e) {
+      symbols = JSON.parse(localStorage.getItem("twstock-watch") || "null")?.symbols || [];
+      setStatus(A.errMsg(e), "err");
+    }
+    render();
+    renderAccount();
+  }
+
+  /* ---------- sign in / up ---------- */
+  let mode = "login";
+  function setMode(m) {
+    mode = m;
+    $("tabLogin").setAttribute("aria-selected", m === "login");
+    $("tabReg").setAttribute("aria-selected", m === "register");
+    $("authSubmit").textContent = m === "login" ? "登入" : "註冊";
+    $("authTitle").textContent = m === "login" ? "登入" : "註冊";
+    $("authPass").autocomplete = m === "login" ? "current-password" : "new-password";
+    $("authErr").textContent = "";
+  }
+  function openAuth(m) {
+    setMode(m || "login");
+    $("authForm").reset();
+    $("authErr").textContent = "";
+    $("authDlg").showModal();
+    $("authUser").focus();
+  }
+
+  $("tabLogin").addEventListener("click", () => setMode("login"));
+  $("tabReg").addEventListener("click", () => setMode("register"));
+
+  $("authForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    $("authErr").textContent = "";
+    const btn = $("authSubmit");
+    btn.disabled = true;
+    try {
+      if (mode === "register") await A.signUp($("authUser").value, $("authPass").value);
+      else await A.signIn($("authUser").value, $("authPass").value);
+      $("authDlg").close();
+      await loadAll();
+      if (A.device() && !A.device().pin) openPinSet();
+    } catch (err) {
+      $("authErr").textContent = A.errMsg(err);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  /* ---------- device PIN ---------- */
+  function openPinSet() {
+    $("pinSetForm").reset();
+    $("pinSetErr").textContent = "";
+    $("pinSetDlg").showModal();
+    $("pinSetInput").focus();
+  }
+  $("pinSetForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    $("pinSetErr").textContent = "";
+    try {
+      await A.setPin($("pinSetInput").value);
+      $("pinSetDlg").close();
+      setStatus("已設定這台裝置的 PIN", "ok");
+    } catch (err) {
+      $("pinSetErr").textContent = A.errMsg(err);
+    }
+  });
+
+  function openPinLogin() {
+    $("pinLoginForm").reset();
+    $("pinLoginErr").textContent = "";
+    $("pinLoginDlg").showModal();
+    $("pinLoginInput").focus();
+  }
+  $("pinLoginForm").addEventListener("submit", async e => {
+    e.preventDefault();
+    $("pinLoginErr").textContent = "";
+    try {
+      await A.pinLogin($("pinLoginInput").value);
+      $("pinLoginDlg").close();
+      await loadAll();
+    } catch (err) {
+      $("pinLoginErr").textContent = A.errMsg(err);
+      if (err.code === "nopin" || err.code === "pinlocked") {
+        $("pinLoginDlg").close();
+        openAuth("login");
+      }
+    }
+  });
+  $("usePassword").addEventListener("click", () => {
+    $("pinLoginDlg").close();
+    openAuth("login");
+  });
+
+  document.querySelectorAll("[data-close]").forEach(b =>
+    b.addEventListener("click", () => b.closest("dialog").close()));
+
+  $("accountBtn").addEventListener("click", async () => {
+    if (A.account()) {
+      await A.signOut();
+      await loadAll();
+      setStatus("已登出，自選股只存在這台裝置", "");
+    } else {
+      openAuth("login");
+    }
+  });
+
+  /* ---------- add a code ---------- */
+  $("addForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const code = $("symbol").value.trim().toUpperCase();
+    $("formErr").textContent = "";
+    if (!/^\d{4}[A-Z]?$|^\d{5}[A-Z]?$/.test(code)) {
+      $("formErr").textContent = "請輸入台股代號，例如 2330 或 0050。";
+      return;
+    }
+    if (symbols.includes(code)) {
+      $("formErr").textContent = code + " 已經在清單裡了。";
+      return;
+    }
+    $("symbol").value = "";
+    update([...symbols, code]);
+  });
+
+  /* on load: a device with a PIN and no sign-in asks for the PIN first */
+  loadAll().then(() => {
+    if (!A.account() && A.device() && A.device().pin) openPinLogin();
+  });
+})();
+</script>
+</body>
+</html>
