@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark">
   <title>TWstock 台股研究</title>
   <style>
@@ -10,96 +10,119 @@
     :root {
       --c0: #051F20; --c1: #0B2B26; --c2: #163832; --c3: #235347; --c4: #8EB69B; --c5: #DAF1DE;
       --err: #F0A8A0;
+      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
       color-scheme: dark;
     }
     * { box-sizing: border-box; }
+    html, body { height: 100%; }
     body {
-      margin: 0; color: var(--c5); font: 16px/1.5 system-ui, -apple-system, "Noto Sans TC", sans-serif;
-      background: radial-gradient(900px 500px at 15% -10%, rgba(35,83,71,.55), transparent 70%), var(--c0);
-      min-height: 100vh;
+      margin: 0; color: var(--c5); font: 16px/1.55 system-ui, -apple-system, "Noto Sans TC", sans-serif;
+      background: radial-gradient(900px 500px at 15% -10%, rgba(35,83,71,.5), transparent 70%), var(--c0);
     }
-    main { max-width: 760px; margin: 0 auto; padding: 16px; }
-    header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0 16px; }
-    h1 { font-size: 22px; margin: 0; letter-spacing: .02em; }
-    h2 { font-size: 17px; margin: 0 0 8px; }
-    .small { color: var(--c4); font-size: 14px; }
-    button, input { font: inherit; }
-    .btn {
-      min-height: 40px; padding: 0 16px; border: 1px solid var(--c3); border-radius: 10px;
-      background: var(--c2); color: var(--c5); cursor: pointer; transition: background .2s, transform .15s, border-color .2s;
-    }
+    button, input { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--c4); outline-offset: 2px; }
+    .btn { min-height: 40px; padding: 0 16px; border: 1px solid var(--c3); border-radius: 10px; background: var(--c2); cursor: pointer; transition: background .2s, transform .15s; }
     .btn:hover { background: var(--c3); }
     .btn:active { transform: scale(.97); }
-    .btn.primary { background: var(--c4); border-color: var(--c4); color: var(--c0); font-weight: 600; }
-    .btn.primary:hover { background: var(--c5); border-color: var(--c5); }
-    .btn:disabled { opacity: .5; cursor: default; }
-    :focus-visible { outline: 2px solid var(--c4); outline-offset: 2px; }
-    .card { background: var(--c1); border: 1px solid var(--c2); border-radius: 16px; padding: 18px; margin-bottom: 14px; }
-    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-    input[type="text"], input[type="password"] {
-      min-height: 42px; padding: 0 12px; border: 1px solid var(--c3); border-radius: 10px;
-      background: var(--c0); color: var(--c5); min-width: 0; transition: border-color .2s, box-shadow .2s;
-    }
-    input::placeholder { color: rgba(142,182,155,.6); }
-    input[type="text"]:focus, input[type="password"]:focus { outline: none; border-color: var(--c4); box-shadow: 0 0 0 3px rgba(142,182,155,.2); }
-    .list { list-style: none; padding: 0; margin: 0; }
-    .list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--c2); }
-    .list li:first-child { border-top: 0; }
-    .code { font-family: ui-monospace, Menlo, monospace; font-weight: 600; color: var(--c5); }
-    .price { color: var(--c4); font-size: 14px; }
-    .status { font-size: 14px; color: var(--c4); min-height: 1.4em; }
-    .status[data-state="err"] { color: var(--err); }
-    .status[data-state="sync"] { opacity: .75; }
-    .err { color: var(--err); font-size: 14px; min-height: 1.3em; margin: 4px 0 0; }
+    .small { color: var(--c4); font-size: 14px; }
 
-    /* ---------- sign-in card (dialog) ---------- */
-    dialog {
-      position: fixed; border: 1px solid var(--c3); border-radius: 22px; color: var(--c5);
-      width: min(92vw, 400px); padding: 28px 24px 22px; overflow: hidden;
-      background:
-        radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%), rgba(142,182,155,.17), transparent 70%),
-        var(--c1);
-      box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(142,182,155,.05) inset;
-      transition: box-shadow .6s ease, border-color .6s ease;
+    /* ---------- the page behind the gate (blank for now) ---------- */
+    .app header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border-bottom: 1px solid var(--c2); }
+    .app h1 { font-size: 18px; margin: 0; letter-spacing: .02em; }
+    .app .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .app main { display: grid; place-items: center; min-height: 60vh; padding: 16px; text-align: center; }
+
+    /* ---------- the gate ---------- */
+    #gate {
+      position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; overflow: auto;
+      padding: 24px max(16px, env(safe-area-inset-left, 0px));
+      background-color: var(--c0);
+      background-image: radial-gradient(rgba(35,83,71,.7) 1px, transparent 1.3px), radial-gradient(900px 560px at 50% -10%, rgba(35,83,71,.55), transparent 70%);
+      background-size: 24px 24px, auto;
+      transition: opacity .45s ease, transform .45s ease;
     }
-    dialog[open] { animation: cardIn .38s cubic-bezier(.2,.8,.2,1); }
-    dialog::backdrop { background: rgba(5,31,32,.72); backdrop-filter: blur(6px); }
-    /* fine grain over the card */
-    dialog::after {
+    #gate[hidden] { display: none; }
+    #gate.out { opacity: 0; transform: translateY(-14px); pointer-events: none; }
+    .wrap { width: min(100%, 480px); perspective: 1400px; }
+    .brand { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--c5); }
+    .brand .mk { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--c4); color: var(--c0); font-size: 12px; }
+
+    .ticket {
+      position: relative; overflow: hidden; border: 1px solid var(--c3); border-radius: 20px;
+      background: radial-gradient(280px circle at var(--mx, 50%) var(--my, 0%), rgba(142,182,155,.17), transparent 70%), var(--c1);
+      box-shadow: 0 30px 80px rgba(0,0,0,.5);
+      transition: transform .32s ease, box-shadow .6s ease, border-color .6s ease;
+      animation: cardIn .45s cubic-bezier(.2,.8,.2,1);
+    }
+    .ticket.flip { transform: rotateY(90deg); }
+    .ticket[data-glow="1"] { border-color: var(--c4); box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 60px rgba(142,182,155,.35); }
+    .ticket::after {
       content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .07; mix-blend-mode: overlay;
       background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
     }
-    dialog[data-glow="1"] { border-color: var(--c4); box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 60px rgba(142,182,155,.35); }
-    dialog.shake { animation: shake .45s; }
-    dialog .head { text-align: center; margin-bottom: 18px; }
-    dialog .head h2 { font-size: 21px; margin: 0 0 4px; }
-    dialog .head p { margin: 0; color: var(--c4); font-size: 14px; }
-    .tabs { display: flex; gap: 6px; margin-bottom: 14px; background: var(--c0); border-radius: 12px; padding: 4px; }
-    .tabs button { flex: 1; min-height: 36px; border: 0; border-radius: 9px; background: transparent; color: var(--c4); cursor: pointer; transition: background .25s, color .25s; }
-    .tabs button[aria-selected="true"] { background: var(--c3); color: var(--c5); }
-    .stack { display: flex; flex-direction: column; gap: 12px; }
-    .stack label { display: flex; flex-direction: column; gap: 5px; font-size: 14px; color: var(--c4); }
-    .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
-    .actions.split { justify-content: space-between; }
+    .main { padding: 26px 26px 20px; min-width: 0; }
+    .prompt { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--c4); }
+    .prompt::before { content: "$ "; opacity: .6; }
+    .eg-h { font-size: 26px; line-height: 1.2; margin: 6px 0 6px; font-weight: 700; }
+    .eg-p { margin: 0 0 18px; color: var(--c4); font-size: 14.5px; }
+    .who { color: var(--c5); font-weight: 600; }
 
-    /* the four PIN boxes */
-    .otp { display: flex; gap: 10px; justify-content: center; margin: 6px 0 4px; }
-    .box {
-      width: 56px; height: 66px; text-align: center; font-size: 28px; font-weight: 600; color: var(--c5);
-      background: var(--c0); border: 1px solid var(--c3); border-radius: 14px; caret-color: var(--c4);
+    .lab { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 6px; font-size: 13px; color: var(--c4); }
+    .eye { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: var(--c4); font-size: 13px; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+    .eye:hover { color: var(--c5); }
+    .eye svg { width: 16px; height: 16px; }
+    .in {
+      width: 100%; min-height: 46px; padding: 0 13px; border: 1px solid var(--c3); border-radius: 12px; background: var(--c0); color: var(--c5);
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .in:focus { outline: none; border-color: var(--c4); box-shadow: 0 0 0 3px rgba(142,182,155,.2); }
+    .acct.bad .in, .cells.bad .cell { border-color: var(--err); }
+    .acct.bad, .cells.bad { animation: shake .4s; }
+
+    /* which fields each mode shows */
+    .reg, .pinrow, .confirm { display: none; }
+    [data-mode="register"] .reg { display: block; }
+    [data-mode="pin"] .acct, [data-mode="setpin"] .acct { display: none; }
+    [data-mode="pin"] .pinrow, [data-mode="setpin"] .pinrow { display: block; }
+    [data-mode="setpin"] .confirm { display: block; }
+
+    .cells { display: flex; gap: 10px; }
+    .cell { flex: 1; }
+    .cell input {
+      width: 100%; height: 62px; text-align: center; font-size: 26px; font-weight: 600; background: var(--c0);
+      border: 1px solid var(--c3); border-radius: 14px; caret-color: var(--c4); padding: 0;
       transition: border-color .2s, box-shadow .2s, transform .2s, background .2s;
     }
-    .box:focus { outline: none; border-color: var(--c4); box-shadow: 0 0 0 4px rgba(142,182,155,.2); transform: translateY(-2px); }
-    .box.filled { border-color: var(--c4); background: var(--c2); animation: pop .22s ease-out; }
-    .box.scatter { animation: scatter .55s cubic-bezier(.5,0,.8,.4) forwards; }
+    .cell input.mask { -webkit-text-security: disc; }
+    .cell input:focus { outline: none; border-color: var(--c4); box-shadow: 0 0 0 4px rgba(142,182,155,.2); transform: translateY(-2px); }
+    .cell input.on { border-color: var(--c4); background: var(--c2); }
+    .cell input.scatter { animation: scatter .55s cubic-bezier(.5,0,.8,.4) forwards; }
 
-    /* verifying → granted, laid over the card */
+    .go {
+      display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; margin-top: 18px;
+      border: 0; border-radius: 12px; background: var(--c4); color: var(--c0); font-weight: 700; cursor: pointer;
+      transition: background .2s, transform .15s, gap .2s;
+    }
+    .go:hover { background: var(--c5); gap: 12px; }
+    .go:active { transform: scale(.98); }
+    .go:disabled { opacity: .5; cursor: default; }
+    .go svg { width: 18px; height: 18px; }
+    .msg { min-height: 1.4em; margin: 10px 0 0; font-size: 14px; color: var(--c4); }
+    .msg.err { color: var(--err); }
+    .links { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 6px; font-size: 14px; color: var(--c4); }
+    .link { border: 0; background: none; color: var(--c5); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 2px 0; font-size: inherit; }
+    .link:hover { color: #fff; }
+    .link[hidden] { display: none; }
+    .foot { text-align: center; margin: 16px 0 0; font-size: 14px; color: var(--c4); }
+    .foot[hidden] { display: none; }
+
+    /* verifying → granted */
     .overlay {
       position: absolute; inset: 0; z-index: 2; display: none; flex-direction: column; align-items: center; justify-content: center;
       gap: 6px; text-align: center; padding: 24px; background: var(--c1);
     }
     .overlay[data-stage] { display: flex; animation: fade .3s ease-out; }
-    .overlay h2 { font-size: 21px; margin: 6px 0 0; }
+    .overlay h2 { font-size: 22px; margin: 6px 0 0; }
     .overlay p { margin: 0; color: var(--c4); font-size: 14px; }
     .overlay .verify, .overlay .done { display: none; flex-direction: column; align-items: center; gap: 6px; }
     .overlay[data-stage="verify"] .verify { display: flex; }
@@ -116,7 +139,6 @@
 
     @keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
     @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes pop { 0% { transform: scale(.85); } 60% { transform: scale(1.08); } 100% { transform: scale(1); } }
     @keyframes scatter {
       0% { transform: none; opacity: 1; }
       35% { transform: translate(calc(var(--dx) * .5), calc(var(--dy) * .5 - 14px)) rotate(calc(var(--rot) * .5)); opacity: 1; }
@@ -130,438 +152,348 @@
       .check svg { stroke-dashoffset: 0; }
     }
     @media (max-width: 480px) {
-      header { flex-direction: column; align-items: flex-start; }
-      .box { width: 52px; height: 62px; }
+      .main { padding: 22px 18px 16px; }
+      .eg-h { font-size: 23px; }
+      .cell input { height: 56px; }
     }
   </style>
 </head>
 <body>
-<main>
+
+<!-- the page behind the gate: blank for now -->
+<div class="app" id="app">
   <header>
-    <div>
-      <h1>TWstock 台股研究</h1>
-      <div class="small">自選股</div>
-    </div>
+    <h1>TWstock 台股研究</h1>
     <div class="row">
       <span id="who" class="small"></span>
-      <button class="btn" id="accountBtn" type="button">登入</button>
+      <button class="btn" id="pinBtn" type="button" hidden>裝置 PIN</button>
+      <button class="btn" id="accountBtn" type="button">登出</button>
     </div>
   </header>
+  <main><p class="small">登入成功。這裡先留白，之後再放內容。</p></main>
+</div>
 
-  <section class="card" aria-labelledby="wlTitle">
-    <div class="row" style="justify-content: space-between; margin-bottom: 10px;">
-      <h2 id="wlTitle">自選股</h2>
-      <span id="status" class="status" role="status"></span>
-    </div>
-    <form id="addForm" class="row" autocomplete="off">
-      <input id="symbol" type="text" inputmode="numeric" maxlength="8" placeholder="股票代號，例如 2330" aria-label="股票代號" style="flex: 1 1 160px;">
-      <button class="btn primary" type="submit">加入</button>
-    </form>
-    <p id="formErr" class="err" role="alert"></p>
-    <ul id="list" class="list" aria-live="polite"></ul>
-    <p id="empty" class="small" hidden>還沒有自選股，輸入代號加入。</p>
-    <p class="small" style="margin-top: 12px;">報價與財務資料尚未接上，目前只顯示代號與名稱。</p>
-  </section>
-</main>
+<!-- entry gate -->
+<div id="gate" role="dialog" aria-modal="true" aria-labelledby="egH">
+  <div class="wrap">
+    <div class="brand"><span class="mk">TW</span>TWstock 台股研究</div>
+    <form class="ticket" id="ticket" data-mode="login" novalidate autocomplete="off">
+      <div class="main">
+        <div class="prompt" id="egPrompt"></div>
+        <h1 class="eg-h" id="egH"></h1>
+        <p class="eg-p" id="egP"></p>
 
-<!-- shared markup of the verifying / granted overlay (copied into each dialog by the script) -->
-<template id="overlayTpl">
-  <div class="overlay" role="status" aria-live="polite">
-    <div class="verify">
-      <div class="ring">
-        <svg viewBox="0 0 104 104" aria-hidden="true"><circle class="track" cx="52" cy="52" r="42"/><circle class="arc" cx="52" cy="52" r="42"/></svg>
-        <div class="pct">0</div>
+        <div class="acct">
+          <div class="lab"><span>帳號名稱</span></div>
+          <input class="in" id="user" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="20" aria-label="帳號名稱">
+          <div class="lab"><span>密碼</span>
+            <button type="button" class="eye" id="eyeP" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>顯示</span></button>
+          </div>
+          <input class="in" id="pass" type="password" autocomplete="current-password" maxlength="72" aria-label="密碼">
+          <div class="reg">
+            <div class="lab"><span>再輸入一次密碼</span></div>
+            <input class="in" id="pass2" type="password" autocomplete="new-password" maxlength="72" aria-label="再輸入一次密碼">
+          </div>
+        </div>
+
+        <div class="pinrow">
+          <div class="lab"><span>PIN 碼</span>
+            <button type="button" class="eye" id="eye" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span>顯示</span></button>
+          </div>
+          <div class="cells" data-row="1"></div>
+          <div class="confirm">
+            <div class="lab"><span>再輸入一次</span></div>
+            <div class="cells" data-row="2"></div>
+          </div>
+        </div>
+
+        <button class="go" type="submit" id="go"><span id="goT"></span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+        <p class="msg" id="msg" role="status"></p>
+        <div class="links">
+          <span><span id="swT"></span> <button type="button" class="link" id="sw"></button></span>
+          <button type="button" class="link" id="alt"></button>
+        </div>
       </div>
-      <h2 class="v-title"></h2>
-      <p class="v-sub"></p>
-    </div>
-    <div class="done">
-      <div class="check"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 25 l9 9 l16 -19"/></svg></div>
-      <h2 class="d-title"></h2>
-      <p class="d-sub"></p>
-      <span class="badge">已驗證</span>
-    </div>
-  </div>
-</template>
 
-<!-- sign in / sign up -->
-<dialog id="authDlg" aria-labelledby="authTitle">
-  <div class="head"><h2 id="authTitle">登入</h2><p id="authSub">用帳號和密碼登入，自選股會跟著帳號走</p></div>
-  <div class="tabs" role="tablist">
-    <button type="button" role="tab" id="tabLogin" aria-selected="true">登入</button>
-    <button type="button" role="tab" id="tabReg" aria-selected="false">註冊</button>
+      <div class="overlay" role="status" aria-live="polite">
+        <div class="verify">
+          <div class="ring">
+            <svg viewBox="0 0 104 104" aria-hidden="true"><circle class="track" cx="52" cy="52" r="42"/><circle class="arc" cx="52" cy="52" r="42"/></svg>
+            <div class="pct">0</div>
+          </div>
+          <h2 id="vT"></h2><p id="vS"></p>
+        </div>
+        <div class="done">
+          <div class="check"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M12 25 l9 9 l16 -19"/></svg></div>
+          <h2 id="dT"></h2><p id="dS"></p>
+          <span class="badge">已驗證</span>
+        </div>
+      </div>
+    </form>
+    <p class="foot" id="foot"><button type="button" class="link" id="skip">先不登入，只用這台裝置</button></p>
   </div>
-  <form id="authForm" class="stack">
-    <label>帳號（英文、數字、底線，最多 20 字）
-      <input id="authUser" type="text" autocomplete="username" required maxlength="20">
-    </label>
-    <label>密碼（至少 6 字）
-      <input id="authPass" type="password" autocomplete="current-password" required minlength="6">
-    </label>
-    <p id="authErr" class="err" role="alert"></p>
-    <div class="actions">
-      <button class="btn" type="button" data-close>取消</button>
-      <button class="btn primary" id="authSubmit" type="submit">登入</button>
-    </div>
-  </form>
-</dialog>
-
-<!-- optional: remember a PIN on this device -->
-<dialog id="pinSetDlg" aria-labelledby="pinSetTitle">
-  <div class="head"><h2 id="pinSetTitle">設定這台裝置的 PIN</h2><p>之後用 4 位數 PIN 就能登入，只對這台裝置有效</p></div>
-  <form id="pinSetForm" class="stack">
-    <div class="otp" id="pinSetOtp">
-      <input class="box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN 第 1 碼">
-      <input class="box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN 第 2 碼">
-      <input class="box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN 第 3 碼">
-      <input class="box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN 第 4 碼">
-    </div>
-    <p id="pinSetErr" class="err" role="alert" style="text-align:center"></p>
-    <div class="actions">
-      <button class="btn" type="button" data-close>之後再說</button>
-      <button class="btn primary" type="submit">設定</button>
-    </div>
-  </form>
-</dialog>
-
-<!-- PIN sign-in on a device that has one -->
-<dialog id="pinLoginDlg" aria-labelledby="pinLoginTitle">
-  <div class="head"><h2 id="pinLoginTitle">輸入 PIN</h2><p>輸入這台裝置的 4 位數 PIN 登入</p></div>
-  <div class="stack">
-    <div class="otp" id="pinLoginOtp">
-      <input class="box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN 第 1 碼">
-      <input class="box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN 第 2 碼">
-      <input class="box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN 第 3 碼">
-      <input class="box" type="text" inputmode="numeric" maxlength="1" autocomplete="off" aria-label="PIN 第 4 碼">
-    </div>
-    <p id="pinLoginErr" class="err" role="alert" style="text-align:center"></p>
-    <div class="actions split">
-      <button class="btn" type="button" id="usePassword">改用帳號和密碼</button>
-      <button class="btn" type="button" data-close>略過</button>
-    </div>
-  </div>
-</dialog>
+</div>
 
 <script src="./assets/twaccount.js"></script>
 <script>
 (function () {
   const A = window.TWAccount;
-  const NAMES = {
-    "2330": "台積電", "2317": "鴻海", "2454": "聯發科", "2412": "中華電", "2881": "富邦金",
-    "2882": "國泰金", "2603": "長榮", "0050": "元大台灣50",
-  };
-  const $ = id => document.getElementById(id);
+  const $ = s => document.querySelector(s);
+  const gate = $("#gate"), ticket = $("#ticket"), overlay = ticket.querySelector(".overlay");
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let symbols = [];
+  const PIN_MODES = ["pin", "setpin"];
+  let opts = {}, busy = false, autoT = null;
 
-  /* ---------- watchlist ---------- */
-  function setStatus(text, state) {
-    const s = $("status");
-    s.textContent = text || "";
-    s.dataset.state = state || "";
-  }
-
-  function render() {
-    const list = $("list");
-    list.innerHTML = "";
-    $("empty").hidden = symbols.length > 0;
-    symbols.forEach(code => {
-      const li = document.createElement("li");
-      const left = document.createElement("div");
-      const c = document.createElement("span");
-      c.className = "code";
-      c.textContent = code;
-      const n = document.createElement("span");
-      n.textContent = " " + (NAMES[code] || "");
-      left.append(c, n);
-      const p = document.createElement("div");
-      p.className = "price";
-      p.textContent = "報價待接上";
-      const btn = document.createElement("button");
-      btn.className = "btn";
-      btn.type = "button";
-      btn.textContent = "移除";
-      btn.setAttribute("aria-label", "移除 " + code);
-      btn.addEventListener("click", () => update(symbols.filter(x => x !== code)));
-      const right = document.createElement("div");
-      right.className = "row";
-      right.append(p, btn);
-      li.append(left, right);
-      list.append(li);
-    });
-  }
-
-  /* the list is saved on this browser first, so a failed upload keeps the change here and says so */
-  async function update(next) {
-    symbols = next;
-    render();
-    setStatus("儲存中…", "sync");
-    try {
-      symbols = await A.saveWatchlist(next);
-      render();
-      setStatus(A.account() ? "已同步到帳號" : "已存在這台裝置", "ok");
-    } catch (e) {
-      render();
-      setStatus(A.errMsg(e), "err");
-    }
-  }
-
-  function renderAccount() {
-    const a = A.account();
-    $("accountBtn").textContent = a ? "登出" : "登入";
-    $("who").textContent = a ? "帳號：" + a.username : "";
-  }
-
-  async function loadAll() {
-    setStatus("同步中…", "sync");
-    try {
-      symbols = await A.loadWatchlist();
-      setStatus(A.account() ? "已同步" : "只存在這台裝置", A.account() ? "ok" : "");
-    } catch (e) {
-      try { symbols = JSON.parse(localStorage.getItem("twstock-watch") || "null").symbols || []; } catch (x) { symbols = []; }
-      setStatus(A.errMsg(e), "err");
-    }
-    render();
-    renderAccount();
-  }
-
-  /* ---------- card effects: light that follows the pointer, shake, verify → granted ---------- */
-  const tpl = $("overlayTpl");
-  document.querySelectorAll("dialog").forEach(dlg => {
-    dlg.appendChild(tpl.content.cloneNode(true));
-    dlg.addEventListener("pointermove", e => {
-      const r = dlg.getBoundingClientRect();
-      dlg.style.setProperty("--mx", (e.clientX - r.left) + "px");
-      dlg.style.setProperty("--my", (e.clientY - r.top) + "px");
-    });
-    dlg.addEventListener("cancel", e => { if (dlg.dataset.busy) e.preventDefault(); });
-    dlg.addEventListener("close", () => {
-      const ov = dlg.querySelector(".overlay");
-      delete ov.dataset.stage;
-      delete dlg.dataset.glow;
-    });
-  });
-  document.querySelectorAll("[data-close]").forEach(b =>
-    b.addEventListener("click", () => b.closest("dialog").close()));
-
-  function shake(dlg) {
-    dlg.classList.remove("shake");
-    void dlg.offsetWidth;
-    dlg.classList.add("shake");
-  }
-
+  const TEXT = {
+    login:    { prompt: "twstock --login", h: "登入", p: "輸入帳號名稱和密碼，就會載入你的自選股。", btn: "登入", sw: "還沒有帳號？", swb: "註冊", alt: "" },
+    register: { prompt: "twstock --new", h: "建立帳號", p: "自己取一個帳號名稱和密碼。這裡沒有 Email，所以忘記密碼就找不回來，請記好。帳號和 EZexams 通用。", btn: "註冊並進入", sw: "已經有帳號？", swb: "登入", alt: "" },
+    pin:      { prompt: "twstock --pin", h: "輸入 PIN 碼", p: "", btn: "進入 TWstock", sw: "", swb: "改用密碼登入", alt: "換成別的帳號" },
+    setpin:   { prompt: "twstock --pin set", h: "設定這台裝置的 PIN 碼", p: "設好之後，這台裝置只要輸入 4 位數 PIN 碼就能登入，不用再打密碼。PIN 碼只對這台裝置有效，錯 5 次就會失效。避開 1234、0000 這種好猜的。", btn: "設定", sw: "", swb: "", alt: "先不設定" },
+  };
   const LABELS = {
-    login:    { verify: ["驗證中…", "正在安全地確認你的身分"], done: ["登入成功", "歡迎回來，正在載入自選股"] },
-    register: { verify: ["建立帳號中…", "請稍候"],           done: ["註冊成功", "已為你登入"] },
-    pinset:   { verify: ["設定中…", "正在記住這台裝置"],       done: ["PIN 已設定", "下次用 PIN 就能登入"] },
+    login:    { verify: ["驗證中…", "正在安全地確認你的身分"], done: ["登入成功", "歡迎回來"] },
+    register: { verify: ["建立帳號中…", "請稍候"], done: ["註冊成功", "已為你登入"] },
+    pinset:   { verify: ["設定中…", "正在記住這台裝置"], done: ["PIN 已設定", "下次用 PIN 就能登入"] },
   };
 
-  /* shows the progress ring while fn() runs, then the check mark; rethrows if fn fails (the card shakes) */
-  async function withVerify(dlg, labels, fn) {
-    const ov = dlg.querySelector(".overlay");
-    const arc = ov.querySelector(".arc"), pct = ov.querySelector(".pct");
-    ov.querySelector(".v-title").textContent = labels.verify[0];
-    ov.querySelector(".v-sub").textContent = labels.verify[1];
-    ov.querySelector(".d-title").textContent = labels.done[0];
-    ov.querySelector(".d-sub").textContent = labels.done[1];
+  /* ---------- the PIN boxes ---------- */
+  const MASK = !!(window.CSS && CSS.supports && CSS.supports("-webkit-text-security", "disc"));
+  const cellsets = [...ticket.querySelectorAll(".cells")];
+  const cells = g => [...g.querySelectorAll("input")];
+  const val = g => cells(g).map(x => x.value).join("");
+  cellsets.forEach((g, gi) => {
+    g.innerHTML = [1, 2, 3, 4].map(i =>
+      '<div class="cell"><input type="' + (MASK ? "text" : "password") + '" class="' + (MASK ? "mask" : "") +
+      '" inputmode="numeric" pattern="[0-9]*" enterkeyhint="go" maxlength="1" autocomplete="off" aria-label="PIN 碼第 ' + i + ' 位"></div>').join("");
+    cells(g).forEach((x, i) => {
+      x.addEventListener("input", () => {
+        const d = x.value.replace(/\D/g, "");
+        x.value = ""; x.classList.remove("on"); g.classList.remove("bad");
+        if (d) fill(g, i, d, gi);
+      });
+      x.addEventListener("keydown", e => {
+        const c = cells(g);
+        if (e.key === "Backspace" && !x.value && i > 0) { e.preventDefault(); c[i - 1].value = ""; c[i - 1].classList.remove("on"); c[i - 1].focus(); }
+        else if (e.key === "ArrowLeft" && i > 0) c[i - 1].focus();
+        else if (e.key === "ArrowRight" && i < 3) c[i + 1].focus();
+      });
+      x.addEventListener("paste", e => {
+        const d = (e.clipboardData || window.clipboardData).getData("text").replace(/\D/g, "");
+        if (d) { e.preventDefault(); fill(g, i, d, gi); }
+      });
+      x.addEventListener("focus", () => x.select());
+    });
+  });
+  function fill(g, from, digits, gi) {
+    const c = cells(g);
+    let i = from;
+    for (const d of digits) { if (i >= 4) break; c[i].value = d; c[i].classList.add("on"); i++; }
+    if (i >= 4 && gi === 0 && ticket.dataset.mode === "setpin") cells(cellsets[1])[0].focus();
+    else c[Math.min(i, 3)].focus();
+    clearTimeout(autoT);
+    autoT = setTimeout(auto, 140);
+  }
+  /* no Enter needed: as soon as every box is filled, the code is checked */
+  function auto() {
+    const m = ticket.dataset.mode;
+    if (busy || gate.hidden || !PIN_MODES.includes(m)) return;
+    if (val(cellsets[0]).length < 4) return;
+    if (m === "setpin" && val(cellsets[1]).length < 4) return;
+    ticket.requestSubmit();
+  }
+  function clearCells() {
+    cellsets.forEach(g => cells(g).forEach(x => { x.value = ""; x.classList.remove("on", "scatter"); }));
+  }
+  function scatterCells(g) {
+    cells(g).forEach(x => {
+      x.style.setProperty("--dx", (Math.random() * 170 - 85).toFixed(0) + "px");
+      x.style.setProperty("--dy", (Math.random() * 150 - 75).toFixed(0) + "px");
+      x.style.setProperty("--rot", (Math.random() * 90 - 45).toFixed(0) + "deg");
+      x.classList.add("scatter");
+    });
+  }
+
+  /* ---------- show / hide ---------- */
+  function toggleEye(btn, apply) {
+    btn.addEventListener("click", () => {
+      const on = btn.getAttribute("aria-pressed") !== "true";
+      btn.setAttribute("aria-pressed", on);
+      btn.querySelector("span").textContent = on ? "隱藏" : "顯示";
+      apply(on);
+    });
+  }
+  toggleEye($("#eye"), on => ticket.querySelectorAll(".cell input").forEach(x => {
+    if (MASK) x.classList.toggle("mask", !on); else x.type = on ? "text" : "password";
+  }));
+  toggleEye($("#eyeP"), on => ["#pass", "#pass2"].forEach(i => { $(i).type = on ? "text" : "password"; }));
+
+  /* ---------- messages and modes ---------- */
+  function say(t, cls) { const m = $("#msg"); m.className = "msg" + (cls ? " " + cls : ""); m.textContent = t || ""; }
+  /* a rejected entry: shake, say why, then (for PINs) empty the boxes so the next try starts at the first box */
+  function bad(el, t) {
+    el.classList.remove("bad"); void el.offsetWidth; el.classList.add("bad");
+    say(t, "err");
+    if (PIN_MODES.includes(ticket.dataset.mode)) {
+      setTimeout(() => { clearCells(); try { cells(cellsets[0])[0].focus(); } catch (e) {} }, 380);
+    }
+  }
+  function setMode(m, animate, msg) {
+    const apply = () => {
+      delete overlay.dataset.stage; delete ticket.dataset.glow;
+      ticket.dataset.mode = m;
+      const t = TEXT[m], dv = A.device();
+      $("#egPrompt").textContent = t.prompt;
+      $("#egH").textContent = t.h;
+      const p = $("#egP");
+      p.textContent = t.p;
+      if (m === "pin") {
+        p.textContent = "歡迎回來，";
+        const b = document.createElement("span");
+        b.className = "who"; b.textContent = dv ? dv.username : "";
+        p.append(b, "。輸入這台裝置的 PIN 碼。");
+      }
+      $("#goT").textContent = t.btn;
+      $("#swT").textContent = t.sw;
+      $("#sw").textContent = t.swb; $("#sw").hidden = !t.swb;
+      const alt = $("#alt");
+      alt.textContent = opts.change && m === "setpin" ? "取消" : t.alt;
+      alt.hidden = !alt.textContent;
+      $("#foot").hidden = m === "setpin" || !!opts.change;
+      clearCells();
+      cellsets.forEach(g => g.classList.remove("bad"));
+      ["#pass", "#pass2"].forEach(i => { $(i).value = ""; });
+      $(".acct").classList.remove("bad");
+      if (m === "login" && dv && !$("#user").value) $("#user").value = dv.username;
+      if (m === "register") $("#user").value = "";
+      say(msg || "", msg ? "err" : "");
+      setTimeout(() => {
+        try { (PIN_MODES.includes(m) ? cells(cellsets[0])[0] : ($("#user").value ? $("#pass") : $("#user"))).focus(); } catch (e) {}
+      }, 30);
+    };
+    if (!animate || reduced) { apply(); return; }
+    ticket.classList.add("flip");
+    setTimeout(() => { apply(); ticket.classList.remove("flip"); }, 320);
+  }
+  $("#sw").addEventListener("click", () => setMode(ticket.dataset.mode === "login" ? "register" : "login", true));
+  $("#alt").addEventListener("click", () => {
+    const m = ticket.dataset.mode;
+    if (m === "pin") { A.forgetDevice(); $("#user").value = ""; setMode("login", true); }
+    else if (m === "setpin") { A.markPinAsked(); closeGate(); }
+  });
+  $("#skip").addEventListener("click", () => {
+    try { sessionStorage.setItem("twgate-skip", "1"); } catch (e) {}
+    closeGate();
+  });
+  ["#user", "#pass", "#pass2"].forEach(i => $(i).addEventListener("input", () => $(".acct").classList.remove("bad")));
+
+  /* pointer light */
+  ticket.addEventListener("pointermove", e => {
+    const r = ticket.getBoundingClientRect();
+    ticket.style.setProperty("--mx", (e.clientX - r.left) + "px");
+    ticket.style.setProperty("--my", (e.clientY - r.top) + "px");
+  });
+
+  /* ---------- verifying → granted ---------- */
+  async function run(labels, fn) {
+    const arc = overlay.querySelector(".arc"), pct = overlay.querySelector(".pct");
+    $("#vT").textContent = labels.verify[0]; $("#vS").textContent = labels.verify[1];
+    $("#dT").textContent = labels.done[0]; $("#dS").textContent = labels.done[1];
     const setPct = p => { pct.textContent = Math.round(p); arc.style.strokeDashoffset = 264 * (1 - p / 100); };
-    dlg.dataset.busy = "1";
-    ov.dataset.stage = "verify";
+    busy = true;
+    overlay.dataset.stage = "verify";
     let p = 0, target = 88, k = 0.05, running = true;
     setPct(0);
-    (function tick() {
-      if (!running) return;
-      p += (target - p) * k;
-      setPct(p);
-      requestAnimationFrame(tick);
-    })();
+    (function tick() { if (!running) return; p += (target - p) * k; setPct(p); requestAnimationFrame(tick); })();
     try {
       const res = await fn();
-      target = 100; k = 0.22;                       /* the request is back: run the ring up to 100 */
+      target = 100; k = 0.22;                      /* the request is back: run the ring up to 100 */
       const t0 = performance.now();
       while (p < 99.4 && performance.now() - t0 < 1000) await new Promise(requestAnimationFrame);
-      running = false;
-      setPct(100);
-      ov.dataset.stage = "done";
-      dlg.dataset.glow = "1";
+      running = false; setPct(100);
+      overlay.dataset.stage = "done"; ticket.dataset.glow = "1";
       await sleep(reduced ? 500 : 1000);
-      delete dlg.dataset.busy;
-      dlg.close();
       return res;
     } catch (err) {
       running = false;
-      delete ov.dataset.stage;
-      delete dlg.dataset.busy;
-      shake(dlg);
+      delete overlay.dataset.stage;
       throw err;
-    }
-  }
-
-  /* ---------- the four PIN boxes ---------- */
-  function makeOtp(root, onComplete) {
-    const boxes = [...root.querySelectorAll(".box")];
-    const val = () => boxes.map(b => b.value).join("");
-    const fill = (i, c) => { boxes[i].value = c; boxes[i].classList.toggle("filled", !!c); };
-    boxes.forEach((b, i) => {
-      b.addEventListener("input", () => {
-        fill(i, b.value.replace(/\D/g, "").slice(-1));
-        if (b.value && i < 3) boxes[i + 1].focus();
-        if (val().length === 4 && onComplete) onComplete(val());
-      });
-      b.addEventListener("keydown", e => {
-        if (e.key === "Backspace" && !b.value && i > 0) { e.preventDefault(); fill(i - 1, ""); boxes[i - 1].focus(); }
-        else if (e.key === "ArrowLeft" && i > 0) boxes[i - 1].focus();
-        else if (e.key === "ArrowRight" && i < 3) boxes[i + 1].focus();
-      });
-      b.addEventListener("paste", e => {
-        const t = (e.clipboardData.getData("text") || "").replace(/\D/g, "").slice(0, 4);
-        if (!t) return;
-        e.preventDefault();
-        [...t].forEach((c, k) => fill(k, c));
-        boxes[Math.min(t.length, 3)].focus();
-        if (t.length === 4 && onComplete) onComplete(t);
-      });
-      b.addEventListener("focus", () => b.select());
-    });
-    return {
-      val,
-      reset() {
-        boxes.forEach((b, i) => { fill(i, ""); b.classList.remove("scatter"); });
-        boxes[0].focus();
-      },
-      /* the digits tumble away in random directions */
-      scatter() {
-        boxes.forEach(b => {
-          b.style.setProperty("--dx", (Math.random() * 170 - 85).toFixed(0) + "px");
-          b.style.setProperty("--dy", (Math.random() * 150 - 75).toFixed(0) + "px");
-          b.style.setProperty("--rot", (Math.random() * 90 - 45).toFixed(0) + "deg");
-          b.classList.add("scatter");
-        });
-      },
-    };
-  }
-
-  /* ---------- sign in / up ---------- */
-  let mode = "login";
-  function setMode(m) {
-    mode = m;
-    $("tabLogin").setAttribute("aria-selected", m === "login");
-    $("tabReg").setAttribute("aria-selected", m === "register");
-    $("authSubmit").textContent = m === "login" ? "登入" : "註冊";
-    $("authTitle").textContent = m === "login" ? "登入" : "建立帳號";
-    $("authSub").textContent = m === "login" ? "用帳號和密碼登入，自選股會跟著帳號走" : "只需要帳號和密碼，不用 Email";
-    $("authPass").autocomplete = m === "login" ? "current-password" : "new-password";
-    $("authErr").textContent = "";
-  }
-  function openAuth(m) {
-    setMode(m || "login");
-    $("authForm").reset();
-    $("authDlg").showModal();
-    $("authUser").focus();
-  }
-  $("tabLogin").addEventListener("click", () => setMode("login"));
-  $("tabReg").addEventListener("click", () => setMode("register"));
-
-  $("authForm").addEventListener("submit", async e => {
-    e.preventDefault();
-    $("authErr").textContent = "";
-    const user = $("authUser").value, pass = $("authPass").value;
-    try {
-      await withVerify($("authDlg"), mode === "login" ? LABELS.login : LABELS.register,
-        () => mode === "register" ? A.signUp(user, pass) : A.signIn(user, pass));
-    } catch (err) {
-      $("authErr").textContent = A.errMsg(err);
-      return;
-    }
-    await loadAll();
-    if (A.device() && !A.device().pin) openPinSet();
-  });
-
-  /* ---------- device PIN ---------- */
-  const setOtp = makeOtp($("pinSetOtp"));
-  function openPinSet() {
-    $("pinSetErr").textContent = "";
-    $("pinSetDlg").showModal();
-    setOtp.reset();
-  }
-  $("pinSetForm").addEventListener("submit", async e => {
-    e.preventDefault();
-    $("pinSetErr").textContent = "";
-    const pin = setOtp.val();
-    if (pin.length !== 4) { $("pinSetErr").textContent = "請輸入 4 位數字。"; shake($("pinSetDlg")); return; }
-    try {
-      await withVerify($("pinSetDlg"), LABELS.pinset, () => A.setPin(pin));
-      setStatus("已設定這台裝置的 PIN", "ok");
-    } catch (err) {
-      $("pinSetErr").textContent = A.errMsg(err);
-      setOtp.reset();
-    }
-  });
-
-  let pinBusy = false;
-  const loginOtp = makeOtp($("pinLoginOtp"), async pin => {
-    if (pinBusy) return;
-    pinBusy = true;
-    $("pinLoginErr").textContent = "";
-    const dlg = $("pinLoginDlg");
-    try {
-      if (!reduced) { loginOtp.scatter(); await sleep(560); }
-      await withVerify(dlg, LABELS.login, () => A.pinLogin(pin));
-      await loadAll();
-    } catch (err) {
-      loginOtp.reset();
-      $("pinLoginErr").textContent = A.errMsg(err);
-      if (err.code === "nopin" || err.code === "pinlocked") {
-        await sleep(900);
-        dlg.close();
-        openAuth("login");
-      }
     } finally {
-      pinBusy = false;
+      busy = false;
     }
-  });
-  function openPinLogin() {
-    $("pinLoginErr").textContent = "";
-    $("pinLoginDlg").showModal();
-    loginOtp.reset();
   }
-  $("usePassword").addEventListener("click", () => {
-    $("pinLoginDlg").close();
-    openAuth("login");
-  });
 
-  $("accountBtn").addEventListener("click", async () => {
-    if (A.account()) {
-      await A.signOut();
-      await loadAll();
-      setStatus("已登出，自選股只存在這台裝置", "");
-    } else {
-      openAuth("login");
-    }
-  });
-
-  /* ---------- add a code ---------- */
-  $("addForm").addEventListener("submit", e => {
+  /* ---------- submit ---------- */
+  ticket.addEventListener("submit", async e => {
     e.preventDefault();
-    const code = $("symbol").value.trim().toUpperCase();
-    $("formErr").textContent = "";
-    if (!/^\d{4,5}[A-Z]?$/.test(code)) {
-      $("formErr").textContent = "請輸入台股代號，例如 2330 或 0050。";
-      return;
+    if (busy) return;
+    const m = ticket.dataset.mode;
+    say("");
+    try {
+      if (m === "login" || m === "register") {
+        const u = $("#user").value.trim(), p = $("#pass").value;
+        if (!u || !p) return bad($(".acct"), "請輸入帳號名稱和密碼。");
+        if (m === "register" && p !== $("#pass2").value) return bad($(".acct"), "兩次輸入的密碼不一樣。");
+        await run(m === "login" ? LABELS.login : LABELS.register, () => m === "login" ? A.signIn(u, p) : A.signUp(u, p));
+        const d = A.device();
+        if (d && !d.pin && !d.asked) setMode("setpin", true); else closeGate();
+      } else if (m === "pin") {
+        const pin = val(cellsets[0]);
+        if (pin.length < 4) return bad(cellsets[0], "請輸入 4 位數的 PIN 碼。");
+        if (!reduced) { scatterCells(cellsets[0]); busy = true; await sleep(540); busy = false; }
+        await run(LABELS.login, () => A.pinLogin(pin));
+        closeGate();
+      } else if (m === "setpin") {
+        const a = val(cellsets[0]), b = val(cellsets[1]);
+        if (a.length < 4 || b.length < 4) return bad(cellsets[0], "請輸入 4 位數的 PIN 碼。");
+        if (a !== b) return bad(cellsets[1], "兩次輸入的 PIN 碼不一樣。");
+        await run(LABELS.pinset, () => A.setPin(a));
+        closeGate();
+      }
+    } catch (err) {
+      if (m === "pin") {
+        clearCells();                      /* bring the scattered boxes back at once, then shake */
+        bad(cellsets[0], A.errMsg(err));
+        if (err.code === "nopin" || err.code === "pinlocked") setTimeout(() => setMode("login", true, A.errMsg(err)), 1200);
+      } else if (m === "setpin") bad(cellsets[0], A.errMsg(err));
+      else bad($(".acct"), A.errMsg(err));
     }
-    if (symbols.includes(code)) {
-      $("formErr").textContent = code + " 已經在清單裡了。";
-      return;
-    }
-    $("symbol").value = "";
-    update([...symbols, code]);
   });
 
-  /* on load: a device with a PIN and no sign-in asks for the PIN first */
-  loadAll().then(() => {
-    if (!A.account() && A.device() && A.device().pin) openPinLogin();
+  /* ---------- open / close the gate, the page behind it ---------- */
+  function startMode() { const d = A.device(); return d && d.pin ? "pin" : "login"; }
+  function openGate(m, o) {
+    opts = o || {};
+    gate.hidden = false; gate.classList.remove("out");
+    setMode(m, false);
+  }
+  function closeGate() {
+    gate.classList.add("out");
+    renderApp();
+    setTimeout(() => { if (gate.classList.contains("out")) gate.hidden = true; }, 460);
+  }
+  function renderApp() {
+    const a = A.account();
+    $("#who").textContent = a ? "帳號：" + a.username : "只用這台裝置";
+    $("#pinBtn").hidden = !a;
+    $("#accountBtn").textContent = a ? "登出" : "登入";
+  }
+  $("#pinBtn").addEventListener("click", () => openGate("setpin", { change: true }));
+  $("#accountBtn").addEventListener("click", async () => {
+    if (A.account()) await A.signOut();
+    try { sessionStorage.removeItem("twgate-skip"); } catch (e) {}
+    renderApp();
+    openGate(startMode());
   });
+
+  /* start: signed in in this tab (or skipped) → straight to the page; otherwise the gate */
+  let skipped = false;
+  try { skipped = sessionStorage.getItem("twgate-skip") === "1"; } catch (e) {}
+  renderApp();
+  if (A.account() || skipped) gate.hidden = true;
+  else openGate(startMode());
 })();
 </script>
 </body>

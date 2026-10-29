@@ -280,6 +280,7 @@
   };
   function errMsg(e) {
     if (e && e.code === "badpin" && e.left != null) return "PIN 碼不對，還剩 " + e.left + " 次機會。";
+    if (e && e.code === "locked") return "PIN 碼輸入錯太多次，請 " + Math.max(1, Math.ceil((e.wait || 0) / 60000)) + " 分鐘後再試。";
     return MESSAGES[e && e.code] || "發生錯誤，自選股已存在這台裝置，稍後再試。";
   }
 
@@ -295,6 +296,10 @@
     loadWatchlist,
     saveWatchlist,
     account: () => { const s = sess(); return s ? { uid: s.uid, username: s.username } : null; },
-    device: () => { const d = dev(); return d ? { username: d.username, pin: !!d.pin } : null; },
+    device: () => { const d = dev(); return d ? { username: d.username, pin: !!d.pin, asked: !!d.asked } : null; },
+    /* the person said "not now" to a PIN on this device: do not ask again after every sign-in */
+    markPinAsked() { const d = dev(); if (d) { d.asked = 1; devSet(d); } },
+    /* forget which account this device belongs to (another person is signing in) */
+    forgetDevice() { devSet(null); },
   };
 })();
