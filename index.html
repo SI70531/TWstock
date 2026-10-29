@@ -42,7 +42,9 @@
       transition: opacity .45s ease, transform .45s ease;
     }
     #gate[hidden] { display: none; }
-    #gate.out { opacity: 0; transform: translateY(-14px); pointer-events: none; }
+    #gate.out { opacity: 0; pointer-events: none; }
+    .wrap { transition: transform .55s cubic-bezier(.5,0,.8,.4), filter .55s ease, opacity .5s ease; }
+    #gate.out .wrap { transform: scale(1.14); filter: blur(10px); opacity: 0; }
     .wrap { width: min(100%, 480px); perspective: 1400px; }
     .brand { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--c5); }
     .brand .mk { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--c4); color: var(--c0); font-size: 12px; }
@@ -55,7 +57,7 @@
       animation: cardIn .45s cubic-bezier(.2,.8,.2,1);
     }
     .ticket.flip { transform: rotateY(90deg); }
-    .ticket[data-glow="1"] { border-color: var(--c4); box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 60px rgba(142,182,155,.35); }
+    .ticket[data-glow="1"] { border-color: var(--c4); animation: glowPulse 1.2s ease-in-out infinite; }
     .ticket::after {
       content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .07; mix-blend-mode: overlay;
       background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
@@ -136,16 +138,46 @@
       border-radius: 13px; background: var(--c2); border: 1px solid var(--c4); font-size: 24px; font-weight: 600; color: var(--c5);
       box-shadow: 0 8px 22px rgba(0,0,0,.45), 0 0 14px rgba(142,182,155,.25); will-change: transform;
     }
+    .orbitbox::before, .orbitbox::after {
+      content: ""; position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 1.5px dashed rgba(142,182,155,.45);
+    }
+    .orbitbox::before { width: 168px; height: 168px; margin: -84px 0 0 -84px; animation: spin 3.4s linear infinite; }
+    .orbitbox::after { width: 112px; height: 112px; margin: -56px 0 0 -56px; border-style: dotted; animation: spin 2.2s linear infinite reverse; }
+    .orbitbox { background: radial-gradient(circle, rgba(142,182,155,.3), transparent 62%); animation: breathe 1s ease-in-out infinite; }
     .ring { position: relative; width: 104px; height: 104px; margin-bottom: 8px; }
     .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
     .ring .track { fill: none; stroke: var(--c2); stroke-width: 6; }
     .ring .arc { fill: none; stroke: var(--c4); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 264; stroke-dashoffset: 264; filter: drop-shadow(0 0 6px rgba(142,182,155,.6)); }
-    .ring .pct { position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .overlay[data-stage="verify"] .ring { animation: ringPop .55s cubic-bezier(.2,1.5,.4,1); }
+    .ring::before { content: ""; position: absolute; inset: -11px; border-radius: 50%; border: 1.5px dashed rgba(142,182,155,.5); animation: spin 7s linear infinite; }
+    .ring::after { content: ""; position: absolute; inset: -22px; border-radius: 50%; border: 1px dotted rgba(142,182,155,.3); animation: spin 11s linear infinite reverse; }
+    .ring .pct { text-shadow: 0 0 14px rgba(142,182,155,.8); position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
     .check { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 8px;
       background: radial-gradient(circle, var(--c3), var(--c2)); box-shadow: 0 0 0 8px rgba(142,182,155,.12), 0 0 40px rgba(142,182,155,.45); animation: checkPop .5s cubic-bezier(.2,1.4,.4,1); }
     .check svg { width: 46px; height: 46px; fill: none; stroke: var(--c5); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw .45s .2s ease-out forwards; }
+    .overlay .done h2 { animation: rise .5s .2s both cubic-bezier(.2,.9,.3,1); }
+    .overlay .done p { animation: rise .5s .32s both cubic-bezier(.2,.9,.3,1); }
+    .overlay .done .badge { animation: badgeIn .6s .45s both cubic-bezier(.2,1.6,.35,1); }
+    .shock {
+      position: absolute; z-index: 4; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; pointer-events: none;
+      border: 2px solid var(--c5); box-shadow: 0 0 24px rgba(142,182,155,.8), inset 0 0 18px rgba(142,182,155,.5);
+      animation: shock .8s ease-out forwards;
+    }
+    .flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(circle at var(--fx) var(--fy), rgba(218,241,222,.6), transparent 62%); animation: flash .7s ease-out forwards; }
+    #fx { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1002; }
     .badge { margin-top: 8px; padding: 3px 14px; border-radius: 999px; background: var(--c4); color: var(--c0); font-size: 12px; font-weight: 700; letter-spacing: .12em; }
 
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes breathe { 0%,100% { opacity: .75; } 50% { opacity: 1; } }
+    @keyframes ringPop { from { transform: scale(.3) rotate(-120deg); opacity: 0; } to { transform: none; opacity: 1; } }
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    @keyframes badgeIn { from { opacity: 0; transform: scale(.3) translateY(10px); } to { opacity: 1; transform: none; } }
+    @keyframes shock { from { transform: scale(.3); opacity: .95; } to { transform: scale(11); opacity: 0; } }
+    @keyframes flash { from { opacity: 1; } to { opacity: 0; } }
+    @keyframes glowPulse {
+      0%,100% { box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 40px rgba(142,182,155,.3); }
+      50% { box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 90px rgba(142,182,155,.6); }
+    }
     @keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
     @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
     @keyframes shake { 0%,100% { transform: none; } 20% { transform: translateX(-9px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
@@ -241,6 +273,8 @@
   </div>
 </div>
 
+<canvas id="fx" aria-hidden="true"></canvas>
+
 <script src="./assets/twaccount.js"></script>
 <script>
 (function () {
@@ -295,7 +329,13 @@
   function fill(g, from, digits, gi) {
     const c = cells(g);
     let i = from;
-    for (const d of digits) { if (i >= 4) break; c[i].value = d; c[i].classList.add("on"); i++; }
+    for (const d of digits) {
+      if (i >= 4) break;
+      c[i].value = d; c[i].classList.add("on");
+      const [bx, by] = rectCenter(c[i]);
+      spawn(bx, by, 10, Object.assign({ v0: 30, v1: 150, l0: .3, l1: .6, s0: 1, s1: 2.4, c: ["#8EB69B", "#DAF1DE"], drag: .9 }, FULL));
+      i++;
+    }
     if (i >= 4 && gi === 0 && ticket.dataset.mode === "setpin") cells(cellsets[1])[0].focus();
     else c[Math.min(i, 3)].focus();
     clearTimeout(autoT);
@@ -333,6 +373,8 @@
     el.classList.remove("bad"); void el.offsetWidth; el.classList.add("bad");
     say(t, "err");
     if (PIN_MODES.includes(ticket.dataset.mode)) {
+      const [bx, by] = rectCenter(cellsets[0]);
+      spawn(bx, by, 26, Object.assign({ v0: 60, v1: 260, l0: .4, l1: .8, s0: 1.2, s1: 3, c: ["#F0A8A0", "#ff8c82"], drag: .92 }, FULL));
       setTimeout(() => { clearCells(); try { cells(cellsets[0])[0].focus(); } catch (e) {} }, 380);
     }
   }
@@ -392,58 +434,146 @@
     ticket.style.setProperty("--my", (e.clientY - r.top) + "px");
   });
 
+  /* ---------- particles: one canvas over the whole page, so confetti can leave the card ---------- */
+  const fx = $("#fx"), g = fx.getContext("2d");
+  const FULL = { a0: 0, a1: 6.283 };
+  const GREENS = ["#235347", "#8EB69B", "#DAF1DE", "#ffffff"];
+  let P = [], fxRaf = 0, fxLast = 0;
+  function sizeFx() { const d = Math.min(devicePixelRatio || 1, 2); fx.width = innerWidth * d; fx.height = innerHeight * d; g.setTransform(d, 0, 0, d, 0, 0); }
+  addEventListener("resize", sizeFx);
+  sizeFx();
+  function spawn(x, y, n, o) {
+    if (reduced) return;
+    for (let i = 0; i < n; i++) {
+      const a = o.a0 + Math.random() * (o.a1 - o.a0), sp = o.v0 + Math.random() * (o.v1 - o.v0);
+      P.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: o.g || 0, drag: o.drag || .96, life: 0,
+        max: o.l0 + Math.random() * (o.l1 - o.l0), s: o.s0 + Math.random() * (o.s1 - o.s0),
+        c: o.c[(Math.random() * o.c.length) | 0], rect: !!o.rect && Math.random() < .65, r: Math.random() * 6.3, vr: (Math.random() - .5) * 14 });
+    }
+    if (!fxRaf) fxRaf = requestAnimationFrame(fxFrame);
+  }
+  function fxFrame(now) {
+    const dt = Math.min((now - (fxLast || now)) / 1000, .05);
+    fxLast = now;
+    g.clearRect(0, 0, innerWidth, innerHeight);
+    g.globalCompositeOperation = "lighter";
+    P = P.filter(p => {
+      p.life += dt;
+      if (p.life >= p.max) return false;
+      const dr = Math.pow(p.drag, dt * 60);
+      p.vx *= dr; p.vy = p.vy * dr + p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.r += p.vr * dt;
+      const k = 1 - p.life / p.max;
+      g.globalAlpha = Math.min(1, k * 1.8);
+      g.fillStyle = p.c;
+      g.save(); g.translate(p.x, p.y); g.rotate(p.r);
+      if (p.rect) g.fillRect(-p.s, -p.s * .5, p.s * 2, p.s);
+      else { g.beginPath(); g.arc(0, 0, Math.max(.4, p.s * (.4 + k * .6)), 0, 6.283); g.fill(); }
+      g.restore();
+      return true;
+    });
+    g.globalAlpha = 1;
+    if (P.length) fxRaf = requestAnimationFrame(fxFrame);
+    else { fxRaf = 0; fxLast = 0; g.clearRect(0, 0, innerWidth, innerHeight); }
+  }
+  const rectCenter = el => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  function shock(x, y) {
+    if (reduced) return;
+    const r = ticket.getBoundingClientRect(), d = document.createElement("div");
+    d.className = "shock"; d.style.left = (x - r.left) + "px"; d.style.top = (y - r.top) + "px";
+    overlay.append(d);
+    d.addEventListener("animationend", () => d.remove());
+  }
+  function flash(x, y) {
+    if (reduced) return;
+    const r = ticket.getBoundingClientRect(), d = document.createElement("div");
+    d.className = "flash"; d.style.setProperty("--fx", (x - r.left) + "px"); d.style.setProperty("--fy", (y - r.top) + "px");
+    overlay.append(d);
+    d.addEventListener("animationend", () => d.remove());
+  }
+  function pulseCard() {
+    if (!reduced) ticket.animate([{ transform: "scale(1)" }, { transform: "scale(1.04)", offset: .35 }, { transform: "scale(1)" }], { duration: 440, easing: "ease-out" });
+  }
+
   /* ---------- verifying → granted ---------- */
-  /* the typed digits circle the middle of the card (orbit), then the ring counts up while the request finishes */
-  function startOrbit(digits) {
+  /* four tiles speed up around the middle of the card, leaving sparks; then they spiral in and burst */
+  function startOrbit(glyphs) {
     const box = overlay.querySelector(".orbitbox");
     box.innerHTML = "";
-    const tiles = [...digits].map(d => { const t = document.createElement("div"); t.className = "tile"; t.textContent = d; box.append(t); return t; });
+    const tiles = Array.from(glyphs).map(d => { const t = document.createElement("div"); t.className = "tile"; t.textContent = d; box.append(t); return t; });
+    const [cx, cy] = rectCenter(box);
     const t0 = performance.now();
-    let on = true;
+    let on = true, collapseAt = 0, finished = null;
     (function frame(now) {
       if (!on) return;
-      const t = (now - t0) / 1000, k = Math.min(t / 0.55, 1), ease = 1 - Math.pow(1 - k, 3);
-      const R = 56 + 120 * (1 - ease);                    /* the boxes slide in from the row to the circle */
+      const t = (now - t0) / 1000, k = Math.min(t / .55, 1), ease = 1 - Math.pow(1 - k, 3);
+      let R = 56 + 120 * (1 - ease), sc = 1 + .1 * Math.sin(t * 9), ang = 3 * t + 4.2 * t * t;   /* faster and faster */
+      if (collapseAt) {
+        const c = Math.min((now - collapseAt) / 380, 1);
+        R *= 1 - c * c; sc = 1 - .75 * c; ang += 10 * c;
+        if (c >= 1) { on = false; box.innerHTML = ""; if (finished) finished(); return; }
+      }
       tiles.forEach((el, i) => {
-        const a = i * Math.PI / 2 + t * 4.6;
-        const x = Math.cos(a) * R * 1.18, y = Math.sin(a) * R * 0.8;
-        el.style.transform = "translate(" + x.toFixed(1) + "px," + y.toFixed(1) + "px) rotate(" + (16 * Math.sin(t * 3 + i * 1.7)).toFixed(1) + "deg)";
+        const a = i * Math.PI / 2 + ang, x = Math.cos(a) * R * 1.18, y = Math.sin(a) * R * .8;
+        el.style.transform = "translate(" + x.toFixed(1) + "px," + y.toFixed(1) + "px) rotate(" + (16 * Math.sin(t * 3 + i * 1.7)).toFixed(1) + "deg) scale(" + sc.toFixed(2) + ")";
+        spawn(cx + x, cy + y, 1, Object.assign({ v0: 8, v1: 45, l0: .3, l1: .65, s0: 1, s1: 2.6, c: ["#8EB69B", "#DAF1DE"], drag: .93 }, FULL));
       });
       requestAnimationFrame(frame);
     })(t0);
-    return () => { on = false; };
+    return {
+      cx, cy,
+      stop() { on = false; },
+      collapse() { return new Promise(r => { finished = r; collapseAt = performance.now(); }); },
+    };
   }
-  async function run(labels, fn, digits) {
-    const arc = overlay.querySelector(".arc"), pct = overlay.querySelector(".pct");
+  async function run(labels, fn, glyphs) {
+    const arc = overlay.querySelector(".arc"), pct = overlay.querySelector(".pct"), ring = overlay.querySelector(".ring");
     $("#vT").textContent = labels.verify[0]; $("#vS").textContent = labels.verify[1];
     $("#dT").textContent = labels.done[0]; $("#dS").textContent = labels.done[1];
     const setPct = p => { pct.textContent = Math.round(p); arc.style.strokeDashoffset = 264 * (1 - p / 100); };
     busy = true;
-    const req = fn();                                  /* the request starts right away, the animation runs beside it */
+    const req = fn();                                  /* the request starts right away, the show runs beside it */
     req.catch(() => {});
-    let running = false;
+    let running = false, orb = null;
     try {
-      if (digits && !reduced) {
+      if (glyphs && !reduced) {
         overlay.dataset.stage = "orbit";
-        const stop = startOrbit(digits);
-        await sleep(1300);
-        stop();
+        orb = startOrbit(glyphs);
+        await sleep(1200);
+        await orb.collapse();
+        spawn(orb.cx, orb.cy, 80, Object.assign({ v0: 120, v1: 440, l0: .5, l1: 1.1, s0: 1.2, s1: 3.2, c: GREENS, drag: .93 }, FULL));
+        shock(orb.cx, orb.cy); flash(orb.cx, orb.cy); pulseCard();
       }
       overlay.dataset.stage = "verify";
       let p = 0, target = 88, k = 0.05;
       running = true;
       setPct(0);
-      (function tick() { if (!running) return; p += (target - p) * k; setPct(p); requestAnimationFrame(tick); })();
+      (function tick() {
+        if (!running) return;
+        p += (target - p) * k;
+        setPct(p);
+        if (p > 1 && p < 99.5) {                       /* sparks fly off the head of the arc */
+          const r = ring.getBoundingClientRect(), a = p / 100 * 6.283 - 1.5708, rad = 42 * r.width / 104;
+          spawn(r.left + r.width / 2 + Math.cos(a) * rad, r.top + r.height / 2 + Math.sin(a) * rad, 2,
+            { a0: a - .7, a1: a + .7, v0: 40, v1: 150, l0: .3, l1: .6, s0: .8, s1: 2.2, c: ["#8EB69B", "#DAF1DE"], drag: .92 });
+        }
+        requestAnimationFrame(tick);
+      })();
       const res = await req;
       target = 100; k = 0.22;                        /* the request is back: run the ring up to 100 */
       const t0 = performance.now();
       while (p < 99.4 && performance.now() - t0 < 1000) await new Promise(requestAnimationFrame);
       running = false; setPct(100);
       overlay.dataset.stage = "done"; ticket.dataset.glow = "1";
-      await sleep(reduced ? 500 : 1000);
+      await new Promise(requestAnimationFrame);
+      const [kx, ky] = rectCenter(overlay.querySelector(".check"));
+      spawn(kx, ky, 140, { a0: 0, a1: 6.283, v0: 160, v1: 660, g: 540, drag: .975, l0: 1.1, l1: 2.3, s0: 2.5, s1: 5.5, c: GREENS.concat("#b9e4c6"), rect: true });
+      spawn(kx, ky, 40, Object.assign({ v0: 80, v1: 380, l0: .5, l1: 1, s0: 1, s1: 2.5, c: ["#DAF1DE", "#ffffff"], drag: .93 }, FULL));
+      shock(kx, ky); setTimeout(() => shock(kx, ky), 170); flash(kx, ky); pulseCard();
+      await sleep(reduced ? 500 : 1600);
       return res;
     } catch (err) {
       running = false;
+      if (orb) orb.stop();
       delete overlay.dataset.stage;
       throw err;
     } finally {
@@ -462,7 +592,7 @@
         const u = $("#user").value.trim(), p = $("#pass").value;
         if (!u || !p) return bad($(".acct"), "請輸入帳號名稱和密碼。");
         if (m === "register" && p !== $("#pass2").value) return bad($(".acct"), "兩次輸入的密碼不一樣。");
-        await run(m === "login" ? LABELS.login : LABELS.register, () => m === "login" ? A.signIn(u, p) : A.signUp(u, p));
+        await run(m === "login" ? LABELS.login : LABELS.register, () => m === "login" ? A.signIn(u, p) : A.signUp(u, p), ["T", "W", "$", "↗"]);
         const d = A.device();
         if (d && !d.pin && !d.asked) setMode("setpin", true); else closeGate();
       } else if (m === "pin") {
@@ -474,10 +604,11 @@
         const a = val(cellsets[0]), b = val(cellsets[1]);
         if (a.length < 4 || b.length < 4) return bad(cellsets[0], "請輸入 4 位數的 PIN 碼。");
         if (a !== b) return bad(cellsets[1], "兩次輸入的 PIN 碼不一樣。");
-        await run(LABELS.pinset, () => A.setPin(a));
+        await run(LABELS.pinset, () => A.setPin(a), ["●", "●", "●", "●"]);
         closeGate();
       }
     } catch (err) {
+      if (!err.code) console.warn("[TWstock]", err);   /* an unexpected error: leave a trace for debugging */
       if (m === "pin") {
         bad(cellsets[0], A.errMsg(err));
         if (err.code === "nopin" || err.code === "pinlocked") setTimeout(() => setMode("login", true, A.errMsg(err)), 1200);
@@ -496,7 +627,7 @@
   function closeGate() {
     gate.classList.add("out");
     renderApp();
-    setTimeout(() => { if (gate.classList.contains("out")) gate.hidden = true; }, 460);
+    setTimeout(() => { if (gate.classList.contains("out")) gate.hidden = true; }, 700);
   }
   function renderApp() {
     const a = A.account();
