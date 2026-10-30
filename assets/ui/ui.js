@@ -99,6 +99,36 @@
   };
 
   /* 可重複呼叫：每個元件只會啟用一次 */
+  /* 03 標籤頁：data-panel 指向內容面板 id */
+  UI.tabs = function (el) {
+    const btns = $$("button", el.querySelector(".bar")), ink = el.querySelector(".ink");
+    const go = b => {
+      btns.forEach(x => x.setAttribute("aria-selected", String(x === b)));
+      ink.style.width = b.offsetWidth + "px"; ink.style.transform = "translateX(" + b.offsetLeft + "px)";
+      const p = document.getElementById(b.dataset.panel); if (p) $$(".panel", el).forEach(x => x.hidden = x.id !== b.dataset.panel);
+    };
+    btns.forEach(b => b.addEventListener("click", () => go(b)));
+    requestAnimationFrame(() => go(btns.find(b => b.getAttribute("aria-selected") === "true") || btns[0]));
+  };
+
+  /* 04 錨點導航：點了就高亮，頁面捲動時也跟著高亮對應段落 */
+  UI.anchor = function (el) {
+    const links = $$("a", el);
+    const mark = a => links.forEach(x => x.classList.toggle("on", x === a));
+    links.forEach(a => a.addEventListener("click", () => mark(a)));
+    if ("IntersectionObserver" in window) {
+      const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { const a = links.find(x => x.getAttribute("href") === "#" + e.target.id); a && mark(a); } }), { rootMargin: "-40% 0px -55% 0px" });
+      links.forEach(a => { const t = document.getElementById(a.getAttribute("href").slice(1)); t && io.observe(t); });
+    }
+    if (links[0]) mark(links[0]);
+  };
+
+  /* 07 導航選單：點選切換 */
+  UI.vnav = function (el) {
+    const btns = $$("button", el);
+    btns.forEach(b => b.addEventListener("click", () => { btns.forEach(x => x.classList.toggle("on", x === b)); el.dispatchEvent(new CustomEvent("pick", { bubbles: true, detail: b.dataset.v || b.textContent.trim() })); }));
+  };
+
   UI.init = function (root = document) {
     const once = (sel, fn) => $$(sel, root).forEach(el => { if (el.dataset.uiOn) return; el.dataset.uiOn = "1"; fn(el); });
     once("[data-ui=select]", UI.select);
@@ -107,6 +137,9 @@
     once("[data-ui=seg]", el => UI.seg(el));
     once("[data-ui=range]", el => UI.range(el.querySelector("input") || el));
     once("[data-ui=modal]", el => { el._ui = UI.modal(el); });
+    once("[data-ui=tabs]", UI.tabs);
+    once("[data-ui=anchor]", UI.anchor);
+    once("[data-ui=vnav]", UI.vnav);
     return root;
   };
 
