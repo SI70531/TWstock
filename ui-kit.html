@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>UI 組件懶人包</title>
+<link rel="stylesheet" href="assets/ui/ui.css">
+<style>
+  body { margin: 0; background: var(--ui-bg); }
+  main { max-width: 980px; margin: 0 auto; padding: 24px 16px 60px; display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  main > section.ui-card { display: grid; gap: 12px; align-content: start; }
+  h2 { margin: 0; font-size: 15px; color: var(--ui-mute); letter-spacing: .04em; }
+  h1 { grid-column: 1 / -1; margin: 0; font-size: 22px; }
+</style>
+</head>
+<body>
+<main class="ui-root">
+  <h1>UI 組件懶人包</h1>
+
+  <section class="ui-card"><h2>01 步驟條</h2>
+    <ol class="ui-steps" data-ui="steps" id="steps">
+      <li><span class="n">1</span><span class="ln"></span></li>
+      <li><span class="n">2</span><span class="ln"></span></li>
+      <li><span class="n">3</span></li>
+    </ol>
+    <div style="display:flex;gap:8px"><button class="ui-btn ghost" id="prev">上一步</button><button class="ui-btn" id="next">下一步</button></div>
+  </section>
+
+  <section class="ui-card"><h2>02 文字輸入</h2>
+    <div class="ui-field"><input id="inp" placeholder=" " autocomplete="off"><label for="inp">股票代號</label></div>
+    <div class="ui-hint">例如 2330</div>
+  </section>
+
+  <section class="ui-card"><h2>03 勾選 / 04 單選 / 07 開關</h2>
+    <label class="ui-check"><input type="checkbox" checked><span class="box"></span>記住這台裝置</label>
+    <label class="ui-radio"><input type="radio" name="r" checked><span class="dot"></span>日線</label>
+    <label class="ui-radio"><input type="radio" name="r"><span class="dot"></span>週線</label>
+    <label class="ui-switch"><input type="checkbox"><span class="track"></span>深色模式</label>
+  </section>
+
+  <section class="ui-card"><h2>05 滑桿</h2>
+    <div class="ui-range"><div class="top"><span>數量</span><span data-out></span></div><input type="range" min="0" max="100" value="40"></div>
+  </section>
+
+  <section class="ui-card"><h2>06 下拉選單</h2>
+    <div class="ui-select" data-ui="select">
+      <button class="head" type="button">請選擇<span></span></button>
+      <div class="list" role="listbox">
+        <div class="opt" data-v="a">自選股</div><div class="opt" data-v="b">大盤</div><div class="opt" data-v="c">ETF</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ui-card"><h2>08 評分</h2>
+    <div class="ui-stars" data-ui="stars"><button>★</button><button>★</button><button>★</button><button>★</button><button>★</button></div>
+  </section>
+
+  <section class="ui-card"><h2>09 上傳</h2>
+    <label class="ui-drop" data-ui="drop"><input type="file"><div class="big">拖曳或點擊上傳</div><div>PDF、CSV，最大 10 MB</div><div class="bar"><i></i></div></label>
+  </section>
+
+  <section class="ui-card"><h2>分段切換 / 分頁</h2>
+    <div class="ui-seg" data-ui="seg"><button>日</button><button>週</button><button>月</button></div>
+    <div class="ui-pager" id="pager"></div>
+  </section>
+
+  <section class="ui-card"><h2>按鈕 / 提示 / 對話框</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="ui-btn" id="toast">顯示提示</button>
+      <button class="ui-btn ghost" id="open">開啟對話框</button>
+      <span class="ui-tip" data-tip="這是提示文字"><button class="ui-btn ghost icon" aria-label="說明">?</button></span>
+    </div>
+    <div class="ui-bar"><i style="--v:65%"></i></div>
+  </section>
+</main>
+
+<div class="ui-modal" data-ui="modal" id="modal"><div class="box ui-card ui-root"><h3>確認操作</h3><p>這裡放說明文字。</p><div class="act"><button class="ui-btn ghost" data-close>取消</button><button class="ui-btn" data-close>確定</button></div></div></div>
+
+<script src="assets/ui/ui.js"></script>
+<script>
+  UI.init();
+  let step = 0; const st = document.getElementById("steps");
+  const setStep = n => { step = Math.max(0, Math.min(3, n)); UI.steps(st, step); };
+  document.getElementById("next").onclick = () => setStep(step + 1);
+  document.getElementById("prev").onclick = () => setStep(step - 1);
+  setStep(0);
+  UI.pager(document.getElementById("pager"), 5);
+  document.getElementById("toast").onclick = () => UI.toast("已加入自選股");
+  const m = document.getElementById("modal")._ui;
+  document.getElementById("open").onclick = () => m.open();
+</script>
+</body>
+</html>
