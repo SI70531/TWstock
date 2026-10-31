@@ -10,6 +10,7 @@ assets/twdash.js/.css    Dashboard: sliding pill tabs, self-drawing lines, growi
 assets/twaccount.js      Account, device PIN and watchlist sync (shares the same Supabase project and Worker as EZexams)
 assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill, card grid
 assets/twmarket.js/.css  Market tabs: rankings, stock detail with K-line, news, event timeline (demo data)
+assets/twglass.css      Glassmorphism layer: background glow blobs, frosted cards and tables
 assets/twdense.js         Overview: mini sparklines on stat cards and a side summary beside the chart (demo data)
 tools/supabase-twstock.sql  Watchlist table (Row Level Security)
 ```
