@@ -60,3 +60,30 @@
   .stkprice { font-size: 30px; }
 }
 @media (prefers-reduced-motion: reduce) { .chip { transition: none; } }
+
+/* dense dashboard: smaller type and tighter spacing so more fits on one screen */
+.dash { gap: 10px; }
+.dash-note { font-size: 12px; padding: 6px 10px; }
+.dtabs button { min-height: 32px; font-size: 13px; padding: 0 12px; }
+.dpanel { gap: 10px; }
+.dcard { padding: 12px 14px; border-radius: 14px; }
+.dcard h3 { font-size: 12px; margin-bottom: 2px; }
+.dcard .big { font-size: 22px; }
+.dcard .stkprice { font-size: 34px; }
+.dcard .sub { font-size: 12px; }
+.dcard svg { margin-top: 6px; }
+.dgrid { gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.spark { position: absolute; right: 12px; top: 14px; width: 76px; height: 28px; margin: 0; overflow: visible; }
+.spark path { fill: none; stroke: var(--c4); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.ovgrid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(200px, 1fr); gap: 10px; align-items: start; }
+.ovside h3 { margin-bottom: 4px; }
+.mrow { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-top: 1px solid var(--c2); font-size: 13px; }
+.mrow span { color: var(--c4); }
+.mrow b { font-variant-numeric: tabular-nums; }
+@media (max-width: 720px) {
+  .ovgrid { grid-template-columns: 1fr; }
+  .dgrid { grid-template-columns: 1fr 1fr; }
+  .dcard .big { font-size: 20px; }
+}
+.dcard svg.spark { position: absolute; right: 12px; top: 14px; width: 76px; height: 28px; margin: 0; }
+@media (max-width: 720px) { .dcard svg.spark { display: none; } }
