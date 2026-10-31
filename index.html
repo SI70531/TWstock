@@ -275,6 +275,7 @@
   </style>
   <link rel="stylesheet" href="./assets/twdash.css">
   <link rel="stylesheet" href="./assets/twapp.css">
+  <link rel="stylesheet" href="./assets/twmarket.css">
 </head>
 <body>
 
@@ -310,12 +311,20 @@
         <button type="button" role="tab" data-p="dpTrend" aria-selected="false">走勢</button>
         <button type="button" role="tab" data-p="dpSector" aria-selected="false">產業</button>
         <button type="button" role="tab" data-p="dpFlow" aria-selected="false">籌碼</button>
+        <button type="button" role="tab" data-p="dpRank" aria-selected="false">排行</button>
+        <button type="button" role="tab" data-p="dpStock" aria-selected="false">個股</button>
+        <button type="button" role="tab" data-p="dpNews" aria-selected="false">新聞</button>
+        <button type="button" role="tab" data-p="dpEvent" aria-selected="false">行事曆</button>
       </div>
       <div class="dpanels">
         <div class="dpanel" id="dpOverview" role="tabpanel"></div>
         <div class="dpanel" id="dpTrend" role="tabpanel"></div>
         <div class="dpanel" id="dpSector" role="tabpanel"></div>
         <div class="dpanel" id="dpFlow" role="tabpanel"></div>
+        <div class="dpanel" id="dpRank" role="tabpanel"></div>
+        <div class="dpanel" id="dpStock" role="tabpanel"></div>
+        <div class="dpanel" id="dpNews" role="tabpanel"></div>
+        <div class="dpanel" id="dpEvent" role="tabpanel"></div>
       </div>
     </section>
   </main>
@@ -390,6 +399,7 @@
 <script src="./assets/twaccount.js"></script>
 <script src="./assets/twdash.js"></script>
 <script src="./assets/twapp.js"></script>
+<script src="./assets/twmarket.js"></script>
 <script>
 (function () {
   const A = window.TWAccount;

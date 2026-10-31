@@ -5,7 +5,11 @@
     dpOverview: '<path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/>',
     dpTrend: '<path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/>',
     dpSector: '<circle cx="12" cy="12" r="9"/><path d="M12 3v9h9"/>',
-    dpFlow: '<path d="M4 6h16M4 12h10M4 18h6"/>'
+    dpFlow: '<path d="M4 6h16M4 12h10M4 18h6"/>',
+    dpRank: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    dpStock: '<path d="M6 4v4M6 12v8M12 6v10M18 3v5M18 12v9"/>',
+    dpNews: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M8 9h8M8 13h8M8 17h5"/>',
+    dpEvent: '<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>'
   };
   var DEFAULT_ICON = '<circle cx="12" cy="12" r="3"/>';
 

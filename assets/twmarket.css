@@ -1,0 +1,62 @@
+/* TWstock market pages: rankings, stock detail, news and event timeline.
+   Colours come from the Emerald Depth tokens; 台股 convention: red = up, green = down. */
+
+.mkhost { display: block; }
+.mknote { margin: 0 0 12px; font-size: 13px; color: var(--c4); }
+.mkgrid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+
+/* rankings */
+.mktab { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.mktab td { padding: 9px 4px; border-top: 1px solid var(--c2); vertical-align: middle; }
+.mktab tr:first-child td { border-top: 0; }
+.mktab .rn { width: 26px; color: var(--c4); }
+.mktab .num { text-align: right; white-space: nowrap; }
+.mktab small { color: var(--c4); font-size: 12px; }
+.vbar { display: block; height: 6px; border-radius: 99px; background: var(--c2); overflow: hidden; margin-bottom: 4px; }
+.vbar i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--c4); }
+
+/* individual stock */
+.stkchips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px; scrollbar-width: none; }
+.stkchips::-webkit-scrollbar { display: none; }
+.chip { flex: none; min-height: 36px; padding: 0 14px; border-radius: 99px; border: 1px solid var(--c3); background: var(--c1);
+  color: var(--c4); cursor: pointer; font-size: 13.5px; transition: background .25s, color .25s; }
+.chip:hover { background: var(--c2); }
+.chip[aria-pressed="true"] { background: var(--c4); color: var(--c0); border-color: var(--c4); }
+.stkwrap { display: grid; gap: 14px; grid-template-columns: minmax(240px, 300px) minmax(0, 1fr); margin-top: 6px; }
+.stkside h3, .stkwrap .dcard > h3 { margin-bottom: 6px; }
+.stkprice { font-size: 36px; }
+.stkchg { font-size: 14px; margin-bottom: 14px; }
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 14px; border-top: 1px solid var(--c2); padding-top: 14px; }
+.stat span { display: block; font-size: 12.5px; color: var(--c4); }
+.stat b { font-size: 16px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.candlebox svg { display: block; width: 100%; height: auto; overflow: visible; margin-top: 8px; }
+.candlebox .gridl { stroke: var(--c2); stroke-width: 1; }
+.candlebox .wick { stroke-width: 1.4; }
+.candlebox .wick.up, .candlebox rect.up { stroke: #ff6b6b; fill: #ff6b6b; }
+.candlebox .wick.down, .candlebox rect.down { stroke: #4cc38a; fill: #4cc38a; }
+.candlebox .ma5 { fill: none; stroke: var(--c5); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.candlebox .ma20 { fill: none; stroke: var(--c4); stroke-width: 2; stroke-dasharray: 5 5; stroke-linecap: round; }
+.ohlc { min-height: 20px; margin-top: 8px; font-size: 13px; color: var(--c4); font-variant-numeric: tabular-nums; }
+
+/* news */
+.newsgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.news { border: 1px solid var(--c3); border-radius: 16px; background: var(--c1); padding: 16px; }
+.news h3 { margin: 10px 0 6px; font-size: 15.5px; line-height: 1.5; font-weight: 600; }
+.news .sub { font-size: 13px; color: var(--c4); }
+.tag { display: inline-block; font-size: 12px; padding: 2px 9px; border-radius: 99px; background: var(--c2); color: var(--c5); border: 1px solid var(--c3); }
+
+/* event timeline */
+.tl { position: relative; display: grid; gap: 14px; padding-left: 30px; max-width: 760px; }
+.tlline { position: absolute; left: 9px; top: 10px; bottom: 10px; width: 2px; background: var(--c3); transform: scaleY(0); transform-origin: 50% 0; border-radius: 2px; }
+.tlitem { position: relative; border: 1px solid var(--c3); background: var(--c1); border-radius: 16px; padding: 14px 16px; }
+.tlitem::before { content: ""; position: absolute; left: -26px; top: 18px; width: 12px; height: 12px; border-radius: 50%;
+  background: var(--c4); box-shadow: 0 0 0 4px var(--c0); }
+.tlitem .date { font-size: 13px; color: var(--c4); font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+.tlhead { font-size: 15px; margin-bottom: 4px; }
+.tlitem .sub { font-size: 13.5px; color: var(--c4); }
+
+@media (max-width: 720px) {
+  .stkwrap { grid-template-columns: 1fr; }
+  .stkprice { font-size: 30px; }
+}
+@media (prefers-reduced-motion: reduce) { .chip { transition: none; } }
