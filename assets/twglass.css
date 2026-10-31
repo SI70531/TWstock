@@ -18,9 +18,9 @@
   --blob-a:rgba(52,211,153,.30); --blob-b:rgba(56,140,248,.24); --blob-c:rgba(251,146,60,.16);
 }
 :root[data-theme="light"]{
-  --glass-bg:rgba(255,255,255,.45);
-  --glass-bg-nested:rgba(255,255,255,.30);
-  --glass-bg-gate:rgba(255,255,255,.45);
+  --glass-bg:rgba(255,255,255,.32);
+  --glass-bg-nested:rgba(255,255,255,.20);
+  --glass-bg-gate:rgba(255,255,255,.32);
   --glass-bd:rgba(255,255,255,.6);
   --glass-sh:0 10px 30px rgba(0,0,0,.06);
   --glass-th:rgba(255,255,255,.2);
