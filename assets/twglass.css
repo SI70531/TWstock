@@ -1,0 +1,98 @@
+/* TWstock glassmorphism layer.
+   Loaded after every other stylesheet, so it only restyles surfaces (cards, panels, tables) and adds the glow blobs.
+   TWstock is dark by default (Emerald Depth), so the default glass is a faint white film on dark; light mode uses the
+   spec values (white 45% + bright edge). Uses background-color only, so the existing card glow gradients stay. */
+
+/* ============ 0. Glass tokens ============ */
+:root{
+  --glass-bg:rgba(255,255,255,.07);
+  --glass-bg-nested:rgba(255,255,255,.05);
+  --glass-bg-gate:rgba(11,43,38,.45);
+  --glass-bd:rgba(255,255,255,.16);
+  --glass-sh:0 10px 30px rgba(0,0,0,.28);
+  --glass-th:rgba(255,255,255,.06);
+  --glass-line:rgba(255,255,255,.12);
+  --glass-fallback:rgba(11,43,38,.92);
+  --glass-blur:16px;
+  /* blobs: emerald / blue / amber */
+  --blob-a:rgba(52,211,153,.30); --blob-b:rgba(56,140,248,.24); --blob-c:rgba(251,146,60,.16);
+}
+:root[data-theme="light"]{
+  --glass-bg:rgba(255,255,255,.45);
+  --glass-bg-nested:rgba(255,255,255,.30);
+  --glass-bg-gate:rgba(255,255,255,.45);
+  --glass-bd:rgba(255,255,255,.6);
+  --glass-sh:0 10px 30px rgba(0,0,0,.06);
+  --glass-th:rgba(255,255,255,.2);
+  --glass-line:rgba(0,0,0,.08);
+  --glass-fallback:rgba(255,255,255,.85);
+  /* blobs: lavender / sky / peach */
+  --blob-a:rgba(167,139,250,.55); --blob-b:rgba(96,165,250,.50); --blob-c:rgba(251,146,60,.38);
+}
+
+/* ============ 1. Background glow blobs ============ */
+/* Three soft circles in different corners, under everything (z-index:-1). On <html>::before, so no HTML change. */
+html::before{
+  content:"";position:fixed;inset:-10%;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(circle 480px at 10% 8%,  var(--blob-a), transparent 70%),
+    radial-gradient(circle 440px at 92% 28%, var(--blob-b), transparent 70%),
+    radial-gradient(circle 520px at 60% 98%, var(--blob-c), transparent 70%);
+  filter:blur(24px);
+  animation:glassdrift 28s ease-in-out infinite alternate;
+}
+@keyframes glassdrift{to{transform:translate3d(2.5%,-2%,0) scale(1.06)}}
+@media (prefers-reduced-motion: reduce){html::before{animation:none}}
+
+/* the sign-in gate is an opaque full-screen layer, so it carries its own copy of the blobs on top of its dot grid */
+:root #gate{
+  background-image:
+    radial-gradient(circle 420px at 12% 10%, var(--blob-a), transparent 70%),
+    radial-gradient(circle 400px at 90% 30%, var(--blob-b), transparent 70%),
+    radial-gradient(circle 460px at 55% 100%, var(--blob-c), transparent 70%),
+    radial-gradient(rgba(var(--wash),.7) 1px, transparent 1.3px),
+    radial-gradient(900px 560px at 50% -10%, rgba(var(--wash),.55), transparent 70%);
+  background-size:auto,auto,auto,24px 24px,auto;
+}
+
+/* ============ 2. Glass cards ============ */
+:root :is(.dcard,.news,.dash-note,.dtabs,.stkside,#gate .ticket,.thmenu){
+  background-color:var(--glass-bg);
+  -webkit-backdrop-filter:blur(var(--glass-blur));
+  backdrop-filter:blur(var(--glass-blur));
+  border:1px solid var(--glass-bd);
+  border-radius:16px;
+  box-shadow:var(--glass-sh);
+}
+:root #gate .ticket{background-color:var(--glass-bg-gate);border-radius:24px}
+:root .dcard,:root .news{border-radius:20px}
+:root .dtabs{border-radius:14px}
+:root .thmenu{border-radius:14px}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  :root :is(.dcard,.news,.dash-note,.dtabs,.stkside,#gate .ticket,.thmenu,table){background-color:var(--glass-fallback)}
+}
+/* a stock card inside the stock layout is still a card: keep one blur only (the wrapper has none), nothing nested to strip */
+:root .chip{background-color:var(--glass-bg-nested);border-color:var(--glass-bd)}
+:root .chip[aria-pressed="true"]{background-color:var(--c4);border-color:var(--c4)}
+:root .dtip{background-color:var(--glass-bg);-webkit-backdrop-filter:blur(var(--glass-blur));backdrop-filter:blur(var(--glass-blur));border-color:var(--glass-bd)}
+
+/* ============ 3. Glass tables ============ */
+/* A table inside a card (rankings .mktab) sits on the card's glass: transparent cells + hairline dividers, no second box.
+   Any other table becomes its own glass block, shrink-wrapped so no empty glass is left beside it. */
+:root table{border-collapse:separate;border-spacing:0}
+:root table :is(th,td){background:transparent;border-color:var(--glass-line)}
+:root table th{background:var(--glass-th)}
+:root .mktab td{border-top:1px solid var(--glass-line)}
+:root table:not(.mktab){
+  width:fit-content;max-width:100%;
+  background-color:var(--glass-bg);
+  -webkit-backdrop-filter:blur(var(--glass-blur));
+  backdrop-filter:blur(var(--glass-blur));
+  border:1px solid var(--glass-bd);
+  border-radius:16px;
+  box-shadow:var(--glass-sh);
+  overflow:hidden;
+}
+:root table:not(.mktab) :is(th,td){border:0;border-right:1px solid var(--glass-line);border-bottom:1px solid var(--glass-line)}
+:root table:not(.mktab) :is(th,td):last-child{border-right:0}
+:root table:not(.mktab)>:last-child>tr:last-child>*{border-bottom:0}
