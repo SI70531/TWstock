@@ -46,11 +46,13 @@
     const all = series.flat(), lo = Math.min(...all), hi = Math.max(...all), pad = (hi - lo) * 0.08;
     const X = i => L + (W - L - R) * i / (series[0].length - 1), Y = x => T + (H - T - B) * (1 - (x - (lo - pad)) / (hi - lo + 2 * pad));
     const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": opts.label });
-    const defs = el("defs", {}, svg), g = el("linearGradient", { id: "dg-area", x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
-    el("stop", { offset: 0, "stop-color": "currentColor", "stop-opacity": .35 }, g); el("stop", { offset: 1, "stop-color": "currentColor", "stop-opacity": 0 }, g);
+    const defs = el("defs", {}, svg), gid = "dg-area" + (lineChart.n = (lineChart.n || 0) + 1), g = el("linearGradient", { id: gid, x1: 0, y1: 0, x2: 0, y2: 1 }, defs);
+    el("stop", { offset: 0, style: "stop-color:var(--c4);stop-opacity:.34" }, g); el("stop", { offset: 1, style: "stop-color:var(--c4);stop-opacity:0" }, g);
     for (let k = 0; k <= 4; k++) { const y = T + (H - T - B) * k / 4; el("line", { x1: L, x2: W - R, y1: y, y2: y, class: "gridl" }, svg); }
     const pts = s => s.map((x, i) => `${i ? "L" : "M"}${X(i).toFixed(1)},${Y(x).toFixed(1)}`).join("");
     const area = el("path", { d: pts(series[0]) + `L${X(series[0].length - 1)},${H - B}L${L},${H - B}Z`, class: "area" }, svg);
+    const cid = "dg-clip" + lineChart.n, cp = el("clipPath", { id: cid }, defs), clipRect = el("rect", { x: 0, y: 0, width: 0, height: H }, cp);
+    area.setAttribute("clip-path", "url(#" + cid + ")"); area.style.fill = "url(#" + gid + ")";
     area.style.color = "var(--c4)"; area.style.opacity = 0;
     const main = el("path", { d: pts(series[0]), class: "ln" }, svg);
     let second = null;
@@ -66,8 +68,9 @@
     };
     svg.addEventListener("pointermove", e => { const r = svg.getBoundingClientRect(); show(Math.max(0, Math.min(series[0].length - 1, Math.round(((e.clientX - r.left) / r.width * W - L) / (W - L - R) * (series[0].length - 1))))); });
     svg.addEventListener("pointerleave", () => { dot.setAttribute("opacity", 0); tip.style.opacity = 0; });
-    return () => { dot.setAttribute("opacity", 0); area.style.opacity = 0;
-      return Promise.all([drawLine(main, 1500), second ? drawLine(second, 1500, 250) : 0, run(900, t => { area.style.opacity = t; }, 700)]); };
+    /* the shaded area under the line is revealed left to right together with the line that draws it (it never shows up before the line) */
+    return () => { dot.setAttribute("opacity", 0); area.style.opacity = 1; clipRect.setAttribute("width", 0);
+      return Promise.all([drawLine(main, 1500), second ? drawLine(second, 1500, 250) : 0, run(1500, t => { clipRect.setAttribute("width", t >= 1 ? W : (W - L - R) * t + L); })]); };
   }
 
   function barChart(host, rows) {
