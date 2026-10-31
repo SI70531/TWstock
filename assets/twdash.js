@@ -136,6 +136,18 @@
     dpFlow: [donut($('[data-chart="donut"]'), flows), netRows($('[data-chart="net"]'), net)],
   };
 
+  /* every time a chart scrolls back into view it draws itself again */
+  const reg = new Map();
+  Object.keys(play).forEach(id => $$("[data-chart]", document.getElementById(id)).forEach((h, i) => reg.set(h, play[id][i])));
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver(es => es.forEach(e => {
+      const h = e.target;
+      if (e.intersectionRatio === 0) h._done = false;
+      else if (e.intersectionRatio >= 0.3 && !h._done && h.closest(".dpanel.on")) { h._done = true; reg.get(h)(); }
+    }), { threshold: [0, 0.3] });
+    reg.forEach((fn, h) => io.observe(h));
+  }
+
   /* ---------------- tabs ---------------- */
   const tabs = $$(".dtabs button[data-p]"), pill = $(".dtabs .pill");
   let cur = null, token = 0;
@@ -155,10 +167,13 @@
     /* panel content rises in one block after another (the video's page-to-page feel) */
     if (!reduced()) Array.from(panel.children).forEach((c, i) => c.animate([{ opacity: 0, transform: "translateY(18px) scale(.985)" }, { opacity: 1, transform: "none" }], { duration: 520, delay: i * 90, easing: "cubic-bezier(.2,.9,.3,1)", fill: "backwards" }));
     $$("[data-count]", panel).forEach(countUp);
-    (play[cur] || []).forEach(p => my === token && p());
+    /* charts already on screen start now; the others start when they scroll into view */
+    $$("[data-chart]", panel).forEach(h => {
+      const r = h.getBoundingClientRect(), fn = reg.get(h);
+      if (fn && my === token && r.top < innerHeight * 0.85 && r.bottom > 0) { h._done = true; fn(); } else h._done = false;
+    });
   }
   tabs.forEach(b => b.addEventListener("click", () => open(b.dataset.p, true)));
-  $$(".replay").forEach(b => b.addEventListener("click", () => open(cur, false)));
   $(".dtabs").addEventListener("keydown", e => {
     const i = tabs.indexOf(document.activeElement); if (i < 0 || !/Arrow(Left|Right)/.test(e.key)) return;
     const n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); n.click();
