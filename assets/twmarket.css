@@ -87,3 +87,37 @@
 }
 .dcard svg.spark { position: absolute; right: 12px; top: 14px; width: 76px; height: 28px; margin: 0; }
 @media (max-width: 720px) { .dcard svg.spark { display: none; } }
+
+/* ---- photo palette: dark charcoal, blue accent, frosted glass cards ---- */
+:root:not([data-theme="light"]) {
+  --c0: #14141A; --c1: rgba(40,40,48,.5); --c2: rgba(255,255,255,.06); --c3: rgba(255,255,255,.14);
+  --c4: #8C93A8; --c5: #F2F3F7; --err: #FF8A80; --hi: #fff;
+  --glow: 91,124,250; --wash: 91,124,250; --flashc: 91,124,250; --sh: 1;
+  --accent: #5B7CFA; --glass: rgba(40,40,48,.5); --edge: rgba(255,255,255,.1);
+}
+:root[data-theme="light"] { --glass: rgba(255,255,255,.6); --edge: rgba(35,83,71,.18); --accent: #3A63E0; }
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(520px 420px at 12% 16%, rgba(91,124,250,.30), transparent 70%),
+    radial-gradient(480px 380px at 92% 60%, rgba(168,85,247,.22), transparent 70%),
+    radial-gradient(420px 360px at 40% 100%, rgba(255,140,60,.14), transparent 70%);
+}
+.dcard, .news, .tlitem, #gate .ticket, .apppill, .dash-note, .dtabs {
+  background-color: var(--glass);
+  backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
+  border-color: var(--edge);
+}
+.app header {
+  background: var(--glass); border-bottom: 1px solid var(--edge);
+  backdrop-filter: blur(20px) saturate(150%); -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+.chip { background: var(--glass); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.dtabs .pill { background: var(--accent); box-shadow: 0 6px 20px rgba(91,124,250,.35); }
+.dtabs button[aria-selected="true"] { color: #fff; }
+.chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.apppill .ap-hl { background: var(--accent); box-shadow: 0 6px 18px rgba(91,124,250,.4); }
+.apppill .ap-item[aria-current="true"] { color: #fff; }
+.dcard .ln, .dcard svg.spark, .spark path { stroke: var(--accent); }
+.candlebox .ma20 { stroke: var(--c4); }
+.tlitem::before { background: var(--accent); }
