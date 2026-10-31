@@ -1,0 +1,65 @@
+/* TWstock app shell: gradient header, floating bottom pill nav, rounded app cards.
+   Built on the Emerald Depth tokens (--c0 … --c5) so light and dark both follow the theme. */
+
+/* header: a deep gradient bar, like the top of a mobile app */
+.app header {
+  position: sticky; top: 0; z-index: 20;
+  padding: 14px 68px 14px 18px; border-bottom: 0;
+  background: linear-gradient(135deg, var(--c3) 0%, var(--c2) 55%, var(--c1) 100%);
+  box-shadow: 0 10px 30px -18px rgba(0,0,0,.6);
+  color: var(--c5);
+}
+.app header h1 { font-size: 17px; font-weight: 650; }
+.app header .btn { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); min-height: 36px; border-radius: 99px; padding: 0 14px; }
+.app header .btn:hover { background: rgba(255,255,255,.16); }
+.app header .small { color: var(--c4); }
+
+/* main content gets room for the floating nav */
+.dashmain { padding: 18px 14px 120px; }
+.dash { gap: 18px; }
+.dash-note { padding: 10px 14px; border-radius: 14px; background: var(--c1); border: 1px solid var(--c2); }
+
+/* white-card list look: panels as rounded cards with generous spacing */
+.dcard { border-radius: 20px; padding: 18px; box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 12px 28px -22px rgba(0,0,0,.7); }
+.dcard h3 { font-size: 13px; text-transform: none; }
+.dgrid { gap: 14px; }
+
+/* the top tab strip is replaced by the bottom pill on phones */
+.apppill {
+  position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  z-index: 30; display: flex; gap: 2px; padding: 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c1) 88%, transparent); border: 1px solid var(--c3);
+  box-shadow: 0 16px 40px -14px rgba(0,0,0,.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  max-width: calc(100vw - 28px);
+}
+.apppill .ap-item {
+  position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-width: 64px; height: 50px; padding: 0 12px; border: 0; border-radius: 999px; background: none; cursor: pointer;
+  color: var(--c4); font-size: 12px; font-weight: 600; transition: color .3s;
+}
+.apppill .ap-item svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.apppill .ap-item[aria-current="true"] { color: var(--c0); }
+.apppill .ap-hl {
+  position: absolute; top: 6px; bottom: 6px; left: 0; width: 0; border-radius: 999px; background: var(--c4); pointer-events: none;
+  box-shadow: 0 6px 18px rgba(var(--glow), .35);
+  transition: transform .5s cubic-bezier(.3,1.4,.5,1), width .5s cubic-bezier(.3,1.4,.5,1);
+}
+
+/* the gate reads as an app sign-in card */
+#gate .ticket { border-radius: 24px; box-shadow: 0 30px 60px -30px rgba(0,0,0,.8); }
+#gate .brand { letter-spacing: .02em; }
+
+@media (max-width: 720px) {
+  .app .dtabs { display: none; }
+  .app header { padding-right: 68px; }
+}
+@media (min-width: 721px) {
+  .apppill { display: none; }
+  .dashmain { padding-bottom: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { .apppill .ap-hl { transition: none; } }
+
+/* desktop: 4 stat cards fill one row instead of leaving an orphan on the third row */
+@media (min-width: 721px) {
+  .dgrid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+}

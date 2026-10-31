@@ -8,6 +8,7 @@ Taiwan stock research site, hosted on GitHub Pages: https://si70531.github.io/TW
 index.html               Home: dashboard (tabs + animated charts), sign-in and device PIN
 assets/twdash.js/.css    Dashboard: sliding pill tabs, self-drawing lines, growing bars, sweeping donut (currently sample data; replace the DATA block in the file with real data)
 assets/twaccount.js      Account, device PIN and watchlist sync (shares the same Supabase project and Worker as EZexams)
+assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill, card grid
 tools/supabase-twstock.sql  Watchlist table (Row Level Security)
 ```
 
