@@ -5,7 +5,8 @@
 ## 檔案
 
 ```
-index.html               首頁：自選股清單、登入與裝置 PIN
+index.html               首頁：儀表板（分頁 + 動畫圖表）、登入與裝置 PIN
+assets/twdash.js/.css    儀表板：滑動膠囊分頁、折線自己畫出、長條長高、環形圖掃出（目前是示意資料，換掉檔案裡的 DATA 即可）
 assets/twaccount.js      帳號、裝置 PIN 與自選股同步（與 EZexams 共用同一個 Supabase 專案和 Worker）
 tools/supabase-twstock.sql  自選股資料表（Row Level Security）
 ```

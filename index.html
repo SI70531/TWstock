@@ -59,6 +59,7 @@
     .app h1 { font-size: 18px; margin: 0; letter-spacing: .02em; }
     .app .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .app main { display: grid; place-items: center; min-height: 60vh; padding: 16px; text-align: center; }
+    .app main.dashmain { place-items: start center; }
 
     /* ---------- the gate ---------- */
     #gate {
@@ -272,6 +273,7 @@
       .cell input { height: 56px; }
     }
   </style>
+  <link rel="stylesheet" href="./assets/twdash.css">
 </head>
 <body>
 
@@ -298,7 +300,25 @@
       <button class="btn" id="accountBtn" type="button">登出</button>
     </div>
   </header>
-  <main><p class="small">登入成功。這裡先留白，之後再放內容。</p></main>
+  <main class="dashmain">
+    <section class="dash" id="dash" aria-label="大盤儀表板">
+      <div class="dash-note"><b>示意資料</b>圖表動畫示範，數字不是即時報價。</div>
+      <div class="dtabs" role="tablist" aria-label="儀表板分頁">
+        <i class="pill"></i>
+        <button type="button" role="tab" data-p="dpOverview" aria-selected="true">總覽</button>
+        <button type="button" role="tab" data-p="dpTrend" aria-selected="false">走勢</button>
+        <button type="button" role="tab" data-p="dpSector" aria-selected="false">產業</button>
+        <button type="button" role="tab" data-p="dpFlow" aria-selected="false">籌碼</button>
+        <button type="button" class="replay" style="position:relative;z-index:1;margin:auto 4px auto 10px" aria-label="重播動畫">↻ 重播</button>
+      </div>
+      <div class="dpanels">
+        <div class="dpanel" id="dpOverview" role="tabpanel"></div>
+        <div class="dpanel" id="dpTrend" role="tabpanel"></div>
+        <div class="dpanel" id="dpSector" role="tabpanel"></div>
+        <div class="dpanel" id="dpFlow" role="tabpanel"></div>
+      </div>
+    </section>
+  </main>
 </div>
 
 <!-- entry gate -->
@@ -368,6 +388,7 @@
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script src="./assets/twaccount.js"></script>
+<script src="./assets/twdash.js"></script>
 <script>
 (function () {
   const A = window.TWAccount;
