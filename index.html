@@ -11,7 +11,7 @@
       try { m = localStorage.getItem("twstock-theme"); } catch (e) {}
       if (m !== "light" && m !== "dark") m = null;
       var q = matchMedia("(prefers-color-scheme: light)");
-      function eff() { return m || (q.matches ? "light" : "dark"); }
+      function eff() { return "dark"; }
       r.dataset.theme = eff();
       window.__twTheme = {
         get mode() { return m || "system"; },

@@ -121,3 +121,6 @@ body::before {
 .dcard .ln, .dcard svg.spark, .spark path { stroke: var(--accent); }
 .candlebox .ma20 { stroke: var(--c4); }
 .tlitem::before { background: var(--accent); }
+
+/* dark only: the theme switch is hidden and the page always uses the dark palette */
+.theme { display: none !important; }
