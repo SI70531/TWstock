@@ -96,3 +96,8 @@ html::before{
 :root table:not(.mktab) :is(th,td){border:0;border-right:1px solid var(--glass-line);border-bottom:1px solid var(--glass-line)}
 :root table:not(.mktab) :is(th,td):last-child{border-right:0}
 :root table:not(.mktab)>:last-child>tr:last-child>*{border-bottom:0}
+
+/* ============ 4. Dark mode: readable secondary text ============ */
+/* the muted green (--c4) is dull on glass, so small / Chinese helper text gets a lighter mint */
+:root:not([data-theme="light"]) :is(.small,.sub,.dash-note,.mknote,.stat span,.mktab .rn,.mktab small,.news .sub,.ohlc,.msg,.eg-p,.foot,.links,.lab,.dcard h3,.legend,.apppill .ap-item,.chip){color:#C9E3D1}
+:root:not([data-theme="light"]) .dcard svg text{fill:#C9E3D1}
