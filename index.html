@@ -276,6 +276,7 @@
   <link rel="stylesheet" href="./assets/twdash.css">
   <link rel="stylesheet" href="./assets/twapp.css">
   <link rel="stylesheet" href="./assets/twmarket.css">
+  <link rel="stylesheet" href="./assets/twtrade.css">
   <link rel="stylesheet" href="./assets/twglass.css">
 </head>
 <body>
@@ -316,6 +317,18 @@
         <button type="button" role="tab" data-p="dpStock" aria-selected="false">個股</button>
         <button type="button" role="tab" data-p="dpNews" aria-selected="false">新聞</button>
         <button type="button" role="tab" data-p="dpEvent" aria-selected="false">行事曆</button>
+        <span class="dgroup" aria-hidden="true">交易工具</span>
+        <button type="button" role="tab" data-p="dpQuote" aria-selected="false">報價卡</button>
+        <button type="button" role="tab" data-p="dpChart" aria-selected="false">K線圖</button>
+        <button type="button" role="tab" data-p="dpCalc" aria-selected="false">部位計算機</button>
+        <button type="button" role="tab" data-p="dpSim" aria-selected="false">模擬交易</button>
+        <button type="button" role="tab" data-p="dpRisk" aria-selected="false">風險評估</button>
+        <button type="button" role="tab" data-p="dpPerf" aria-selected="false">交易績效</button>
+        <button type="button" role="tab" data-p="dpAlert" aria-selected="false">到價提醒</button>
+        <button type="button" role="tab" data-p="dpHold" aria-selected="false">模擬持倉</button>
+        <button type="button" role="tab" data-p="dpFear" aria-selected="false">恐懼貪婪</button>
+        <button type="button" role="tab" data-p="dpList" aria-selected="false">行情列表</button>
+        <button type="button" role="tab" data-p="dpSet" aria-selected="false">設定</button>
       </div>
       <div class="dpanels">
         <div class="dpanel" id="dpOverview" role="tabpanel"></div>
@@ -326,6 +339,17 @@
         <div class="dpanel" id="dpStock" role="tabpanel"></div>
         <div class="dpanel" id="dpNews" role="tabpanel"></div>
         <div class="dpanel" id="dpEvent" role="tabpanel"></div>
+        <div class="dpanel" id="dpQuote" role="tabpanel"></div>
+        <div class="dpanel" id="dpChart" role="tabpanel"></div>
+        <div class="dpanel" id="dpCalc" role="tabpanel"></div>
+        <div class="dpanel" id="dpSim" role="tabpanel"></div>
+        <div class="dpanel" id="dpRisk" role="tabpanel"></div>
+        <div class="dpanel" id="dpPerf" role="tabpanel"></div>
+        <div class="dpanel" id="dpAlert" role="tabpanel"></div>
+        <div class="dpanel" id="dpHold" role="tabpanel"></div>
+        <div class="dpanel" id="dpFear" role="tabpanel"></div>
+        <div class="dpanel" id="dpList" role="tabpanel"></div>
+        <div class="dpanel" id="dpSet" role="tabpanel"></div>
       </div>
     </section>
   </main>
@@ -402,6 +426,7 @@
 <script src="./assets/twapp.js"></script>
 <script src="./assets/twmarket.js"></script>
 <script src="./assets/twdense.js"></script>
+<script src="./assets/twtrade.js"></script>
 <script>
 (function () {
   const A = window.TWAccount;

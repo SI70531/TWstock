@@ -156,7 +156,11 @@
   let cur = null, token = 0;
   function movePill(b, animate) {
     if (!animate || reduced()) { pill.style.transition = "none"; }
-    pill.style.width = b.offsetWidth + "px"; pill.style.transform = `translateX(${b.offsetLeft}px)`;
+    if (getComputedStyle(pill.parentElement).flexDirection === "column") {
+      pill.style.width = ""; pill.style.height = b.offsetHeight + "px"; pill.style.transform = `translateY(${b.offsetTop}px)`;
+    } else {
+      pill.style.height = ""; pill.style.width = b.offsetWidth + "px"; pill.style.transform = `translateX(${b.offsetLeft}px)`;
+    }
     if (!animate || reduced()) { pill.offsetWidth; pill.style.transition = ""; }
     b.scrollIntoView && b.scrollIntoView({ inline: "center", block: "nearest", behavior: reduced() ? "auto" : "smooth" });
   }

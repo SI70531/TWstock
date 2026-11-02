@@ -1,0 +1,117 @@
+/* TWstock trading tools: quote cards, K-line, calculator, paper trading, risk, performance,
+   alerts, holdings, fear & greed gauge, quote list, settings.
+   Desktop (1100px+): the tab list becomes a sticky sidebar beside the panels, like the reference app. */
+
+.dgroup { display: block; padding: 10px 12px 2px; font-size: 11.5px; letter-spacing: .08em; color: var(--c4); opacity: .8; }
+
+.tt { display: grid; gap: 12px; min-width: 0; }
+.tt .dcard h3 { margin-bottom: 6px; }
+.tt-src { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12.5px; color: var(--c4); }
+.tt-src b { padding: 2px 9px; border-radius: 99px; border: 1px solid var(--c3); background: var(--c2); font-weight: 600; color: var(--c5); }
+.tt-src b.live { border-color: var(--c4); }
+.warn { color: var(--err); }
+
+.tgrid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+.tt .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* quote cards */
+.rng { margin-top: 12px; }
+.rngbar { position: relative; height: 6px; border-radius: 99px; background: var(--c2); }
+.rngdot { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--c5); box-shadow: 0 0 0 4px rgba(var(--glow), .25); }
+.rngtxt { display: flex; justify-content: space-between; margin-top: 6px; font-size: 12px; }
+
+/* forms and buttons */
+.fgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px 12px; }
+.fgrid label { display: grid; gap: 5px; font-size: 12.5px; color: var(--c4); min-width: 0; }
+.tt input, .tt select { width: 100%; min-width: 0; min-height: 38px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--c3); background: var(--c0); color: var(--c5); font: inherit; font-size: 15px; font-variant-numeric: tabular-nums; }
+.tt button.tb { min-height: 38px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--c4); background: var(--c4); color: var(--c0); font: inherit; font-weight: 600; cursor: pointer; transition: transform .15s, filter .2s; }
+.tt button.tb:hover { filter: brightness(1.06); }
+.tt button.tb:active { transform: scale(.97); }
+.tt button.tb.ghost { background: var(--c2); border-color: var(--c3); color: var(--c5); }
+.tt button.tb.sm { min-height: 30px; padding: 0 10px; font-size: 13px; }
+.btnrow { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.msg { min-height: 1.4em; margin: 8px 0 0; font-size: 13.5px; color: var(--c4); }
+.empty { color: var(--c4); font-size: 14px; text-align: center; padding: 18px 4px; margin: 0; }
+
+/* key-value rows and meters */
+.kv { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; margin-top: 12px; font-size: 14px; }
+.kv span { color: var(--c4); }
+.kv b { text-align: right; font-variant-numeric: tabular-nums; }
+.meter { height: 10px; border-radius: 99px; background: var(--c2); overflow: hidden; margin-top: 8px; }
+.meter i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--c4); }
+.rrow + .rrow { margin-top: 16px; }
+
+/* tables */
+.tblwrap { overflow-x: auto; }
+.ttbl { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.ttbl th, .ttbl td { padding: 9px 8px; border-bottom: 1px solid var(--c2); text-align: right; white-space: nowrap; }
+.ttbl .l { text-align: left; }
+.ttbl th { color: var(--c4); font-weight: 600; font-size: 12.5px; }
+.ttbl th.sort { cursor: pointer; user-select: none; }
+.ttbl th.sort:hover { color: var(--c5); }
+.ttbl td.empty { text-align: center; padding: 18px 8px; }
+.ttbl tbody tr { transition: background .2s; }
+.ttbl tbody tr:hover { background: var(--c2); }
+.starbtn { background: none; border: 0; color: var(--c3); font-size: 17px; cursor: pointer; padding: 0 4px; }
+.starbtn[aria-pressed="true"] { color: #f5c542; }
+
+/* K-line */
+.cbox { overflow-x: auto; }
+.cbox svg { display: block; width: 100%; height: auto; min-width: 320px; overflow: visible; }
+.cbox svg text { fill: var(--c4); font-size: 11px; }
+.cbox .gridl { stroke: var(--c2); stroke-width: 1; }
+.tk-up { fill: #ff6b6b; stroke: #ff6b6b; }
+.tk-down { fill: #4cc38a; stroke: #4cc38a; }
+.tt-candles rect.tk-up, .tt-candles rect.tk-down { transform-box: fill-box; transform-origin: 50% 100%; }
+.tt-candles .wick { stroke-width: 1.2; }
+.tt-candles .ma5 { fill: none; stroke: #ffd166; stroke-width: 1.8; }
+.tt-candles .ma20 { fill: none; stroke: #b08cff; stroke-width: 1.8; stroke-dasharray: 5 5; }
+.draw { transform-box: fill-box; transform-origin: 0 50%; }
+.cread { margin: 8px 0 0; font-variant-numeric: tabular-nums; }
+
+/* holdings donut */
+.donutwrap { display: grid; grid-template-columns: minmax(170px, 240px) minmax(0, 1fr); gap: 18px; align-items: center; }
+.donut svg { display: block; width: 100%; height: auto; }
+.donut .ringbg { fill: none; stroke: var(--c2); stroke-width: 22; }
+.donut .seg { fill: none; stroke-width: 22; }
+.donut text { fill: var(--c5); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.donut .dn-s { fill: var(--c4); font-size: 11px; }
+.legend { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.legend li { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto auto; gap: 8px; align-items: center; font-size: 14px; }
+.legend i { width: 12px; height: 12px; border-radius: 4px; }
+.legend .lbl { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend b { font-variant-numeric: tabular-nums; }
+.legend li > span:last-child { color: var(--c4); font-variant-numeric: tabular-nums; }
+
+/* fear & greed gauge */
+.gauge svg { display: block; width: 100%; max-width: 360px; margin: 0 auto; }
+.gauge .gband { fill: none; stroke-width: 16; }
+.gauge .needle { transform-box: view-box; transform-origin: 100px 100px; }
+.gauge .needle line { stroke: var(--c5); stroke-width: 3; stroke-linecap: round; }
+.gauge .hub { fill: var(--c5); }
+.gauge text { fill: var(--c4); font-size: 9px; }
+.gbig { text-align: center; font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 6px; }
+
+/* alerts */
+.arow { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--c2); flex-wrap: wrap; }
+.arow:last-child { border-bottom: 0; }
+.aright { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.pill2 { font-size: 12.5px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--c3); color: var(--c4); }
+.pill2.hit { border-color: var(--c4); color: var(--c5); background: var(--c2); }
+
+/* desktop: tab list becomes a sticky sidebar */
+@media (min-width: 1100px) {
+  .dash { width: min(1240px, 100%); grid-template-columns: 200px minmax(0, 1fr); column-gap: 18px; align-items: start; }
+  .dash-note { grid-column: 1 / -1; }
+  .dtabs { grid-column: 1; grid-row: 2; flex-direction: column; width: 100%; max-width: none; position: sticky; top: 16px;
+    max-height: calc(100vh - 32px); overflow-y: auto; overflow-x: hidden; padding: 6px; gap: 2px; }
+  .dtabs button { display: block; width: 100%; text-align: left; }
+  .dtabs .pill { left: 4px; right: 4px; top: 0; bottom: auto; }
+  .dpanels { grid-column: 2; grid-row: 2; min-width: 0; }
+}
+@media (max-width: 560px) {
+  .donutwrap { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tt button.tb { transition: none; }
+}
