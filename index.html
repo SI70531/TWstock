@@ -312,11 +312,6 @@
         <button type="button" role="tab" data-p="dpOverview" aria-selected="true">總覽</button>
         <button type="button" role="tab" data-p="dpTrend" aria-selected="false">走勢</button>
         <button type="button" role="tab" data-p="dpSector" aria-selected="false">產業</button>
-        <button type="button" role="tab" data-p="dpFlow" aria-selected="false">籌碼</button>
-        <button type="button" role="tab" data-p="dpRank" aria-selected="false">排行</button>
-        <button type="button" role="tab" data-p="dpStock" aria-selected="false">個股</button>
-        <button type="button" role="tab" data-p="dpNews" aria-selected="false">新聞</button>
-        <button type="button" role="tab" data-p="dpEvent" aria-selected="false">行事曆</button>
         <span class="dgroup" aria-hidden="true">交易工具</span>
         <button type="button" role="tab" data-p="dpQuote" aria-selected="false">報價卡</button>
         <button type="button" role="tab" data-p="dpChart" aria-selected="false">K線圖</button>
@@ -328,17 +323,17 @@
         <button type="button" role="tab" data-p="dpHold" aria-selected="false">模擬持倉</button>
         <button type="button" role="tab" data-p="dpFear" aria-selected="false">恐懼貪婪</button>
         <button type="button" role="tab" data-p="dpList" aria-selected="false">行情列表</button>
+        <button type="button" role="tab" data-p="dpFund" aria-selected="false">基本面</button>
+        <button type="button" role="tab" data-p="dpDiv" aria-selected="false">除權息</button>
+        <button type="button" role="tab" data-p="dpChip" aria-selected="false">法人買賣超</button>
+        <button type="button" role="tab" data-p="dpScreen" aria-selected="false">選股</button>
+        <button type="button" role="tab" data-p="dpCmp" aria-selected="false">多檔比較</button>
         <button type="button" role="tab" data-p="dpSet" aria-selected="false">設定</button>
       </div>
       <div class="dpanels">
         <div class="dpanel" id="dpOverview" role="tabpanel"></div>
         <div class="dpanel" id="dpTrend" role="tabpanel"></div>
         <div class="dpanel" id="dpSector" role="tabpanel"></div>
-        <div class="dpanel" id="dpFlow" role="tabpanel"></div>
-        <div class="dpanel" id="dpRank" role="tabpanel"></div>
-        <div class="dpanel" id="dpStock" role="tabpanel"></div>
-        <div class="dpanel" id="dpNews" role="tabpanel"></div>
-        <div class="dpanel" id="dpEvent" role="tabpanel"></div>
         <div class="dpanel" id="dpQuote" role="tabpanel"></div>
         <div class="dpanel" id="dpChart" role="tabpanel"></div>
         <div class="dpanel" id="dpCalc" role="tabpanel"></div>
@@ -349,6 +344,11 @@
         <div class="dpanel" id="dpHold" role="tabpanel"></div>
         <div class="dpanel" id="dpFear" role="tabpanel"></div>
         <div class="dpanel" id="dpList" role="tabpanel"></div>
+        <div class="dpanel" id="dpFund" role="tabpanel"></div>
+        <div class="dpanel" id="dpDiv" role="tabpanel"></div>
+        <div class="dpanel" id="dpChip" role="tabpanel"></div>
+        <div class="dpanel" id="dpScreen" role="tabpanel"></div>
+        <div class="dpanel" id="dpCmp" role="tabpanel"></div>
         <div class="dpanel" id="dpSet" role="tabpanel"></div>
       </div>
     </section>
@@ -427,6 +427,7 @@
 <script src="./assets/twmarket.js"></script>
 <script src="./assets/twdense.js"></script>
 <script src="./assets/twtrade.js"></script>
+<script src="./assets/twtools.js"></script>
 <script>
 (function () {
   const A = window.TWAccount;

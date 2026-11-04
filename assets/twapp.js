@@ -20,6 +20,11 @@
     dpHold: '<circle cx="12" cy="12" r="9"/><path d="M12 3v9h9"/>',
     dpFear: '<path d="M3 15a9 9 0 0118 0"/><path d="M12 15l4-5"/>',
     dpList: '<path d="M4 6h16M4 12h16M4 18h16"/>',
+    dpFund: '<path d="M4 20h16M6 20V10h3v10M11 20V4h3v16M16 20v-7h3v7"/>',
+    dpDiv: '<circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5h4a1.8 1.8 0 010 3.6h-3a1.8 1.8 0 000 3.6h4"/>',
+    dpChip: '<path d="M4 6h16M4 12h10M4 18h6"/>',
+    dpScreen: '<path d="M3 5h18l-7 8v6l-4-2v-4z"/>',
+    dpCmp: '<path d="M8 4v16M16 4v16M4 8h8M12 16h8"/>',
     dpSet: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
   };
   var DEFAULT_ICON = '<circle cx="12" cy="12" r="3"/>';

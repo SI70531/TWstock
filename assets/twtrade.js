@@ -90,6 +90,12 @@
   let WATCH = store.get("twtrade-watch", DEFAULT_WATCH);
   let ALERTS = store.get("twtrade-alerts", []);
   let SORT = { key: "volume", dir: -1 };
+  const IND = store.get("twtrade-ind", { boll: false, kd: false, macd: false });
+  const LINES = store.get("twtrade-lines", {});
+  let DRAW = false, drawPend = null;
+  let GROUPS = store.get("twtrade-groups", {});
+  let QG = "全部";
+  const GROUP_NAMES = ["短線", "長期", "觀察"];
   const emptySim = () => ({ cash: START, pos: {}, trades: [] });
   let SIM = store.get("twtrade-sim", null) || emptySim();
   const saveSim = () => store.set("twtrade-sim", SIM);
@@ -150,6 +156,7 @@
     } else if (DB.source !== "sample") useSample();
     checkAlerts();
     emit();
+    pullWatch();
   }
   setInterval(() => { if (DB.want === "live" && !document.hidden) refresh(); }, 60000);
 
@@ -179,7 +186,17 @@
   }
   function toggleWatch(code) {
     WATCH = WATCH.includes(code) ? WATCH.filter(c => c !== code) : WATCH.concat(code);
-    store.set("twtrade-watch", WATCH); emit();
+    store.set("twtrade-watch", WATCH); syncWatch(); emit();
+  }
+  function syncWatch() { try { window.TWAccount && TWAccount.saveWatchlist(WATCH).catch(() => {}); } catch (e) {} }
+  let lastWL = 0;
+  async function pullWatch() {
+    if (Date.now() - lastWL < 300000 || !window.TWAccount) return;
+    lastWL = Date.now();
+    try {
+      const sym = await TWAccount.loadWatchlist();
+      if (sym && sym.length && JSON.stringify(sym) !== JSON.stringify(WATCH)) { WATCH = sym; store.set("twtrade-watch", WATCH); emit(); }
+    } catch (e) {}
   }
 
   /* ---------- helpers ---------- */
@@ -241,6 +258,7 @@
     const pos = s.high > s.low ? clamp((s.price - s.low) / (s.high - s.low) * 100, 0, 100) : 50;
     return `<div class="dcard qcard">
       <h3>${esc(s.name)} <span class="sub">${s.code}</span></h3>
+      <select class="grp" data-g="${s.code}" aria-label="分組">${["未分組", ...GROUP_NAMES].map(g => `<option${(GROUPS[s.code] || "未分組") === g ? " selected" : ""}>${g}</option>`).join("")}</select>
       <div class="big ${t}">${fmt(s.price, d)}</div>
       <div class="sub ${t}">${dif >= 0 ? "▲" : "▼"} ${fmt(Math.abs(dif), d)}（${pct(s.chgPct)}）</div>
       <div class="rng"><div class="rngbar"><i class="rngdot" data-pos="${pos.toFixed(1)}" style="left:${pos.toFixed(1)}%"></i></div>
@@ -248,10 +266,19 @@
       <div class="sub">開 ${fmt(s.open, d)} · 成交 ${fmt(s.volume)} 張</div></div>`;
   }
   panel("dpQuote", {
-    build(h) { h.innerHTML = `<div class="tt-src"></div><div class="tgrid qgrid"></div>`; },
+    build(h) {
+      h.innerHTML = `<div class="tt-src"></div><div class="chips qg"></div><div class="tgrid qgrid"></div>`;
+      h.addEventListener("click", e => { const b = e.target.closest("button[data-qg]"); if (b) { QG = b.dataset.qg; emit(); } });
+      h.addEventListener("change", e => {
+        const g = e.target.dataset && e.target.dataset.g; if (!g) return;
+        if (e.target.value === "未分組") delete GROUPS[g]; else GROUPS[g] = e.target.value;
+        store.set("twtrade-groups", GROUPS); emit();
+      });
+    },
     update(h) {
       $(".tt-src", h).innerHTML = srcTag();
-      $(".qgrid", h).innerHTML = WATCH.map(quoteCard).join("") || `<p class="empty">還沒有自選股，到「行情列表」點 ★ 加入。</p>`;
+      $(".qg", h).innerHTML = ["全部", ...GROUP_NAMES].map(g => `<button type="button" class="chip" data-qg="${g}" aria-pressed="${g === QG}">${g}</button>`).join("");
+      $(".qgrid", h).innerHTML = WATCH.filter(c => QG === "全部" || GROUPS[c] === QG).map(quoteCard).join("") || `<p class="empty">還沒有自選股，到「行情列表」點 ★ 加入。</p>`;
     },
     play(h) {
       const cards = $$(".qcard", h);
@@ -265,7 +292,7 @@
 
   /* ---------- K 線圖 ---------- */
   let chartCode = null, chartToken = 0, chartPlay = null;
-  function candleSVG(cs) {
+  function candleSVG(cs, code) {
     const W = 560, H = 260, PT = 10, PB = 22, PL = 8, PR = 48, N = cs.length;
     const hi = Math.max(...cs.map(c => c.h)), lo = Math.min(...cs.map(c => c.l)), pad = (hi - lo) * 0.06 || 1;
     const top = hi + pad, bot = lo - pad;
@@ -297,14 +324,46 @@
     const path = arr => arr.map((v, i) => (v == null ? "" : (i && arr[i - 1] != null ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1))).join("");
     const ma5 = add(svg, "path", { d: path(sma(5)), class: "ma5" });
     const ma20 = add(svg, "path", { d: path(sma(20)), class: "ma20" });
+    const bbs = [];
+    if (IND.boll && cs.length >= 20) {
+      const m = sma(20);
+      const sd = cs.map((_, i) => { if (i < 19) return null; const w = cs.slice(i - 19, i + 1).map(x => x.c); return Math.sqrt(w.reduce((a, x) => a + (x - m[i]) ** 2, 0) / 20); });
+      bbs.push(add(svg, "path", { d: path(m.map((v, i) => (v == null ? null : v + 2 * sd[i]))), class: "bb" }));
+      bbs.push(add(svg, "path", { d: path(m.map((v, i) => (v == null ? null : v - 2 * sd[i]))), class: "bb" }));
+    }
+    (LINES[code] || []).forEach(l => add(svg, "line", { x1: X(l[0]), y1: Y(l[1]), x2: X(l[2]), y2: Y(l[3]) }, "tl"));
     const play = () => {
       bl.forEach((r, i) => { if (!reduced()) r.animate([{ transform: "scaleY(0)" }, { transform: "scaleY(1)" }], { duration: 420, delay: i * 12, easing: "cubic-bezier(.2,.9,.3,1)", fill: "backwards" }); });
       const t0 = 420 + bl.length * 12;
       wl.forEach((w, i) => { if (!reduced()) w.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, delay: t0 + i * 6, fill: "backwards" }); });
-      sweep(ma5, 900, t0 + 200); sweep(ma20, 900, t0 + 400);
+      sweep(ma5, 900, t0 + 200); sweep(ma20, 900, t0 + 400); bbs.forEach((p, k) => sweep(p, 900, t0 + 600 + k * 100));
     };
     svg.classList.add("tt-candles");
-    return { svg, play };
+    const inv = (px, py) => ({ i: clamp(Math.round((px - PL) / (W - PL - PR) * N - 0.5), 0, N - 1), v: top - (py - PT) / (H - PT - PB) * (top - bot) });
+    return { svg, play, inv, W, H };
+  }
+  function indSVG(cs, kind) {
+    const W = 560, H = 110, PT = 8, PB = 8, PL = 8, PR = 48, N = cs.length;
+    const X = i => PL + (W - PL - PR) * (i + 0.5) / N;
+    let series, lo, hi, bars = null;
+    if (kind === "kd") {
+      let k = 50, d = 50; const K = [], D = [];
+      cs.forEach((c, i) => {
+        const w = cs.slice(Math.max(0, i - 8), i + 1), h9 = Math.max(...w.map(x => x.h)), l9 = Math.min(...w.map(x => x.l));
+        const rsv = h9 === l9 ? 50 : (c.c - l9) / (h9 - l9) * 100; k = k * 2 / 3 + rsv / 3; d = d * 2 / 3 + k / 3; K.push(k); D.push(d);
+      });
+      series = [[K, "ik"], [D, "id"]]; lo = 0; hi = 100;
+    } else {
+      const ema = (arr, n) => { const a = 2 / (n + 1), o = []; arr.forEach((v, i) => o.push(i ? o[i - 1] + a * (v - o[i - 1]) : v)); return o; };
+      const cl = cs.map(c => c.c), e12 = ema(cl, 12), e26 = ema(cl, 26), dif = e12.map((v, i) => v - e26[i]), dea = ema(dif, 9);
+      bars = dif.map((v, i) => v - dea[i]); series = [[dif, "ik"], [dea, "id"]];
+      const all = [...dif, ...dea, ...bars]; lo = Math.min(...all); hi = Math.max(...all);
+    }
+    const span = (hi - lo) || 1, Y = v => PT + (H - PT - PB) * (hi - v) / span, mid = kind === "kd" ? 50 : 0;
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${kind === "kd" ? "KD 指標" : "MACD 指標"}"><line class="gridl" x1="${PL}" x2="${W - PR}" y1="${Y(mid)}" y2="${Y(mid)}"/>` +
+      (bars ? bars.map((v, i) => `<rect class="${v >= 0 ? "tk-up" : "tk-down"}" x="${X(i) - 1.5}" y="${Math.min(Y(v), Y(0))}" width="3" height="${Math.max(1, Math.abs(Y(v) - Y(0)))}"/>`).join("") : "") +
+      series.map(([a, c]) => `<path class="${c}" d="${a.map((v, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join("")}"/>`).join("") +
+      `<text x="${W - PR + 6}" y="14">${kind === "kd" ? "KD(9)" : "MACD"}</text></svg>`;
   }
   async function updateChart(h) {
     const p = P.dpChart;
@@ -319,20 +378,40 @@
       box.innerHTML = `<p class="empty">這檔的歷史資料暫時無法載入，請到「設定」按「立即更新」。</p>`;
       read.textContent = ""; chartPlay = null; return;
     }
-    const built = candleSVG(cs);
+    const built = candleSVG(cs, code);
     box.replaceChildren(built.svg);
+    $(".ibox", h).innerHTML = ["kd", "macd"].filter(k => IND[k]).map(k => `<div class="dcard">${indSVG(cs, k)}</div>`).join("");
+    $$(".ctools button[data-ind]", h).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.ind === "draw" ? DRAW : !!IND[b.dataset.ind])));
+    if (DRAW) {
+      built.svg.style.cursor = "crosshair";
+      built.svg.addEventListener("click", ev => {
+        const r = built.svg.getBoundingClientRect(), pt = built.inv((ev.clientX - r.left) / r.width * built.W, (ev.clientY - r.top) / r.height * built.H);
+        if (!drawPend) { drawPend = pt; read.textContent = "再點一下第二個點，完成趨勢線。"; return; }
+        (LINES[code] = LINES[code] || []).push([drawPend.i, drawPend.v, pt.i, pt.v]); drawPend = null;
+        store.set("twtrade-lines", LINES); updateChart(h);
+      });
+    }
     const last = cs[cs.length - 1], d = dig(last.c);
     read.textContent = `最後一根：開 ${fmt(last.o, d)}　高 ${fmt(last.h, d)}　低 ${fmt(last.l, d)}　收 ${fmt(last.c, d)}`;
-    chartPlay = built.play;
-    if (p.el.classList.contains("on")) built.play();
+    chartPlay = () => { built.play(); $$(".ibox path", h).forEach((q, i) => sweep(q, 900, 300 + i * 150)); };
+    if (p.el.classList.contains("on")) chartPlay();
   }
   panel("dpChart", {
     build(h) {
       h.innerHTML = `<div class="tt-src"></div><div class="chips" role="group" aria-label="選擇股票"></div>
-        <div class="dcard"><h3>K 線 · 近 60 日（紅漲綠跌；實線 MA5、虛線 MA20）</h3><div class="cbox"><p class="empty">載入中…</p></div><p class="sub cread"></p></div>`;
+        <div class="chips ctools"><button type="button" class="chip" data-ind="boll">布林通道</button><button type="button" class="chip" data-ind="kd">KD</button><button type="button" class="chip" data-ind="macd">MACD</button><button type="button" class="chip" data-ind="draw">畫趨勢線</button><button type="button" class="chip" data-ind="clear">清除趨勢線</button></div>
+        <div class="dcard"><h3>K 線 · 近 60 日（紅漲綠跌；實線 MA5、虛線 MA20）</h3><div class="cbox"><p class="empty">載入中…</p></div><p class="sub cread"></p></div><div class="ibox tt"></div>`;
       $(".chips", h).addEventListener("click", e => {
         const b = e.target.closest("button[data-code]"); if (!b) return;
-        chartCode = b.dataset.code; updateChart(h);
+        chartCode = b.dataset.code; drawPend = null; updateChart(h);
+      });
+      $(".ctools", h).addEventListener("click", e => {
+        const b = e.target.closest("button[data-ind]"); if (!b) return;
+        const k = b.dataset.ind;
+        if (k === "draw") { DRAW = !DRAW; drawPend = null; }
+        else if (k === "clear") { delete LINES[chartCode]; store.set("twtrade-lines", LINES); }
+        else { IND[k] = !IND[k]; store.set("twtrade-ind", IND); }
+        updateChart(h);
       });
     },
     update(h) { updateChart(h); },
@@ -597,6 +676,7 @@
   panel("dpList", {
     build(h) {
       h.innerHTML = `<div class="tt-src"></div><div class="dcard">
+        <div class="chips"><button type="button" class="chip" data-preset="volume:-1">熱門（成交量）</button><button type="button" class="chip" data-preset="chgPct:-1">漲幅榜</button><button type="button" class="chip" data-preset="chgPct:1">跌幅榜</button></div>
         <div class="fgrid"><label>搜尋代號或名稱<input data-f="q" type="search" placeholder="例如 2330 或 台積"></label></div>
         <p class="sub" data-count></p>
         <div class="tblwrap"><table class="ttbl"><thead><tr>
@@ -606,6 +686,8 @@
         </tr></thead><tbody data-rows></tbody></table></div></div>`;
       $('[data-f="q"]', h).addEventListener("input", () => renderRows(h));
       h.addEventListener("click", e => {
+        const pr = e.target.closest("button[data-preset]");
+        if (pr) { const [k, d] = pr.dataset.preset.split(":"); SORT = { key: k, dir: Number(d) }; renderRows(h); return; }
         const st = e.target.closest("button[data-star]");
         if (st) { toggleWatch(st.dataset.star); return; }
         const th = e.target.closest("th[data-sort]"); if (!th) return;
@@ -688,7 +770,7 @@
           msg.textContent = "已清空，現金回到 NT$1,000,000。"; emit();
         }
         else if (act === "clearAlerts") { ALERTS = []; store.set("twtrade-alerts", ALERTS); msg.textContent = "已清空提醒。"; emit(); }
-        else if (act === "resetWatch") { WATCH = DEFAULT_WATCH.slice(); store.set("twtrade-watch", WATCH); msg.textContent = "已還原。"; emit(); }
+        else if (act === "resetWatch") { WATCH = DEFAULT_WATCH.slice(); store.set("twtrade-watch", WATCH); syncWatch(); msg.textContent = "已還原。"; emit(); }
         else if (act === "notify") {
           try {
             const r = await Notification.requestPermission();
@@ -706,20 +788,21 @@
   });
 
   /* ---------- wiring ---------- */
-  function openObserver() {
+  function openObserver(ids) {
     const mo = new MutationObserver(ms => ms.forEach(m => { if (m.target.classList.contains("on")) show(m.target.id); }));
-    Object.keys(P).forEach(id => mo.observe(P[id].el, { attributes: true, attributeFilter: ["class"] }));
+    (ids || Object.keys(P)).forEach(id => mo.observe(P[id].el, { attributes: true, attributeFilter: ["class"] }));
   }
-  function scrollObserver() {
+  function scrollObserver(ids) {
     if (!("IntersectionObserver" in window)) return;
     const io = new IntersectionObserver(es => es.forEach(e => {
       const p = P[e.target.dataset.pid]; if (!p) return;
       if (e.intersectionRatio === 0) p.done = false;
       else if (e.intersectionRatio >= 0.25 && !p.done && p.el.classList.contains("on")) { p.done = true; p.play && p.play(p.host); }
     }), { threshold: [0, 0.25] });
-    Object.keys(P).forEach(id => { P[id].host.dataset.pid = id; io.observe(P[id].host); });
+    (ids || Object.keys(P)).forEach(id => { P[id].host.dataset.pid = id; io.observe(P[id].host); });
   }
 
+  window.TWT = { DB, P, panel, show, emit, wire(ids) { openObserver(ids); scrollObserver(ids); }, $, $$, esc, fmt, pct, tone, dig, clamp, reduced, store, rise, growBars, sweep, srcTag, setOptions, num, hash, rng, getHist, watch: () => WATCH, NS };
   useSample();
   openObserver();
   scrollObserver();

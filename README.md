@@ -13,6 +13,7 @@ assets/twmarket.js/.css  Market tabs: rankings, stock detail with K-line, news, 
 assets/twglass.css       Glassmorphism layer: background glow blobs, frosted cards and tables
 assets/twdense.js        Overview: mini sparklines on stat cards and a side summary beside the chart (sample data)
 assets/twtrade.js/.css   Trading tools (see below)
+assets/twtools.js        Research tools: fundamentals, ex-dividend list, institutional flows, screener, comparison
 tools/supabase-twstock.sql  Watchlist table (Row Level Security)
 ```
 
@@ -30,6 +31,13 @@ The tabs under "交易工具" are built in `assets/twtrade.js` and styled in `as
 - **模擬持倉**: holdings and cash as an animated donut chart with legend.
 - **恐懼貪婪**: a simple market sentiment gauge built from the day's advancing-stock share and average change. It is this site's own indicator, not an official index.
 - **行情列表**: searchable, sortable list of all listed stocks. Click ★ to add a stock to the watchlist.
+- **基本面**: P/E, dividend yield, P/B, estimated EPS and dividend, monthly revenue and YoY growth, each with a plain-language explanation, plus a P/E river chart (price vs 10x–26x of the latest estimated EPS).
+- **除權息**: ex-dividend / ex-rights schedule, optionally limited to the watchlist.
+- **法人買賣超**: top-10 net buy and net sell for foreign investors, investment trusts, and all three institutions combined.
+- **選股**: screener on yield, P/E, price, change, volume and revenue growth, with presets.
+- **多檔比較**: side-by-side comparison of up to 5 watchlist stocks, best value highlighted.
+- **K線圖 extras**: Bollinger bands, KD, MACD, and hand-drawn trend lines (stored in this browser).
+- **報價卡 groups**: tag watchlist stocks as 短線 / 長期 / 觀察 and filter by group. The watchlist itself syncs to your account when signed in.
 - **設定**: data source, manual refresh, and clearing paper trades, alerts or the watchlist.
 
 ### Data sources
@@ -51,6 +59,10 @@ All paper trades, the watchlist and alerts are stored only in the current browse
 
 1. Supabase → SQL Editor: run `tools/supabase-twstock.sql`.
 2. The Worker (`ezexams-ai`) is already configured in EZexams. TWstock uses the same site origin (`https://si70531.github.io`), so no extra setup is needed.
+
+## What this site deliberately does not do
+
+No stock picks, buy/sell signals, target prices or "should buy" scores, no community posting, no paid groups or copy-trading, and no redistribution of tick-by-tick real-time quotes. In Taiwan, giving investment advice for pay without a licence can fall under securities investment advisory rules, so the site only shows data and objective indicators. Screener results and indicators are tools for narrowing down, not recommendations.
 
 ## Disclaimer
 

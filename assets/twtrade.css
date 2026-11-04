@@ -115,3 +115,23 @@
 @media (prefers-reduced-motion: reduce) {
   .tt button.tb { transition: none; }
 }
+
+/* research tools + chart extras */
+.ik { fill: none; stroke: #ffd166; stroke-width: 1.8; }
+.id { fill: none; stroke: #b08cff; stroke-width: 1.8; }
+.bb { fill: none; stroke: var(--c4); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .8; }
+.tl { stroke: #4ec9ff; stroke-width: 1.6; }
+.ibox svg { display: block; width: 100%; height: auto; overflow: visible; }
+.ibox svg text { fill: var(--c4); font-size: 11px; }
+.ibox .gridl { stroke: var(--c2); }
+.ibox:empty { display: none; }
+select.grp { width: auto; min-height: 28px; font-size: 12px; padding: 0 6px; margin: 2px 0 6px; }
+.hint { margin-top: 6px; line-height: 1.5; }
+.riv { stroke: var(--c3); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.riv.r0 { stroke: #4cc38a; } .riv.r4 { stroke: #ff6b6b; }
+.rp { fill: none; stroke: var(--c5); stroke-width: 2.4; stroke-linejoin: round; }
+.rbox svg { display: block; width: 100%; height: auto; overflow: visible; }
+.rbox svg text { fill: var(--c4); font-size: 11px; }
+.rbox .draw, .rp.draw { transform-box: fill-box; transform-origin: 0 50%; }
+td.best { color: #f5c542; font-weight: 700; }
+.meter i.upb { background: #ff6b6b; } .meter i.downb { background: #4cc38a; }

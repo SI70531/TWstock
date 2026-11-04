@@ -130,13 +130,11 @@
     <div class="dcard"><h3>加權指數 · 近 60 日（虛線：對照組）</h3><div data-chart="main"></div></div>`;
   $("#dpTrend").innerHTML = `<div class="dcard"><h3>指數走勢（滑過可看數值）</h3><div data-chart="trend"></div></div><div class="dcard"><h3>成交量 · 近 60 日</h3><div data-chart="vol"></div></div>`;
   $("#dpSector").innerHTML = `<div class="dcard"><h3>各產業今日漲跌幅</h3><div data-chart="sector"></div></div>`;
-  $("#dpFlow").innerHTML = `<div class="dgrid"><div class="dcard"><h3>成交占比</h3><div data-chart="donut"></div></div><div class="dcard"><h3>法人買賣超（億元）</h3><div data-chart="net"></div></div></div>`;
 
   const play = {
     dpOverview: [lineChart($('[data-chart="main"]'), [idx, bench], { label: "加權指數近 60 日", xl: [[0, "60 日前"], [59, "今天"]], xs: days })],
     dpTrend: [lineChart($('[data-chart="trend"]'), [idx], { label: "指數走勢", xl: [[0, "60 日前"], [30, "30 日前"], [59, "今天"]], xs: days }), columnChart($('[data-chart="vol"]'), vol)],
     dpSector: [barChart($('[data-chart="sector"]'), sectors)],
-    dpFlow: [donut($('[data-chart="donut"]'), flows), netRows($('[data-chart="net"]'), net)],
   };
 
   /* every time a chart scrolls back into view it draws itself again */
