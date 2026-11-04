@@ -155,6 +155,8 @@
       gap: 6px; text-align: center; padding: 24px; background: var(--c1);
     }
     .overlay[data-stage] { display: flex; animation: fade .3s ease-out; }
+    /* while verifying, the form behind is hidden so it never shows through the spinner */
+    .ticket:has(.overlay[data-stage]) .main { visibility: hidden; }
     .overlay h2 { font-size: 22px; margin: 6px 0 0; }
     .overlay p { margin: 0; color: var(--c4); font-size: 14px; }
     .overlay .verify, .overlay .done { display: none; flex-direction: column; align-items: center; gap: 6px; }
