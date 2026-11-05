@@ -1,0 +1,79 @@
+/* TWstock template v2: teal-blue gradient, frosted-glass floating sidebar / top bar / content panel, bright cyan active pill,
+   black pill primary buttons. Style only: no content or behaviour changes. Loaded after twglass.css. */
+:root, :root[data-theme="dark"] {
+  --c0: #07303a; --c1: #0c4150; --c2: rgba(255,255,255,.12); --c3: rgba(255,255,255,.26); --c4: #a9dbe6; --c5: #f1fbfd;
+  --glow: 120,220,255; --wash: 40,150,190;
+  --glass-bg: rgba(255,255,255,.15); --glass-bg-nested: rgba(255,255,255,.10); --glass-bg-gate: rgba(255,255,255,.14);
+  --glass-bd: rgba(255,255,255,.30); --glass-sh: 0 18px 44px -18px rgba(0,25,45,.55), inset 0 1px 0 rgba(255,255,255,.28);
+  --glass-th: rgba(255,255,255,.10); --glass-line: rgba(255,255,255,.16); --glass-blur: 22px;
+  --blob-a: rgba(40,210,210,.45); --blob-b: rgba(70,140,255,.50); --blob-c: rgba(130,225,255,.28);
+  --accent-a: #19c2dc; --accent-b: #2f86f5;
+}
+:root body {
+  background:
+    radial-gradient(1100px 650px at 78% 8%, rgba(90,175,240,.55), transparent 62%),
+    radial-gradient(900px 600px at 8% 92%, rgba(20,170,160,.50), transparent 62%),
+    linear-gradient(135deg, #06303a 0%, #0a4660 52%, #0a2f58 100%);
+  background-attachment: fixed;
+}
+
+/* ---- floating top bar ---- */
+:root .app header {
+  margin: 14px 14px 0; padding: 12px 18px; border: 1px solid var(--glass-bd); border-radius: 20px;
+  background: var(--glass-bg); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); box-shadow: var(--glass-sh);
+}
+:root .app header h1 { display: flex; align-items: center; gap: 10px; font-size: 16px; }
+:root .app header h1::before {
+  content: "TW"; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; font: 700 12px/1 var(--mono);
+  background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); color: #fff; box-shadow: 0 6px 16px rgba(47,134,245,.45);
+}
+:root .app main.dashmain { padding: 14px; }
+
+/* ---- floating sidebar (desktop) ---- */
+:root .dash-note { border-radius: 14px; }
+:root .dtabs { border-radius: 24px; padding: 10px; }
+:root .dtabs button { border-radius: 12px; color: var(--c4); font-weight: 600; }
+:root .dtabs button:hover { background: rgba(255,255,255,.12); color: var(--c5); }
+:root .dtabs button[aria-selected="true"] { color: #fff; }
+:root .dtabs .pill { border-radius: 12px; background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); box-shadow: 0 8px 22px rgba(47,134,245,.5), inset 0 1px 0 rgba(255,255,255,.4); }
+:root .dgroup { padding: 14px 12px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .14em; color: rgba(255,255,255,.55); }
+
+/* ---- big content panel with lighter cards inside ---- */
+:root .dpanels {
+  padding: 16px; border: 1px solid var(--glass-bd); border-radius: 28px; background: var(--glass-bg-nested);
+  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); box-shadow: var(--glass-sh);
+}
+:root .dcard { background-color: rgba(255,255,255,.14); border-radius: 20px; border-color: rgba(255,255,255,.34); }
+:root .dcard h3 { color: var(--c5); font-size: 13px; letter-spacing: .01em; }
+:root .dcard .sub, :root .sub { color: var(--c4); }
+
+/* ---- buttons, chips, inputs ---- */
+:root .tt button.tb { background: #0b1118; border-color: #0b1118; color: #fff; border-radius: 999px; padding: 0 20px; box-shadow: 0 8px 18px -8px rgba(0,0,0,.6); }
+:root .tt button.tb.ghost { background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.34); color: var(--c5); box-shadow: none; }
+:root .chip { border-radius: 999px; background-color: rgba(255,255,255,.14); border-color: rgba(255,255,255,.3); color: var(--c5); }
+:root .chip:hover { background-color: rgba(255,255,255,.24); }
+:root .chip[aria-pressed="true"] { background: #0b1118; border-color: #0b1118; color: #fff; }
+:root .tt input, :root .tt select { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.32); color: var(--c5); border-radius: 12px; }
+:root .tt input::placeholder { color: rgba(255,255,255,.5); }
+:root .tt select option { color: #0b1118; }
+:root .meter { background: rgba(255,255,255,.18); }
+:root .meter i { background: linear-gradient(90deg, var(--accent-a), var(--accent-b)); }
+:root .rngdot { background: #fff; }
+
+/* ---- tables sit flat inside their card and use the full width (no shrink-wrapped glass boxes) ---- */
+:root table.ttbl {
+  width: 100%; background: transparent; border: 0; border-radius: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; overflow: visible;
+}
+:root table.ttbl th { background: transparent; }
+:root table.ttbl :is(th, td) { border: 0; border-bottom: 1px solid var(--glass-line); }
+:root table.ttbl tbody tr:hover { background: rgba(255,255,255,.10); }
+
+/* ---- mobile bottom bar ---- */
+:root .apppill { background: rgba(255,255,255,.16); border-color: var(--glass-bd); -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur)); }
+:root .apppill .ap-item { color: var(--c4); }
+:root .apppill .ap-item[aria-current="true"] { color: #fff; }
+:root .apppill .ap-hl { background: linear-gradient(135deg, var(--accent-a), var(--accent-b)); }
+@media (max-width: 720px) {
+  :root .app header { margin: 10px 10px 0; }
+  :root .dpanels { padding: 10px; border-radius: 22px; }
+}
