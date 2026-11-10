@@ -22,6 +22,7 @@ tools/supabase-twstock.sql  Watchlist table (Row Level Security)
 The tabs under "交易工具" are built in `assets/twtrade.js` and styled in `assets/twtrade.css`:
 
 - **報價卡**: quote cards for the watchlist, with today's price, change and an animated day-range marker.
+- **報價卡 → 走勢**: tap a quote card to select it, then press 看走勢. The card flies open into that stock's K-line with KD and MACD, and an info sheet slides up with a one-line verdict, distance from MA20, position in the 60-day range and the 60-day change. 換一檔 plays the move backwards with the card still selected; 完整 K 線圖 opens the full chart tab on the same stock.
 - **K線圖**: 60-day candles with MA5 (solid) and MA20 (dashed), for any watchlist stock.
 - **部位計算機**: position size from capital, risk percentage and stop-loss distance, with risk/reward ratio.
 - **模擬交易**: paper trading with NT$1,000,000 starting cash, 0.1425% fee and 0.3% sell tax. Nothing is sent to a broker.

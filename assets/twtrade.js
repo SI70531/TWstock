@@ -250,13 +250,135 @@
     requestAnimationFrame(() => p.play && p.play(p.host));
   }
 
+  /* ---------- 報價卡 → 走勢視野 ----------
+     Tap a card to select it, press 看走勢 and the card flies open into its K-line; an info sheet then slides up.
+     換一檔 plays the same move backwards and the card stays selected, so stocks can be compared one after another. */
+  let QSEL = null, qvEl = null, qvOpen = false, qvTok = 0, qvTimer = 0;
+  const HTML = document.documentElement;
+  const qCodes = () => WATCH.filter(c => QG === "全部" || GROUPS[c] === QG);
+  const cardOf = code => $$("#dpQuote .qcard[data-code]").find(c => c.dataset.code === code);
+  function qbarFill(h) {
+    const bar = $(".qbar", h); if (!bar) return;
+    const s = QSEL && DB.byCode.get(QSEL);
+    $(".sub", bar).textContent = s ? `${s.name} · ${s.code}` : "點一張報價卡";
+    const b = $("b", bar);
+    b.textContent = s ? fmt(s.price, dig(s.price)) : "—";
+    b.className = s ? tone(s.chgPct) : "";
+    $(".qgo", bar).disabled = !s;
+    bar.classList.toggle("on", !!s);
+  }
+  function qPick(h, code, ev) {
+    QSEL = QSEL === code ? null : code;
+    $$(".qcard[data-code]", h).forEach(c => {
+      const on = c.dataset.code === QSEL;
+      c.classList.toggle("sel", on); c.setAttribute("aria-pressed", String(on));
+    });
+    const card = cardOf(code);
+    if (card && ev && ev.clientX != null) {            /* a ripple grows from the finger */
+      const r = card.getBoundingClientRect(), dot = document.createElement("i");
+      dot.className = "qrip"; dot.style.left = ev.clientX - r.left + "px"; dot.style.top = ev.clientY - r.top + "px";
+      card.appendChild(dot);
+      dot.animate([{ transform: "translate(-50%,-50%) scale(0)", opacity: .5 }, { transform: "translate(-50%,-50%) scale(1)", opacity: 0 }],
+        { duration: 520, easing: "ease-out" }).finished.then(() => dot.remove(), () => dot.remove());
+    }
+    qbarFill(h);
+  }
+  function qvBuild() {
+    qvEl = document.createElement("div"); qvEl.className = "qv"; qvEl.hidden = true;
+    qvEl.setAttribute("role", "dialog"); qvEl.setAttribute("aria-label", "個股走勢");
+    qvEl.innerHTML = `<div class="qv-top"><button type="button" class="qv-back" aria-label="回到報價卡">‹</button><span class="qv-pill"><i></i><span></span></span></div>
+      <div class="qv-mid"><div class="dcard qv-hero"><div class="cbox"></div></div><div class="ibox qv-ind"></div></div>
+      <div class="qv-sheet"><span class="qv-grab"></span>
+        <div class="qv-head"><div><span class="qv-tag"></span><h3></h3><p class="sub qv-px"></p></div><div class="qv-map" aria-hidden="true"></div></div>
+        <div class="qv-cells"></div>
+        <div class="qv-btns"><button type="button" class="qv-change">換一檔</button><button type="button" class="qv-full">完整 K 線圖</button></div></div>`;
+    document.body.appendChild(qvEl);
+    qvEl.addEventListener("click", e => {
+      if (e.target.closest(".qv-back, .qv-change")) qvHide();
+      else if (e.target.closest(".qv-full")) {
+        const code = QSEL; qvHide(true);
+        if (code) chartCode = code;
+        const tab = $('[role="tab"][data-p="dpChart"]'); tab && tab.click();
+      }
+    });
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && qvOpen) qvHide(); });
+  }
+  /* the card and the chart box share one view-transition name, so the browser morphs one into the other */
+  function qvMorph(card, swap, opening) {
+    const hero = $(".qv-hero", qvEl);
+    if (document.startViewTransition && card) {
+      if (opening) card.style.viewTransitionName = "qv-hero";
+      HTML.classList.add("qv-vt");
+      const vt = document.startViewTransition(() => { swap(); card.style.viewTransitionName = opening ? "" : "qv-hero"; });
+      const end = () => { card.style.viewTransitionName = ""; HTML.classList.remove("qv-vt"); };
+      return vt.finished.then(end, end);
+    }
+    if (!card) { swap(); return Promise.resolve(); }
+    /* fallback: measure both boxes and tween between them */
+    if (opening) swap();
+    const a = card.getBoundingClientRect(), b = hero.getBoundingClientRect();
+    const from = { transformOrigin: "0 0", transform: `translate(${a.left - b.left}px,${a.top - b.top}px) scale(${a.width / b.width},${a.height / b.height})` };
+    const to = { transformOrigin: "0 0", transform: "none" };
+    const opt = { duration: 650, easing: "cubic-bezier(.3,.7,.2,1)" };
+    qvEl.animate(opening ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }], { duration: opening ? 300 : 650, easing: "ease" });
+    const done = hero.animate(opening ? [from, to] : [to, from], opt).finished;
+    return done.then(() => { if (!opening) swap(); }, () => { if (!opening) swap(); });
+  }
+  function qvStats(cs) {
+    const last = cs[cs.length - 1].c, w = cs.slice(-20), ma = w.reduce((a, x) => a + x.c, 0) / w.length;
+    const hi = Math.max(...cs.map(c => c.h)), lo = Math.min(...cs.map(c => c.l));
+    const d20 = (last / ma - 1) * 100, pos = hi > lo ? (last - lo) / (hi - lo) * 100 : 50, ret = (last / cs[0].c - 1) * 100;
+    const tag = pos >= 80 ? "接近區間高點" : pos <= 20 ? "接近區間低點" : d20 >= 0 ? "站上月線" : "月線之下";
+    return { tag, cells: [[pct(d20), "距月線 MA20", tone(d20)], [fmt(pos, 0) + "%", `${cs.length} 日區間位置`, ""], [pct(ret), `近 ${cs.length} 日漲跌`, tone(ret)]] };
+  }
+  function qvShow(code) {
+    const s = DB.byCode.get(code); if (!s || qvOpen) return;
+    if (!qvEl) qvBuild();
+    const tok = ++qvTok, d = dig(s.price), dif = s.price - s.prev, t = tone(s.chgPct);
+    const box = $(".cbox", qvEl), sheet = $(".qv-sheet", qvEl), histP = getHist(code).catch(() => null);
+    clearTimeout(qvTimer);
+    sheet.classList.remove("in"); box.replaceChildren(); $(".qv-ind", qvEl).replaceChildren();
+    $(".qv-pill span", qvEl).textContent = `View from ${s.code} ${s.name}`;
+    $(".qv-tag", qvEl).textContent = "";
+    $(".qv-sheet h3", qvEl).textContent = `${s.name} ${s.code}`;
+    $(".qv-px", qvEl).innerHTML = `<b class="${t}">${fmt(s.price, d)}</b>　<span class="${t}">${dif >= 0 ? "▲" : "▼"} ${fmt(Math.abs(dif), d)}（${pct(s.chgPct)}）</span>`;
+    $(".qv-map", qvEl).innerHTML = qCodes().map(c => { const x = DB.byCode.get(c); return `<i class="${x ? tone(x.chgPct) : ""}${c === code ? " me" : ""}"></i>`; }).join("");
+    $(".qv-cells", qvEl).innerHTML = ["距月線 MA20", "區間位置", "區間漲跌"].map(l => `<div><b>—</b><span>${l}</span></div>`).join("");
+    qvOpen = true;
+    qvMorph(cardOf(code), () => { qvEl.hidden = false; qvEl.scrollTop = 0; HTML.classList.add("qv-on"); }, true).then(async () => {
+      const cs = await histP;
+      if (tok !== qvTok || !qvOpen) return;
+      let wait = 150;
+      if (cs) {                                           /* backdrop first, then the candles draw, then the sheet */
+        const built = candleSVG(cs, code), st = qvStats(cs);
+        box.replaceChildren(built.svg); built.play();
+        const ind = $(".qv-ind", qvEl), t0 = 420 + cs.length * 12;      /* KD and MACD follow the candles */
+        ind.innerHTML = ["kd", "macd"].map(k => `<div class="dcard">${indSVG(cs, k)}</div>`).join("");
+        rise($$(".dcard", ind), 120);
+        $$("path", ind).forEach((q, i) => sweep(q, 900, t0 + i * 150));
+        $(".qv-tag", qvEl).textContent = st.tag;
+        $(".qv-cells", qvEl).innerHTML = st.cells.map(([v, l, c]) => `<div><b class="${c}">${v}</b><span>${esc(l)}</span></div>`).join("");
+        wait = 420 + cs.length * 12;
+      } else box.innerHTML = `<p class="empty">這檔的歷史資料暫時無法載入，請到「設定」按「立即更新」。</p>`;
+      qvTimer = setTimeout(() => { if (tok === qvTok && qvOpen) sheet.classList.add("in"); }, wait);
+    });
+    $(".qv-back", qvEl).focus({ preventScroll: true });
+  }
+  function qvHide(instant) {
+    if (!qvOpen) return;
+    qvOpen = false; ++qvTok; clearTimeout(qvTimer);
+    const card = cardOf(QSEL), swap = () => { qvEl.hidden = true; HTML.classList.remove("qv-on"); };
+    if (instant) { swap(); return; }
+    qvMorph(card, swap, false).then(() => { if (card && card.isConnected) card.focus({ preventScroll: true }); });
+  }
+
   /* ---------- 報價卡 ---------- */
   function quoteCard(code) {
     const s = DB.byCode.get(code);
     if (!s) return `<div class="dcard qcard"><h3>${esc(code)}</h3><p class="sub">目前沒有這檔的資料</p></div>`;
     const d = dig(s.price), dif = s.price - s.prev, t = tone(s.chgPct);
     const pos = s.high > s.low ? clamp((s.price - s.low) / (s.high - s.low) * 100, 0, 100) : 50;
-    return `<div class="dcard qcard">
+    return `<div class="dcard qcard${code === QSEL ? " sel" : ""}" data-code="${esc(s.code)}" tabindex="0" role="button" aria-pressed="${code === QSEL}">
       <h3>${esc(s.name)} <span class="sub">${s.code}</span></h3>
       <select class="grp" data-g="${s.code}" aria-label="分組">${["未分組", ...GROUP_NAMES].map(g => `<option${(GROUPS[s.code] || "未分組") === g ? " selected" : ""}>${g}</option>`).join("")}</select>
       <div class="big ${t}">${fmt(s.price, d)}</div>
@@ -267,8 +389,18 @@
   }
   panel("dpQuote", {
     build(h) {
-      h.innerHTML = `<div class="tt-src"></div><div class="chips qg"></div><div class="tgrid qgrid"></div>`;
-      h.addEventListener("click", e => { const b = e.target.closest("button[data-qg]"); if (b) { QG = b.dataset.qg; emit(); } });
+      h.innerHTML = `<div class="tt-src"></div><div class="chips qg"></div><div class="tgrid qgrid"></div>
+        <div class="qbar"><div class="qbar-t"><span class="sub"></span><b></b></div><button type="button" class="qgo">看走勢</button></div>`;
+      h.addEventListener("click", e => {
+        const b = e.target.closest("button[data-qg]"); if (b) { QG = b.dataset.qg; emit(); return; }
+        if (e.target.closest(".qgo")) { if (QSEL) qvShow(QSEL); return; }
+        const c = e.target.closest(".qcard[data-code]");
+        if (c && !e.target.closest("select")) qPick(h, c.dataset.code, e);
+      });
+      h.addEventListener("keydown", e => {
+        if ((e.key !== "Enter" && e.key !== " ") || !e.target.classList || !e.target.classList.contains("qcard")) return;
+        e.preventDefault(); qPick(h, e.target.dataset.code);
+      });
       h.addEventListener("change", e => {
         const g = e.target.dataset && e.target.dataset.g; if (!g) return;
         if (e.target.value === "未分組") delete GROUPS[g]; else GROUPS[g] = e.target.value;
@@ -278,7 +410,10 @@
     update(h) {
       $(".tt-src", h).innerHTML = srcTag();
       $(".qg", h).innerHTML = ["全部", ...GROUP_NAMES].map(g => `<button type="button" class="chip" data-qg="${g}" aria-pressed="${g === QG}">${g}</button>`).join("");
-      $(".qgrid", h).innerHTML = WATCH.filter(c => QG === "全部" || GROUPS[c] === QG).map(quoteCard).join("") || `<p class="empty">還沒有自選股，到「行情列表」點 ★ 加入。</p>`;
+      const codes = qCodes();
+      if (!codes.includes(QSEL) || !DB.byCode.get(QSEL)) QSEL = null;
+      $(".qgrid", h).innerHTML = codes.map(quoteCard).join("") || `<p class="empty">還沒有自選股，到「行情列表」點 ★ 加入。</p>`;
+      qbarFill(h);
     },
     play(h) {
       const cards = $$(".qcard", h);
