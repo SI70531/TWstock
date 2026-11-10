@@ -278,9 +278,9 @@
   <link rel="stylesheet" href="./assets/twdash.css">
   <link rel="stylesheet" href="./assets/twapp.css">
   <link rel="stylesheet" href="./assets/twmarket.css">
-  <link rel="stylesheet" href="./assets/twtrade.css">
   <link rel="stylesheet" href="./assets/twglass.css">
   <link rel="stylesheet" href="./assets/twtheme.css">
+  <link rel="stylesheet" href="./assets/twmain.css">
 </head>
 <body>
 
@@ -312,48 +312,14 @@
       <div class="dash-note"><b>載入中</b>正在讀取證交所公開資料…</div>
       <div class="dtabs" role="tablist" aria-label="儀表板分頁">
         <i class="pill"></i>
-        <span class="dgroup" aria-hidden="true">市場</span>
         <button type="button" role="tab" data-p="dpOverview" aria-selected="true">總覽</button>
-        <button type="button" role="tab" data-p="dpTrend" aria-selected="false">走勢</button>
-        <button type="button" role="tab" data-p="dpSector" aria-selected="false">產業</button>
-        <span class="dgroup" aria-hidden="true">交易工具</span>
-        <button type="button" role="tab" data-p="dpQuote" aria-selected="false">報價卡</button>
-        <button type="button" role="tab" data-p="dpChart" aria-selected="false">K線圖</button>
-        <button type="button" role="tab" data-p="dpCalc" aria-selected="false">部位計算機</button>
-        <button type="button" role="tab" data-p="dpSim" aria-selected="false">模擬交易</button>
-        <button type="button" role="tab" data-p="dpRisk" aria-selected="false">風險評估</button>
-        <button type="button" role="tab" data-p="dpPerf" aria-selected="false">交易績效</button>
-        <button type="button" role="tab" data-p="dpAlert" aria-selected="false">到價提醒</button>
-        <button type="button" role="tab" data-p="dpHold" aria-selected="false">模擬持倉</button>
-        <button type="button" role="tab" data-p="dpFear" aria-selected="false">恐懼貪婪</button>
-        <button type="button" role="tab" data-p="dpList" aria-selected="false">行情列表</button>
-        <button type="button" role="tab" data-p="dpFund" aria-selected="false">基本面</button>
-        <button type="button" role="tab" data-p="dpDiv" aria-selected="false">除權息</button>
-        <button type="button" role="tab" data-p="dpChip" aria-selected="false">法人買賣超</button>
-        <button type="button" role="tab" data-p="dpScreen" aria-selected="false">選股</button>
-        <button type="button" role="tab" data-p="dpCmp" aria-selected="false">多檔比較</button>
-        <button type="button" role="tab" data-p="dpSet" aria-selected="false">設定</button>
+        <button type="button" role="tab" data-p="dpWatch" aria-selected="false">自選股</button>
+        <button type="button" role="tab" data-p="dpStock" aria-selected="false">個股分析</button>
       </div>
       <div class="dpanels">
         <div class="dpanel" id="dpOverview" role="tabpanel"></div>
-        <div class="dpanel" id="dpTrend" role="tabpanel"></div>
-        <div class="dpanel" id="dpSector" role="tabpanel"></div>
-        <div class="dpanel" id="dpQuote" role="tabpanel"></div>
-        <div class="dpanel" id="dpChart" role="tabpanel"></div>
-        <div class="dpanel" id="dpCalc" role="tabpanel"></div>
-        <div class="dpanel" id="dpSim" role="tabpanel"></div>
-        <div class="dpanel" id="dpRisk" role="tabpanel"></div>
-        <div class="dpanel" id="dpPerf" role="tabpanel"></div>
-        <div class="dpanel" id="dpAlert" role="tabpanel"></div>
-        <div class="dpanel" id="dpHold" role="tabpanel"></div>
-        <div class="dpanel" id="dpFear" role="tabpanel"></div>
-        <div class="dpanel" id="dpList" role="tabpanel"></div>
-        <div class="dpanel" id="dpFund" role="tabpanel"></div>
-        <div class="dpanel" id="dpDiv" role="tabpanel"></div>
-        <div class="dpanel" id="dpChip" role="tabpanel"></div>
-        <div class="dpanel" id="dpScreen" role="tabpanel"></div>
-        <div class="dpanel" id="dpCmp" role="tabpanel"></div>
-        <div class="dpanel" id="dpSet" role="tabpanel"></div>
+        <div class="dpanel" id="dpWatch" role="tabpanel"></div>
+        <div class="dpanel" id="dpStock" role="tabpanel"></div>
       </div>
     </section>
   </main>
@@ -426,12 +392,8 @@
 <canvas id="fx" aria-hidden="true"></canvas>
 
 <script src="./assets/twaccount.js"></script>
-<script src="./assets/twdash.js"></script>
+<script src="./assets/twmain.js"></script>
 <script src="./assets/twapp.js"></script>
-<script src="./assets/twmarket.js"></script>
-<script src="./assets/twdense.js"></script>
-<script src="./assets/twtrade.js"></script>
-<script src="./assets/twtools.js"></script>
 <script>
 (function () {
   const A = window.TWAccount;

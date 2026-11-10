@@ -2,64 +2,46 @@
 
 Taiwan stock research site, hosted on GitHub Pages: https://si70531.github.io/TWstock/
 
+## What it does
+
+Three tabs:
+
+- **總覽**: four indices (TAIEX, front-month TAIEX futures, electronics, finance), a market strip (turnover, net buying of foreign investors / investment trusts / dealers, advancers and decliners) and every TWSE-listed stock in one list. The list can be searched by code or name, sorted by price, change, change % or volume, and filtered with presets (全部, 自選, 強勢股, 弱勢股, 成交量). ★ adds a stock to the watchlist; tapping a row opens it in 個股分析.
+- **自選股**: the followed stocks as cards with price, change and the day's range.
+- **個股分析**: one stock.
+  - Price header and a search box to switch stock.
+  - K-line for 60 or 120 days with MA5 / MA20 / MA60, Bollinger bands, volume, KD, MACD and RSI. Move over the chart to read any day.
+  - 技術面快照: plain rules read from the same numbers (trend, KD, RSI, MACD, Bollinger position, volume, support and resistance, returns).
+  - 基本面與籌碼: P/E, yield, P/B, monthly revenue and its yearly growth, and the day's net buying by institutions.
+  - 新聞與公告: recent headlines and the company's own material announcements.
+  - **AI 分析團隊**: five AI analysts (technical, fundamental, institutional flows, news and world events, risk) each give a stance, followed by a summary with a short- and mid-term view, three scenarios with rough chances, entry conditions (price zone, stop, when not to buy), risks and events to watch. Needs a sign-in.
+
 ## Files
 
 ```
-index.html               Home: dashboard (tabs + animated charts), trading tools, sign-in and device PIN
-assets/twdash.js/.css    Dashboard tabs (總覽 / 走勢 / 產業): sliding pill, self-drawing lines, growing bars; TWSE open data
-assets/twaccount.js      Account, device PIN and watchlist sync (shares the same Supabase project and Worker as EZexams)
-assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill (mobile), card grid
-assets/twmarket.js/.css  Market tabs: rankings, stock detail with K-line, news, event timeline (sample data)
-assets/twglass.css       Glassmorphism layer: background glow blobs, frosted cards and tables
-assets/twdense.js        Overview: mini sparklines on stat cards and a side summary beside the chart (same data as the dashboard)
-assets/twtrade.js/.css   Trading tools (see below)
-assets/twtools.js        Research tools: fundamentals, ex-dividend list, institutional flows, screener, comparison
+index.html               Sign-in gate, device PIN, page shell and the three tabs
+assets/twmain.js/.css    The app: data loading, 總覽, 自選股, 個股分析, charts, AI analysis
+assets/twaccount.js      Account, device PIN and watchlist sync (same Supabase project and Worker as EZexams)
+assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill (mobile)
+assets/twdash.css, twmarket.css, twglass.css, twtheme.css   Shared look: cards, chips, glass surfaces, theme
 tools/supabase-twstock.sql  Watchlist table (Row Level Security)
 ```
 
-## Trading tools
+## Data sources
 
-The tabs under "交易工具" are built in `assets/twtrade.js` and styled in `assets/twtrade.css`:
+- **Closing data (no backend needed)**: TWSE open data, read by the browser. `STOCK_DAY_ALL` (all listed stocks), `MI_INDEX` (indices), `FMTQIK` (TAIEX history and turnover), `BFI82U` and `T86` (institutions), `STOCK_DAY` (daily bars per stock), `BWIBBU_ALL` and `t187ap05_L` (valuation and monthly revenue). Finished months are cached in the browser.
+- **Intraday quotes, futures, news and AI (through the Worker)**: the `ezexams-ai` Worker (source in the EZexams repo, `tools/ezexams-worker.js`) serves
+  - `GET /tw/rt` intraday quotes from TWSE's market information system and the TAIEX futures quote from TAIFEX. These are unofficial interfaces and can change or stop working.
+  - `GET /tw/news` headlines (Google News) and material announcements (TWSE open data).
+  - `POST /tw/analyze` the AI analysis (Gemini), counted per account.
+- Intraday quotes cover the stocks currently on screen (up to 70 rows, the watchlist, or the open stock) and refresh every 10 seconds during trading hours; the rest of the list stays at the last close until scrolled into the first rows or opened. Sorting therefore mixes live and closing values.
+- When the Worker does not answer, the page keeps working on closing data and says so in the banner. When TWSE cannot be reached at all, the banner says 示意資料 and the numbers are sample values.
 
-- **報價卡**: quote cards for the watchlist, with today's price, change and an animated day-range marker.
-- **報價卡 → 走勢**: tap a quote card to select it, then press 看走勢. The card flies open into that stock's K-line with KD and MACD, and an info sheet slides up with a one-line verdict, distance from MA20, position in the 60-day range and the 60-day change. 換一檔 plays the move backwards with the card still selected; 完整 K 線圖 opens the full chart tab on the same stock.
-- **K線圖**: 60-day candles with MA5 (solid) and MA20 (dashed), for any watchlist stock.
-- **部位計算機**: position size from capital, risk percentage and stop-loss distance, with risk/reward ratio.
-- **模擬交易**: paper trading with NT$1,000,000 starting cash, 0.1425% fee and 0.3% sell tax. Nothing is sent to a broker.
-- **風險評估**: exposure, largest single position, loss if all holdings fall 10%, and cash ratio.
-- **交易績效**: realized P&L, win rate, average win and loss, profit factor, and a cumulative P&L curve.
-- **到價提醒**: price alerts above or below a target. Browser notifications are sent only in live-data mode.
-- **模擬持倉**: holdings and cash as an animated donut chart with legend.
-- **恐懼貪婪**: a simple market sentiment gauge built from the day's advancing-stock share and average change. It is this site's own indicator, not an official index.
-- **行情列表**: searchable, sortable list of all listed stocks. Click ★ to add a stock to the watchlist.
-- **基本面**: P/E, dividend yield, P/B, estimated EPS and dividend, monthly revenue and YoY growth, each with a plain-language explanation, plus a P/E river chart (price vs 10x–26x of the latest estimated EPS).
-- **除權息**: ex-dividend / ex-rights schedule, optionally limited to the watchlist.
-- **法人買賣超**: top-10 net buy and net sell for foreign investors, investment trusts, and all three institutions combined.
-- **選股**: screener on yield, P/E, price, change, volume and revenue growth, with presets.
-- **多檔比較**: side-by-side comparison of up to 5 watchlist stocks, best value highlighted.
-- **K線圖 extras**: Bollinger bands, KD, MACD, and hand-drawn trend lines (stored in this browser).
-- **報價卡 groups**: tag watchlist stocks as 短線 / 長期 / 觀察 and filter by group. The watchlist itself syncs to your account when signed in.
-- **設定**: data source, manual refresh, and clearing paper trades, alerts or the watchlist.
+After changing the Worker source, run the **Deploy Worker** workflow in the EZexams repository (Actions → Deploy Worker → Run workflow).
 
-### Market tabs (總覽 / 走勢 / 產業)
+## About the AI analysis
 
-These tabs read TWSE open data for the latest trading day; the banner above the tabs shows the data date.
-
-- **TAIEX, turnover, shares and trades**: TWSE `FMTQIK` (one request per month, four months). Finished months are cached in the browser, so later visits only ask for the current month. The dashed line on the index chart is the 20-day average.
-- **Institutional net buy / sell (外資, 投信, 自營商)**: TWSE `BFI82U`, by amount. It is published after the close (about 15:00); until then the previous trading day is shown with its date, or "—".
-- **Sector moves**: sector indices from TWSE open data `MI_INDEX`, sorted from strongest to weakest.
-- **Advancers / decliners**: counted from the quote list used by the trading tools, so the count includes ETFs.
-
-If TWSE cannot be reached, the banner says 示意資料 and the numbers are sample values. A single part that fails on its own shows "—" instead of a sample value.
-
-### Data sources
-
-- **TWSE 公開資料 (default)**: the browser fetches TWSE open data. These are the latest trading day's closing and day-range prices, not tick-by-tick real-time quotes. K-line history comes from TWSE's monthly stock-day endpoint. Live data refreshes every 60 seconds.
-- **示意資料**: generated sample data, used automatically when TWSE cannot be reached from the browser (the page shows the reason). Sample numbers do not reflect real prices.
-
-TWSE may block cross-origin requests from some networks. If live data does not load, use the sample fallback and check the message in the panel.
-
-All paper trades, the watchlist and alerts are stored only in the current browser (localStorage).
+This is a private research tool for its owner and a few friends, not a public service. The AI works from the figures on the page and from news headlines; it can be wrong, it only sees titles of news stories, and nobody can know where a price will go. The scenarios and entry conditions are a structured opinion to think with, not investment advice and not a promise of any result.
 
 ## Account
 
@@ -72,10 +54,6 @@ All paper trades, the watchlist and alerts are stored only in the current browse
 1. Supabase → SQL Editor: run `tools/supabase-twstock.sql`.
 2. The Worker (`ezexams-ai`) is already configured in EZexams. TWstock uses the same site origin (`https://si70531.github.io`), so no extra setup is needed.
 
-## What this site deliberately does not do
-
-No stock picks, buy/sell signals, target prices or "should buy" scores, no community posting, no paid groups or copy-trading, and no redistribution of tick-by-tick real-time quotes. In Taiwan, giving investment advice for pay without a licence can fall under securities investment advisory rules, so the site only shows data and objective indicators. Screener results and indicators are tools for narrowing down, not recommendations.
-
 ## Disclaimer
 
-This site is for research and learning. It gives no investment advice, and the simulator does not represent real trading results.
+This site is for research and learning. Nothing on it, including the AI analysis, is investment advice. No orders are placed from this site.

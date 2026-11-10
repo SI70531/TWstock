@@ -295,6 +295,8 @@
     clearPin,
     loadWatchlist,
     saveWatchlist,
+    /* a valid access token for calls to the Worker (null when signed out) */
+    token: () => token().catch(() => null),
     account: () => { const s = sess(); return s ? { uid: s.uid, username: s.username } : null; },
     device: () => { const d = dev(); return d ? { username: d.username, pin: !!d.pin, asked: !!d.asked } : null; },
     /* the person said "not now" to a PIN on this device: do not ask again after every sign-in */
