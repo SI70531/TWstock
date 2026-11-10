@@ -284,7 +284,7 @@
     qbarFill(h);
   }
   function qvBuild() {
-    qvEl = document.createElement("div"); qvEl.className = "qv"; qvEl.hidden = true;
+    qvEl = document.createElement("div"); qvEl.className = "qv"; qvEl.id = "qv"; qvEl.hidden = true;
     qvEl.setAttribute("role", "dialog"); qvEl.setAttribute("aria-label", "個股走勢");
     qvEl.innerHTML = `<div class="qv-top"><button type="button" class="qv-back" aria-label="回到報價卡">‹</button><span class="qv-pill"><i></i><span></span></span></div>
       <div class="qv-mid"><div class="dcard qv-hero"><div class="cbox"></div></div><div class="ibox qv-ind"></div></div>
@@ -303,26 +303,31 @@
     });
     document.addEventListener("keydown", e => { if (e.key === "Escape" && qvOpen) qvHide(); });
   }
-  /* the card and the chart box share one view-transition name, so the browser morphs one into the other */
+  /* The chart box starts on top of the card and grows to its place. Only transform and opacity move, both on the
+     compositor, and nothing inside the view is blurred, so the move stays smooth on an iPad. */
   function qvMorph(card, swap, opening) {
-    const hero = $(".qv-hero", qvEl);
-    if (document.startViewTransition && card) {
-      if (opening) card.style.viewTransitionName = "qv-hero";
-      HTML.classList.add("qv-vt");
-      const vt = document.startViewTransition(() => { swap(); card.style.viewTransitionName = opening ? "" : "qv-hero"; });
-      const end = () => { card.style.viewTransitionName = ""; HTML.classList.remove("qv-vt"); };
-      return vt.finished.then(end, end);
-    }
-    if (!card) { swap(); return Promise.resolve(); }
-    /* fallback: measure both boxes and tween between them */
+    const hero = $(".qv-hero", qvEl), EASE = "cubic-bezier(.3,.7,.2,1)";
+    HTML.classList.remove("qv-idle");                    /* the page behind is drawn again for the move */
     if (opening) swap();
+    if (!card) { if (!opening) swap(); return Promise.resolve(); }
     const a = card.getBoundingClientRect(), b = hero.getBoundingClientRect();
-    const from = { transformOrigin: "0 0", transform: `translate(${a.left - b.left}px,${a.top - b.top}px) scale(${a.width / b.width},${a.height / b.height})` };
-    const to = { transformOrigin: "0 0", transform: "none" };
-    const opt = { duration: 650, easing: "cubic-bezier(.3,.7,.2,1)" };
-    qvEl.animate(opening ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }], { duration: opening ? 300 : 650, easing: "ease" });
-    const done = hero.animate(opening ? [from, to] : [to, from], opt).finished;
-    return done.then(() => { if (!opening) swap(); }, () => { if (!opening) swap(); });
+    const from = { transform: `translate(${a.left - b.left}px,${a.top - b.top}px) scale(${a.width / b.width},${a.height / b.height})` }, to = { transform: "none" };
+    const kids = Array.from(qvEl.children).filter(n => !n.contains(hero));
+    let done;
+    if (opening) {
+      qvEl.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "ease-out" });
+      kids.forEach(n => n.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 200, fill: "backwards" }));
+      done = hero.animate([from, to], { duration: 460, easing: EASE }).finished;
+    } else {
+      hero.animate([{ opacity: 1 }, { opacity: 1, offset: .55 }, { opacity: 0 }], { duration: 380, fill: "forwards" });
+      qvEl.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, delay: 140, easing: "ease-in", fill: "forwards" });
+      done = hero.animate([to, from], { duration: 380, easing: EASE, fill: "forwards" }).finished;
+    }
+    const end = () => {
+      if (opening) HTML.classList.add("qv-idle");        /* fully covered now: stop drawing the page behind */
+      else { swap(); [qvEl, hero].forEach(n => n.getAnimations().forEach(x => x.cancel())); }
+    };
+    return done.then(end, end);
   }
   function qvStats(cs) {
     const last = cs[cs.length - 1].c, w = cs.slice(-20), ma = w.reduce((a, x) => a + x.c, 0) / w.length;
@@ -351,14 +356,16 @@
       let wait = 150;
       if (cs) {                                           /* backdrop first, then the candles draw, then the sheet */
         const built = candleSVG(cs, code), st = qvStats(cs);
-        box.replaceChildren(built.svg); built.play();
-        const ind = $(".qv-ind", qvEl), t0 = 420 + cs.length * 12;      /* KD and MACD follow the candles */
+        box.replaceChildren(built.svg);
+        const ind = $(".qv-ind", qvEl);                   /* KD and MACD follow the candles */
         ind.innerHTML = ["kd", "macd"].map(k => `<div class="dcard">${indSVG(cs, k)}</div>`).join("");
-        rise($$(".dcard", ind), 120);
-        $$("path", ind).forEach((q, i) => sweep(q, 900, t0 + i * 150));
+        /* light entrance: the whole chart wipes in from the left as one clipped layer, then each indicator card */
+        const wipe = (n, delay) => n.animate([{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }], { duration: 620, delay, easing: "cubic-bezier(.3,.7,.3,1)", fill: "backwards" });
+        wipe(built.svg, 0);
+        $$("svg", ind).forEach((n, i) => wipe(n, 320 + i * 160));
         $(".qv-tag", qvEl).textContent = st.tag;
         $(".qv-cells", qvEl).innerHTML = st.cells.map(([v, l, c]) => `<div><b class="${c}">${v}</b><span>${esc(l)}</span></div>`).join("");
-        wait = 420 + cs.length * 12;
+        wait = 520;
       } else box.innerHTML = `<p class="empty">這檔的歷史資料暫時無法載入，請到「設定」按「立即更新」。</p>`;
       qvTimer = setTimeout(() => { if (tok === qvTok && qvOpen) sheet.classList.add("in"); }, wait);
     });
@@ -367,8 +374,9 @@
   function qvHide(instant) {
     if (!qvOpen) return;
     qvOpen = false; ++qvTok; clearTimeout(qvTimer);
-    const card = cardOf(QSEL), swap = () => { qvEl.hidden = true; HTML.classList.remove("qv-on"); };
+    const card = cardOf(QSEL), swap = () => { qvEl.hidden = true; HTML.classList.remove("qv-on", "qv-idle"); };
     if (instant) { swap(); return; }
+    $(".qv-sheet", qvEl).classList.remove("in");
     qvMorph(card, swap, false).then(() => { if (card && card.isConnected) card.focus({ preventScroll: true }); });
   }
 

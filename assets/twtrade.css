@@ -179,7 +179,7 @@ html.qv-on { overflow: hidden; }
 }
 .qv-pill { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--glass-bd, var(--c3)); background: var(--glass-bg, var(--c2)); font-size: 13px; }
 .qv-pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-a, #19c2dc); box-shadow: 0 0 0 4px rgba(var(--glow), .25); }
-:root .qv-hero { view-transition-name: qv-hero; padding: 14px; }
+:root .qv-hero { padding: 14px; }
 .qv-hero .cbox { min-height: 180px; }
 .qv-hero svg { display: block; width: 100%; height: auto; overflow: visible; }
 .qv-hero svg text { fill: var(--c4); font-size: 11px; }
@@ -188,7 +188,7 @@ html.qv-on { overflow: hidden; }
   border: 1px solid var(--glass-bd, var(--c3)); border-bottom: 0; border-radius: 26px 26px 0 0;
   background: var(--glass-bg, var(--c1)); -webkit-backdrop-filter: blur(var(--glass-blur, 18px)); backdrop-filter: blur(var(--glass-blur, 18px));
   box-shadow: 0 -18px 44px -20px rgba(0,25,45,.6);
-  transform: translateY(105%); opacity: 0; transition: transform .6s cubic-bezier(.2,.9,.3,1), opacity .3s;
+  transform: translateY(105%); opacity: 0; transition: transform .45s cubic-bezier(.2,.9,.3,1), opacity .25s;
 }
 .qv-sheet.in { transform: none; opacity: 1; }
 .qv-grab { justify-self: center; width: 42px; height: 4px; border-radius: 99px; background: var(--c3); }
@@ -224,8 +224,12 @@ html.qv-on { overflow: hidden; }
   .qv-grab { display: none; }
 }
 
-/* the theme switch turns root cross-fades off; during this move the incoming page fades in while the card morphs */
-@keyframes qvFade { from { opacity: 0; } }
-html.qv-vt::view-transition-new(root) { animation: qvFade .4s ease both; }
-::view-transition-group(qv-hero) { animation-duration: .65s; animation-timing-function: cubic-bezier(.3,.7,.2,1); z-index: 3; }
-::view-transition-old(qv-hero), ::view-transition-new(qv-hero) { height: 100%; object-fit: cover; object-position: 50% 0; animation-duration: .65s; }
+/* smoothness: nothing in the view is blurred (its backdrop is a plain gradient, so blur adds nothing but cost),
+   the moving pieces get their own layer, and the page behind stops drawing once it is fully covered */
+:root #qv .dcard, :root #qv .qv-sheet, :root #qv .qv-back, :root #qv .qv-pill { -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root #qv .dcard { box-shadow: none; }
+:root #qv .qv-sheet { background: #134a5c; box-shadow: 0 -10px 30px -18px rgba(0,25,45,.7); }
+.qv-hero { transform-origin: 0 0; will-change: transform; }
+.qv-sheet { will-change: transform; }
+html.qv-idle #app, html.qv-idle #fx { visibility: hidden; }
+html.qv-idle::before { animation-play-state: paused; }
