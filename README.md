@@ -6,12 +6,12 @@ Taiwan stock research site, hosted on GitHub Pages: https://si70531.github.io/TW
 
 ```
 index.html               Home: dashboard (tabs + animated charts), trading tools, sign-in and device PIN
-assets/twdash.js/.css    Dashboard tabs: sliding pill, self-drawing lines, growing bars, sweeping donut (sample data)
+assets/twdash.js/.css    Dashboard tabs (總覽 / 走勢 / 產業): sliding pill, self-drawing lines, growing bars; TWSE open data
 assets/twaccount.js      Account, device PIN and watchlist sync (shares the same Supabase project and Worker as EZexams)
 assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill (mobile), card grid
 assets/twmarket.js/.css  Market tabs: rankings, stock detail with K-line, news, event timeline (sample data)
 assets/twglass.css       Glassmorphism layer: background glow blobs, frosted cards and tables
-assets/twdense.js        Overview: mini sparklines on stat cards and a side summary beside the chart (sample data)
+assets/twdense.js        Overview: mini sparklines on stat cards and a side summary beside the chart (same data as the dashboard)
 assets/twtrade.js/.css   Trading tools (see below)
 assets/twtools.js        Research tools: fundamentals, ex-dividend list, institutional flows, screener, comparison
 tools/supabase-twstock.sql  Watchlist table (Row Level Security)
@@ -40,6 +40,17 @@ The tabs under "交易工具" are built in `assets/twtrade.js` and styled in `as
 - **K線圖 extras**: Bollinger bands, KD, MACD, and hand-drawn trend lines (stored in this browser).
 - **報價卡 groups**: tag watchlist stocks as 短線 / 長期 / 觀察 and filter by group. The watchlist itself syncs to your account when signed in.
 - **設定**: data source, manual refresh, and clearing paper trades, alerts or the watchlist.
+
+### Market tabs (總覽 / 走勢 / 產業)
+
+These tabs read TWSE open data for the latest trading day; the banner above the tabs shows the data date.
+
+- **TAIEX, turnover, shares and trades**: TWSE `FMTQIK` (one request per month, four months). Finished months are cached in the browser, so later visits only ask for the current month. The dashed line on the index chart is the 20-day average.
+- **Institutional net buy / sell (外資, 投信, 自營商)**: TWSE `BFI82U`, by amount. It is published after the close (about 15:00); until then the previous trading day is shown with its date, or "—".
+- **Sector moves**: sector indices from TWSE open data `MI_INDEX`, sorted from strongest to weakest.
+- **Advancers / decliners**: counted from the quote list used by the trading tools, so the count includes ETFs.
+
+If TWSE cannot be reached, the banner says 示意資料 and the numbers are sample values. A single part that fails on its own shows "—" instead of a sample value.
 
 ### Data sources
 
