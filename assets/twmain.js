@@ -17,7 +17,7 @@
   "use strict";
   const root = document.getElementById("dash");
   if (!root) return;
-  const WORKER = "https://ezexams-ai.ta77199ta.workers.dev";
+  const WORKER = "https://twstock-ai.ta77199ta.workers.dev";
   const NS = "http://www.w3.org/2000/svg";
   const $ = (s, r = root) => r.querySelector(s);
   const $$ = (s, r = root) => Array.from(r.querySelectorAll(s));
