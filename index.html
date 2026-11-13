@@ -12,7 +12,7 @@
       if (m !== "light" && m !== "dark") m = null;
       var q = matchMedia("(prefers-color-scheme: light)");
       function eff() { return "dark"; }
-      r.dataset.theme = eff();
+      r.dataset.theme = eff(); r.classList.add("js");
       window.__twTheme = {
         get mode() { return m || "system"; },
         set: function (x) {
@@ -25,262 +25,11 @@
     })();
   </script>
   <title>TWstock 台股研究</title>
-  <style>
-    /* Emerald Depth */
-    :root {
-      --c0: #051F20; --c1: #0B2B26; --c2: #163832; --c3: #235347; --c4: #8EB69B; --c5: #DAF1DE;
-      --err: #F0A8A0; --hi: #fff;
-      --glow: 142,182,155; --wash: 35,83,71; --flashc: 218,241,222; --sh: 1;
-      --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      color-scheme: dark;
-    }
-    /* the same palette turned over for light mode: pale mint surfaces, the deep greens become the ink */
-    :root[data-theme="light"] {
-      --c0: #EEF6F0; --c1: #FFFFFF; --c2: #DDEEE2; --c3: #B4D3BF; --c4: #235347; --c5: #051F20;
-      --err: #B3382C; --hi: #000;
-      --glow: 35,83,71; --wash: 142,182,155; --flashc: 142,182,155; --sh: .3;
-      color-scheme: light;
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0; color: var(--c5); transition: background-color .3s, color .3s; font: 16px/1.55 system-ui, -apple-system, "Noto Sans TC", sans-serif;
-      background: radial-gradient(900px 500px at 15% -10%, rgba(var(--wash),.5), transparent 70%), var(--c0);
-    }
-    button, input { font: inherit; color: inherit; }
-    :focus-visible { outline: 2px solid var(--c4); outline-offset: 2px; }
-    .btn { min-height: 40px; padding: 0 16px; border: 1px solid var(--c3); border-radius: 10px; background: var(--c2); cursor: pointer; transition: background .2s, transform .15s; }
-    .btn:hover { background: var(--c3); }
-    .btn:active { transform: scale(.97); }
-    .small { color: var(--c4); font-size: 14px; }
-
-    /* ---------- the page behind the gate (blank for now) ---------- */
-    .app header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 68px 14px 16px; border-bottom: 1px solid var(--c2); }
-    .app h1 { font-size: 18px; margin: 0; letter-spacing: .02em; }
-    .app .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .app main { display: grid; place-items: center; min-height: 60vh; padding: 16px; text-align: center; }
-    .app main.dashmain { place-items: start center; }
-
-    /* ---------- the gate ---------- */
-    #gate {
-      position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; overflow: auto;
-      padding: 24px max(16px, env(safe-area-inset-left, 0px));
-      background-color: var(--c0);
-      background-image: radial-gradient(rgba(var(--wash),.7) 1px, transparent 1.3px), radial-gradient(900px 560px at 50% -10%, rgba(var(--wash),.55), transparent 70%);
-      background-size: 24px 24px, auto;
-      transition: opacity .45s ease, transform .45s ease;
-    }
-    #gate[hidden] { display: none; }
-    #gate.out { opacity: 0; pointer-events: none; }
-    .wrap { transition: transform .55s cubic-bezier(.5,0,.8,.4), filter .55s ease, opacity .5s ease; }
-    #gate.out .wrap { transform: scale(1.14); filter: blur(10px); opacity: 0; }
-    #gate:not(.out) .wrap { transition: transform .85s cubic-bezier(.2,.8,.2,1), filter .55s ease, opacity .6s ease; }
-    #gate.hold .wrap { opacity: 0; transform: translateY(28px) scale(.96); }
-    .wrap { width: min(100%, 480px); perspective: 1400px; }
-    .brand { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--c5); }
-    .brand .mk { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--c4); color: var(--c0); font-size: 12px; }
-
-    .ticket {
-      position: relative; overflow: hidden; border: 1px solid var(--c3); border-radius: 20px;
-      background: radial-gradient(280px circle at var(--mx, 50%) var(--my, 0%), rgba(var(--glow),.17), transparent 70%), var(--c1);
-      box-shadow: 0 30px 80px rgba(0,0,0,calc(.5 * var(--sh)));
-      transition: transform .32s ease, box-shadow .6s ease, border-color .6s ease;
-      animation: cardIn .45s cubic-bezier(.2,.8,.2,1);
-    }
-    .ticket.flip { transform: rotateY(90deg); }
-    .ticket[data-glow="1"] { border-color: var(--c4); animation: glowPulse 1.2s ease-in-out infinite; }
-    .ticket::after {
-      content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .07; mix-blend-mode: overlay;
-      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
-    }
-    .main { padding: 26px 26px 20px; min-width: 0; }
-    .prompt { font-family: var(--mono); font-size: 12.5px; font-weight: 600; color: var(--c4); }
-    .prompt::before { content: "$ "; opacity: .6; }
-    .eg-h { font-size: 26px; line-height: 1.2; margin: 6px 0 6px; font-weight: 700; }
-    .eg-p { margin: 0 0 18px; color: var(--c4); font-size: 14.5px; }
-    .who { color: var(--c5); font-weight: 600; }
-
-    .lab { display: flex; align-items: center; justify-content: space-between; margin: 12px 0 6px; font-size: 13px; color: var(--c4); }
-    .eye { display: inline-flex; align-items: center; gap: 5px; border: 0; background: none; color: var(--c4); font-size: 13px; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
-    .eye:hover { color: var(--c5); }
-    .eye svg { width: 16px; height: 16px; }
-    .in {
-      width: 100%; min-height: 46px; padding: 0 13px; border: 1px solid var(--c3); border-radius: 12px; background: var(--c0); color: var(--c5);
-      transition: border-color .2s, box-shadow .2s;
-    }
-    .in:focus { outline: none; border-color: var(--c4); box-shadow: 0 0 0 3px rgba(var(--glow),.2); }
-    .acct.bad .in, .cells.bad .cell { border-color: var(--err); }
-    .acct.bad, .cells.bad { animation: shake .4s; }
-
-    /* which fields each mode shows */
-    .reg, .pinrow, .confirm { display: none; }
-    [data-mode="register"] .reg { display: block; }
-    [data-mode="pin"] .acct, [data-mode="setpin"] .acct { display: none; }
-    [data-mode="pin"] .pinrow, [data-mode="setpin"] .pinrow { display: block; }
-    [data-mode="setpin"] .confirm { display: block; }
-    [data-mode="pin"] .go { display: none; }       /* the four boxes submit by themselves */
-
-    .cells { display: flex; gap: 10px; }
-    .cell { flex: 1; }
-    .cell input {
-      width: 100%; height: 62px; text-align: center; font-size: 26px; font-weight: 600; background: var(--c0);
-      border: 1px solid var(--c3); border-radius: 14px; caret-color: var(--c4); padding: 0;
-      transition: border-color .2s, box-shadow .2s, transform .2s, background .2s;
-    }
-    .cell input.mask { -webkit-text-security: disc; }
-    .cell input:focus { outline: none; border-color: var(--c4); box-shadow: 0 0 0 4px rgba(var(--glow),.2); transform: translateY(-2px); }
-    .cell input.on { border-color: var(--c4); background: var(--c2); }
-
-    .go {
-      display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 48px; margin-top: 18px;
-      border: 0; border-radius: 12px; background: var(--c4); color: var(--c0); font-weight: 700; cursor: pointer;
-      transition: background .2s, transform .15s, gap .2s;
-    }
-    .go:hover { background: var(--c5); gap: 12px; }
-    .go:active { transform: scale(.98); }
-    .go:disabled { opacity: .5; cursor: default; }
-    .go svg { width: 18px; height: 18px; }
-    .msg { min-height: 1.4em; margin: 10px 0 0; font-size: 14px; color: var(--c4); }
-    .msg.err { color: var(--err); }
-    .links { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-top: 6px; font-size: 14px; color: var(--c4); }
-    .link { border: 0; background: none; color: var(--c5); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; padding: 2px 0; font-size: inherit; }
-    .link:hover { color: var(--hi); }
-    .link[hidden] { display: none; }
-    .foot { text-align: center; margin: 16px 0 0; font-size: 14px; color: var(--c4); }
-    .foot[hidden] { display: none; }
-
-    /* verifying → granted */
-    .overlay {
-      position: absolute; inset: 0; z-index: 2; display: none; flex-direction: column; align-items: center; justify-content: center;
-      gap: 6px; text-align: center; padding: 24px; background: var(--c1);
-    }
-    .overlay[data-stage] { display: flex; animation: fade .3s ease-out; }
-    /* while verifying, the form behind is hidden so it never shows through the spinner */
-    .ticket:has(.overlay[data-stage]) .main { visibility: hidden; }
-    .overlay h2 { font-size: 22px; margin: 6px 0 0; }
-    .overlay p { margin: 0; color: var(--c4); font-size: 14px; }
-    .overlay .verify, .overlay .done { display: none; flex-direction: column; align-items: center; gap: 6px; }
-    .overlay[data-stage="verify"] .verify { display: flex; }
-    .overlay[data-stage="done"] .done { display: flex; }
-    .orbitbox { display: none; position: relative; width: 190px; height: 150px; margin-bottom: 8px; }
-    .overlay[data-stage="orbit"] .verify { display: flex; }
-    .overlay[data-stage="orbit"] .ring { display: none; }
-    .overlay[data-stage="orbit"] .orbitbox { display: block; }
-    .orbitbox .tile {
-      position: absolute; left: 50%; top: 50%; width: 50px; height: 58px; margin: -29px 0 0 -25px; display: grid; place-items: center;
-      border-radius: 13px; background: var(--c2); border: 1px solid var(--c4); font-size: 24px; font-weight: 600; color: var(--c5);
-      box-shadow: 0 8px 22px rgba(0,0,0,calc(.45 * var(--sh))), 0 0 14px rgba(var(--glow),.25); will-change: transform;
-    }
-    .orbitbox::before, .orbitbox::after {
-      content: ""; position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 1.5px dashed rgba(var(--glow),.45);
-    }
-    .orbitbox::before { width: 168px; height: 168px; margin: -84px 0 0 -84px; animation: spin 3.4s linear infinite; }
-    .orbitbox::after { width: 112px; height: 112px; margin: -56px 0 0 -56px; border-style: dotted; animation: spin 2.2s linear infinite reverse; }
-    .orbitbox { background: radial-gradient(circle, rgba(var(--glow),.3), transparent 62%); animation: breathe 1s ease-in-out infinite; }
-    .ring { position: relative; width: 104px; height: 104px; margin-bottom: 8px; }
-    .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-    .ring .track { fill: none; stroke: var(--c2); stroke-width: 6; }
-    .ring .arc { fill: none; stroke: var(--c4); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 264; stroke-dashoffset: 264; filter: drop-shadow(0 0 6px rgba(var(--glow),.6)); }
-    .overlay[data-stage="verify"] .ring { animation: ringPop .55s cubic-bezier(.2,1.5,.4,1); }
-    .ring::before { content: ""; position: absolute; inset: -11px; border-radius: 50%; border: 1.5px dashed rgba(var(--glow),.5); animation: spin 7s linear infinite; }
-    .ring::after { content: ""; position: absolute; inset: -22px; border-radius: 50%; border: 1px dotted rgba(var(--glow),.3); animation: spin 11s linear infinite reverse; }
-    .ring .pct { text-shadow: 0 0 14px rgba(var(--glow),.8); position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
-    .check { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 8px;
-      background: radial-gradient(circle, var(--c3), var(--c2)); box-shadow: 0 0 0 8px rgba(var(--glow),.12), 0 0 40px rgba(var(--glow),.45); animation: checkPop .5s cubic-bezier(.2,1.4,.4,1); }
-    .check svg { width: 46px; height: 46px; fill: none; stroke: var(--c5); stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw .45s .2s ease-out forwards; }
-    .overlay .done h2 { animation: rise .5s .2s both cubic-bezier(.2,.9,.3,1); }
-    .overlay .done p { animation: rise .5s .32s both cubic-bezier(.2,.9,.3,1); }
-    .overlay .done .badge { animation: badgeIn .6s .45s both cubic-bezier(.2,1.6,.35,1); }
-    .shock {
-      position: absolute; z-index: 4; width: 40px; height: 40px; margin: -20px 0 0 -20px; border-radius: 50%; pointer-events: none;
-      border: 2px solid var(--c5); box-shadow: 0 0 24px rgba(var(--glow),.8), inset 0 0 18px rgba(var(--glow),.5);
-      animation: shock .8s ease-out forwards;
-    }
-    .flash { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(circle at var(--fx) var(--fy), rgba(var(--flashc),.6), transparent 62%); animation: flash .7s ease-out forwards; }
-    #fx { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 1200; }
-    .badge { margin-top: 8px; padding: 3px 14px; border-radius: 999px; background: var(--c4); color: var(--c0); font-size: 12px; font-weight: 700; letter-spacing: .12em; }
-
-    /* ---------- light / dark button ---------- */
-    .theme { position: fixed; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); z-index: 1010; }
-    .themebtn {
-      display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--c3);
-      background: var(--c1); color: var(--c5); cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,calc(.3 * var(--sh)));
-      transition: transform .2s, background .2s, border-color .2s;
-    }
-    .themebtn:hover { background: var(--c2); border-color: var(--c4); transform: rotate(18deg); }
-    .themebtn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    .themebtn .moon { display: none; }
-    :root[data-theme="dark"] .themebtn .moon { display: block; }
-    :root[data-theme="dark"] .themebtn .sun { display: none; }
-    .thmenu {
-      position: absolute; top: 50px; right: 0; min-width: 150px; padding: 6px; border: 1px solid var(--c3); border-radius: 14px;
-      background: var(--c1); box-shadow: 0 18px 50px rgba(0,0,0,calc(.45 * var(--sh)));
-      animation: menuIn .18s ease-out; transform-origin: 100% 0;
-    }
-    .thmenu[hidden] { display: none; }
-    .thmenu button { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 38px; padding: 0 12px; border: 0; border-radius: 9px; background: none; color: var(--c5); cursor: pointer; text-align: left; }
-    .thmenu button:hover { background: var(--c2); }
-    .thmenu button[aria-checked="true"]::after { content: "✓"; color: var(--c4); font-weight: 700; }
-    ::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
-    ::view-transition-old(root) { z-index: 1; }
-    ::view-transition-new(root) { z-index: 2; }
-
-    /* ---------- opening intro: a chart draws itself, then an iris opens on the sign-in ---------- */
-    .intro { position: fixed; inset: 0; z-index: 1100; overflow: hidden; background: #051F20; color: #DAF1DE; font-family: var(--mono); }
-    .intro .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(142,182,155,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(142,182,155,.08) 1px, transparent 1px); background-size: 44px 44px; animation: gridmove 5s linear infinite; }
-    .intro svg.chart { position: absolute; inset: 0; width: 100%; height: 100%; }
-    .intro .cd { transform-box: fill-box; transform-origin: 50% 100%; }
-    .intro .vig { position: absolute; inset: 0; background: radial-gradient(closest-side at 50% 50%, rgba(5,31,32,.88), rgba(5,31,32,.35) 70%, transparent); }
-    .intro .center { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 16px; text-align: center; }
-    .intro .mk { display: grid; place-items: center; width: 84px; height: 84px; border-radius: 20px; background: #8EB69B; color: #051F20; font: 700 30px var(--mono); box-shadow: 0 0 50px rgba(142,182,155,.55); }
-    .intro .ti { font: 700 clamp(34px, 9vw, 60px) var(--mono); min-height: 1.2em; letter-spacing: .02em; color: #DAF1DE; }
-    .intro .cur { display: inline-block; width: .08em; height: .9em; margin-left: .06em; vertical-align: -.1em; background: #8EB69B; animation: blink 1s steps(1) infinite; }
-    .intro .sub { font-size: 14px; letter-spacing: .5em; color: #8EB69B; padding-left: .5em; }
-    .intro .tape { position: absolute; left: 0; right: 0; height: 34px; overflow: hidden; display: flex; align-items: center; border: solid rgba(142,182,155,.25); border-width: 1px 0; background: rgba(11,43,38,.75); font: 600 13px var(--mono); color: #8EB69B; }
-    .intro .tape.t { top: 0; }
-    .intro .tape.b { bottom: 0; }
-    .intro .track { display: flex; gap: 30px; white-space: nowrap; padding-left: 30px; animation: tape 22s linear infinite; }
-    .intro .tape.b .track { animation-direction: reverse; }
-    .intro .track b { color: #DAF1DE; }
-    .intro .sk { position: absolute; left: 0; right: 0; bottom: 52px; text-align: center; font-size: 12px; color: #6f9a85; }
-    .irisring { position: fixed; left: 50%; top: 50%; border: 2px solid #8EB69B; border-radius: 50%; transform: translate(-50%, -50%); z-index: 1101; pointer-events: none; box-shadow: 0 0 36px rgba(142,182,155,.8), inset 0 0 36px rgba(142,182,155,.5); }
-    @keyframes gridmove { to { background-position: 44px 44px; } }
-    @keyframes tape { to { transform: translateX(-50%); } }
-    @keyframes blink { 50% { opacity: 0; } }
-    @keyframes menuIn { from { opacity: 0; transform: scale(.9) translateY(-6px); } to { opacity: 1; transform: none; } }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes breathe { 0%,100% { opacity: .75; } 50% { opacity: 1; } }
-    @keyframes ringPop { from { transform: scale(.3) rotate(-120deg); opacity: 0; } to { transform: none; opacity: 1; } }
-    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-    @keyframes badgeIn { from { opacity: 0; transform: scale(.3) translateY(10px); } to { opacity: 1; transform: none; } }
-    @keyframes shock { from { transform: scale(.3); opacity: .95; } to { transform: scale(11); opacity: 0; } }
-    @keyframes flash { from { opacity: 1; } to { opacity: 0; } }
-    @keyframes glowPulse {
-      0%,100% { box-shadow: 0 30px 80px rgba(0,0,0,calc(.5 * var(--sh))), 0 0 40px rgba(var(--glow),.3); }
-      50% { box-shadow: 0 30px 80px rgba(0,0,0,calc(.5 * var(--sh))), 0 0 90px rgba(var(--glow),.6); }
-    }
-    @keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
-    @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes shake { 0%,100% { transform: none; } 20% { transform: translateX(-9px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
-    @keyframes checkPop { from { transform: scale(.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-    @keyframes draw { to { stroke-dashoffset: 0; } }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
-      .check svg { stroke-dashoffset: 0; }
-    }
-    @media (max-width: 480px) {
-      .main { padding: 22px 18px 16px; }
-      .eg-h { font-size: 23px; }
-      .cell input { height: 56px; }
-    }
-  </style>
-  <link rel="stylesheet" href="./assets/twdash.css">
-  <link rel="stylesheet" href="./assets/twapp.css">
-  <link rel="stylesheet" href="./assets/twmarket.css">
-  <link rel="stylesheet" href="./assets/twglass.css">
-  <link rel="stylesheet" href="./assets/twtheme.css">
-  <link rel="stylesheet" href="./assets/twmain.css">
+  <meta name="description" content="台股研究：證交所公開資料的大盤與個股行情、自選股、K 線與指標、新聞與 AI 分析團隊。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./assets/twconsole.css">
 </head>
 <body>
 
@@ -328,7 +77,7 @@
 <!-- entry gate -->
 <div id="gate" role="dialog" aria-modal="true" aria-labelledby="egH">
   <div class="wrap">
-    <div class="brand"><span class="mk">TW</span>TWstock 台股研究</div>
+    <a class="brand" href="./" aria-label="TWstock 台股研究"><span class="mk">TW</span>TWstock 台股研究</a>
     <form class="ticket" id="ticket" data-mode="login" novalidate autocomplete="off">
       <div class="main">
         <div class="prompt" id="egPrompt"></div>
@@ -800,8 +549,8 @@
     const tape = off => { const one = codes.map((c, i) => "<span>" + c[0] + " " + c[1] + " <b>" + ((i + off) % 3 ? "▲" : "▼") + "</b></span>").join(""); return '<div class="track">' + one + one + one + one + '</div>'; };
     el.innerHTML = '<div class="grid"></div>' +
       '<svg class="chart" viewBox="0 0 ' + W + ' ' + H + '">' + candles +
-      '<path class="ln" d="' + pts + '" fill="none" stroke="#DAF1DE" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="filter:drop-shadow(0 0 6px #8EB69B)"/>' +
-      '<circle class="dot" r="6" fill="#DAF1DE" style="filter:drop-shadow(0 0 8px #8EB69B)" opacity="0"/></svg>' +
+      '<path class="ln" d="' + pts + '" fill="none" stroke="var(--color-ink)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<circle class="dot" r="6" fill="var(--color-accent)" opacity="0"/></svg>' +
       '<div class="vig"></div>' +
       '<div class="tape t">' + tape(0) + '</div><div class="tape b">' + tape(1) + '</div>' +
       '<div class="center"><div class="mk">TW</div><div class="ti"><span class="tx"></span><i class="cur"></i></div><div class="sub">台股研究</div></div>' +
