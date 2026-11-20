@@ -65,17 +65,43 @@
   function setList(list, live, date) {
     DB.list = list; DB.by = new Map(list.map(s => [s.code, s])); DB.live = live; DB.date = date || DB.date;
   }
-  async function loadList() {
+  /* every listed stock at the close. Two TWSE sources are read side by side and the newer one wins:
+     the exchange's own daily report (MI_INDEX, same evening) and the open-data copy (STOCK_DAY_ALL, often a day late).
+     Stocks without a trade that day are kept (price shown as —) so every listed code can still be searched. */
+  const mk = (code, name, price, chg, open, high, low, lots) => {
+    const prev = ok(price) && ok(chg) ? price - chg : NaN;
+    return { code: String(code).trim(), name: String(name).trim(), price, prev, chg: ok(chg) ? chg : 0, pct: prev ? chg / prev * 100 : 0, open, high, low, vol: ok(lots) ? lots : 0 };
+  };
+  async function listOpenData() {
     const rows = await J("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL");
     let date = "";
-    const list = rows.map(x => {
-      const price = num(x.ClosingPrice), chg = num(x.Change), prev = price - chg;
-      if (!date && x.Date) date = ymd(x.Date);
-      return { code: String(x.Code), name: String(x.Name), price, prev, chg, pct: prev ? chg / prev * 100 : 0,
-        open: num(x.OpeningPrice), high: num(x.HighestPrice), low: num(x.LowestPrice), vol: Math.round(num(x.TradeVolume) / 1000) };
-    }).filter(s => s.price > 0 && ok(s.prev) && ok(s.vol));
-    if (list.length < 10) throw new Error("too few rows");
-    setList(list, true, date);
+    const list = rows.map(x => { if (!date && x.Date) date = ymd(x.Date);
+      return mk(x.Code, x.Name, num(x.ClosingPrice), num(x.Change), num(x.OpeningPrice), num(x.HighestPrice), num(x.LowestPrice), Math.round(num(x.TradeVolume) / 1000)); });
+    return { list, date };
+  }
+  async function listDaily() {
+    const t = taipei(), start = new Date(+t.ymd.slice(0, 4), +t.ymd.slice(4, 6) - 1, +t.ymd.slice(6));
+    if (t.mins < 14 * 60 + 30) start.setDate(start.getDate() - 1);       /* today's report appears after about 14:30 */
+    for (let back = 0; back < 6; back++) {
+      const d = new Date(start.getTime() - back * 864e5); if (d.getDay() % 6 === 0) continue;
+      const ds = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+      const j = await J(`https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?date=${ds}&type=ALLBUT0999&response=json`);
+      const tb = (j.tables || []).find(x => Array.isArray(x.fields) && x.fields.includes("證券代號") && x.fields.includes("收盤價") && (x.data || []).length > 100);
+      if (j.stat !== "OK" || !tb) { await wait(400); continue; }
+      const f = k => tb.fields.findIndex(x => x.includes(k)), iC = f("證券代號"), iN = f("證券名稱"), iV = f("成交股數"), iO = f("開盤價"), iH = f("最高價"), iL = f("最低價"), iZ = f("收盤價"), iS = f("漲跌(+/-)"), iD = f("漲跌價差");
+      const list = tb.data.map(r => { const sign = /-|－|green/.test(String(r[iS])) ? -1 : 1;
+        return mk(r[iC], r[iN], num(r[iZ]), sign * Math.abs(num(r[iD]) || 0), num(r[iO]), num(r[iH]), num(r[iL]), Math.round(num(r[iV]) / 1000)); });
+      return { list, date: ds };
+    }
+    throw new Error("no daily report");
+  }
+  async function loadList() {
+    const got = (await Promise.allSettled([listDaily(), listOpenData()])).filter(r => r.status === "fulfilled" && r.value.list.length > 100).map(r => r.value);
+    if (!got.length) throw new Error("no list");
+    got.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.list.length - a.list.length));
+    const best = got[0], names = new Map(best.list.map(s => [s.code, s]));
+    got.slice(1).forEach(g => g.list.forEach(s => { if (!names.has(s.code)) names.set(s.code, Object.assign(s, { price: NaN, chg: 0, pct: 0, vol: 0, stale: true })); }));
+    setList([...names.values()].filter(s => s.code && s.name), true, best.date);
   }
   function sampleList() {
     const base = [["2330", "台積電", 1085], ["2317", "鴻海", 215], ["2454", "聯發科", 1385], ["2308", "台達電", 415], ["2412", "中華電", 131], ["2881", "富邦金", 92],
@@ -305,7 +331,8 @@
     if (VIEW.preset === "strong" || VIEW.preset === "weak") rows = rows.filter(s => s.vol >= 500);   /* thin stocks are left out, as broker apps do */
     if (q) rows = rows.filter(s => s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
     const k = VIEW.key, d = VIEW.dir;
-    return rows.slice().sort((a, b) => (a[k] - b[k]) * d || a.code.localeCompare(b.code));
+    const v = x => (ok(x) ? x : -Infinity);
+    return rows.slice().sort((a, b) => (v(a[k]) - v(b[k])) * d || a.code.localeCompare(b.code));
   }
   const rowHTML = s => {
     const d = dig(s.price), t = tone(s.chg);
