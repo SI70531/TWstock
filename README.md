@@ -6,7 +6,7 @@ Taiwan stock research site, hosted on GitHub Pages: https://si70531.github.io/TW
 
 Four tabs:
 
-- **總覽**: four indices (TAIEX, front-month TAIEX futures, electronics, finance), a market strip (turnover, net buying of foreign investors / investment trusts / dealers, advancers and decliners) and every TWSE-listed stock in one list. The list can be searched by code or name, sorted by price, change, change % or volume, and filtered with presets (全部, 自選, 強勢股, 弱勢股, 成交量). ★ adds a stock to the watchlist; tapping a row opens it in 個股分析.
+- **總覽**: four indices (TAIEX, front-month TAIEX futures, electronics, finance), a market strip (turnover, net buying of foreign investors / investment trusts / dealers, advancers and decliners) and every TWSE-listed and TPEx (上櫃) stock in one list; TPEx rows are marked 櫃. The list can be searched by code or name, sorted by price, change, change % or volume, and filtered with presets (全部, 自選, 強勢股, 弱勢股, 成交量). ★ adds a stock to the watchlist; tapping a row opens it in 個股分析.
 - **自選股**: the followed stocks as cards with price, change and the day's range.
 - **個股分析**: one stock.
   - Price header and a search box to switch stock.
@@ -41,6 +41,7 @@ tools/supabase-twstock.sql  Watchlist table (Row Level Security)
 
 ## Data sources
 
+- **TPEx closing data**: `tpex_mainboard_daily_close_quotes` (TPEx open data) for the list and the TPEx per-stock monthly report for daily bars. Fundamentals, institutional flows and intraday quotes are TWSE only, so TPEx stocks show closing prices.
 - **Closing data (no backend needed)**: TWSE open data, read by the browser. `STOCK_DAY_ALL` (all listed stocks), `MI_INDEX` (indices), `FMTQIK` (TAIEX history and turnover), `BFI82U` and `T86` (institutions), `STOCK_DAY` (daily bars per stock), `BWIBBU_ALL` and `t187ap05_L` (valuation and monthly revenue). Finished months are cached in the browser.
 - **Intraday quotes, futures, news and AI (through the Worker)**: the `ezexams-ai` Worker (source in the EZexams repo, `tools/ezexams-worker.js`) serves
   - `GET /tw/rt` intraday quotes from TWSE's market information system and the TAIEX futures quote from TAIFEX. These are unofficial interfaces and can change or stop working.

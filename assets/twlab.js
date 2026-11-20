@@ -168,7 +168,7 @@
         <td>${F(r.shares)}</td><td>${ok(r.px) ? F(r.px, A.dig(r.px)) : "—"}</td><td>${F(r.mv)}</td><td>${F(r.cost)}</td><td class="${A.tone(r.pnl)}">${A.signed(r.pnl, 0)}</td><td class="${A.tone(r.ret)}">${A.pct(r.ret)}</td><td>${ok(r.w) ? F(r.w, 1) + "%" : "—"}</td>
         <td><button type="button" class="lx" data-act="hdel" data-code="${A.esc(r.code)}" aria-label="刪除 ${A.esc(r.name)}">×</button></td></tr>`).join("")}
       </tbody><tfoot><tr><td class="l">合計（含現金 ${F(cash)}）</td><td></td><td></td><td>${F(mv)}</td><td>${F(cost)}</td><td class="${A.tone(mv - cost)}">${A.signed(mv - cost, 0)}</td><td class="${A.tone(mv - cost)}">${A.pct((mv / cost - 1) * 100)}</td><td>${F(total)}</td><td></td></tr></tfoot></table></div>
-      ${note("股價用證交所最新收盤（盤中為即時價）。上櫃、興櫃股票在這裡查不到價格，請在「現價」欄手動填。損益未扣賣出時的手續費與證交稅。")}`;
+      ${note("股價用證交所最新收盤（盤中為即時價）。興櫃股票在這裡查不到價格，請在「現價」欄手動填。損益未扣賣出時的手續費與證交稅。")}`;
     /* concentration */
     const ws = rows.filter(r => ok(r.w)).map(r => r.w / 100).concat(total ? [cash / total] : []);
     const hhi = rows.filter(r => ok(r.w)).reduce((a, r) => a + (r.w / 100) ** 2, 0), top = rows.filter(r => ok(r.w)).sort((a, b) => b.w - a.w);
@@ -313,7 +313,7 @@
   }
   async function techRun() {
     const code = ($(".lcode").value || "").trim(), msg = $(".lmsg"), out = $(".ltech");
-    if (!A.DB.by.get(code)) { msg.textContent = "找不到這個代號（只支援上市股票與 ETF）。"; return; }
+    if (!A.DB.by.get(code)) { msg.textContent = "找不到這個代號（支援上市、上櫃股票與 ETF）。"; return; }
     const cs = await bars(code, 14, (i, n) => { msg.textContent = `讀取日線 ${i}/${n} 個月…`; });
     if (cs.length < 30) { msg.textContent = "日線不足 30 日，無法分析。"; return; }
     const I = A.calc(cs), n = cs.length, i = n - 1, c = cs[i][4], w = weekly(cs), WI = A.calc(w), wi = w.length - 1, d2 = A.dig(c), F = (v, d = d2) => (ok(v) ? A.fmt(v, d) : "無法計算");
@@ -413,7 +413,7 @@
     const P = Object.assign(prefs(), { fee: parseFloat(f("fee").value) || 0, disc: parseFloat(f("disc").value) || 1, slip: parseFloat(f("slip").value) || 0 }); set(K.pref, Object.assign(get(K.pref, {}), { fee: P.fee, disc: P.disc, slip: P.slip }));
     const stop = Math.max(0, parseFloat(f("stop").value) || 0);
     set(K.bt, { code, strat, months, stop, prm });
-    if (!A.DB.by.get(code)) { msg.textContent = "找不到這個代號（只支援上市股票與 ETF）。"; return; }
+    if (!A.DB.by.get(code)) { msg.textContent = "找不到這個代號（支援上市、上櫃股票與 ETF）。"; return; }
     const cs = await bars(code, months, (i, n) => { msg.textContent = `讀取日線 ${i}/${n} 個月…（證交所每月一次查詢，第一次會比較久）`; });
     if (cs.length < 80) { msg.textContent = "日線不足 80 日，回測沒有意義。"; return; }
     const cost = { fee: P.fee / 100 * P.disc, tax: taxOf(code) / 100, slip: P.slip / 100, stop: stop / 100 };
