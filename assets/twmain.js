@@ -772,12 +772,17 @@
   note(); paintIdx(); paintStrip(); paintTable(false); paintWatch(false); paintHead();
   let saved = null; try { saved = sessionStorage.getItem("twdash-tab"); } catch (e) {}
   requestAnimationFrame(() => open(saved || "dpOverview", false));
-  window.TWDash = { replay: () => open(cur, false) };
+  window.TWDash = { replay: () => open(cur, false),
+    /* shared with the 研究室 tab (assets/twlab.js) */
+    api: { DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
+      store, openStock: code => openStock(code), code: () => CODE, J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
+  document.dispatchEvent(new Event("twdash:ready"));
 
   (async () => {
     try { await loadList(); } catch (e) { sampleList(); }
     note(); paintTable(true); paintStrip(); paintWatch(true); paintHead();
     if (cur === "dpStock") setStock(CODE, true);
+    document.dispatchEvent(new Event("twdash:list"));
     pullWatch();
     if (DB.live) {
       loadIdxEod().then(paintIdx, () => {}).then(paintIdx);

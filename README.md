@@ -4,7 +4,7 @@ Taiwan stock research site, hosted on GitHub Pages: https://si70531.github.io/TW
 
 ## What it does
 
-Three tabs:
+Four tabs:
 
 - **總覽**: four indices (TAIEX, front-month TAIEX futures, electronics, finance), a market strip (turnover, net buying of foreign investors / investment trusts / dealers, advancers and decliners) and every TWSE-listed stock in one list. The list can be searched by code or name, sorted by price, change, change % or volume, and filtered with presets (全部, 自選, 強勢股, 弱勢股, 成交量). ★ adds a stock to the watchlist; tapping a row opens it in 個股分析.
 - **自選股**: the followed stocks as cards with price, change and the day's range.
@@ -16,11 +16,23 @@ Three tabs:
   - 新聞與公告: recent headlines and the company's own material announcements.
   - **AI 分析團隊**: five AI analysts (technical, fundamental, institutional flows, news and world events, risk) each give a stance, followed by a summary with a short- and mid-term view, three scenarios with rough chances, entry conditions (price zone, stop, when not to buy), risks and events to watch. Needs a sign-in.
 
+- **研究室** (Lab): eight research tools, opened from a card menu. Holdings and the trade journal are kept only in this browser (never uploaded); CSV import and export are available.
+  - 持股風險 (portfolio risk): P&L at the latest price, weights, concentration (largest holding, top three, effective number of holdings), industry mix, beta against 0050 and correlations from six months of daily bars, a market −20% stress test against the loss you say you can bear, and three rebalancing plans (as is, cap per holding, scale down to the tolerated loss) with their selling costs.
+  - 交易日誌 (trade journal): win rate, average win and loss, profit factor, expectancy, losing streaks, hold time of winners vs losers, trades without a stop or against the plan, and up to three rules derived only from the record, each with a way to check it.
+  - 技術情境 (technical scenarios): about 14 months of daily bars plus weekly bars built from them; support, resistance, a 60-day regression trend line, moving averages and momentum; bull, range and bear scenarios listing which conditions hold now, what would confirm and what would break each one.
+  - 策略回測 (backtest): moving-average cross, RSI reversion, breakout and KD cross on 12–36 months; signals on the close, fills at the next open, fees, transaction tax and slippage; in-sample vs out-of-sample and buy-and-hold; trades and data downloadable as CSV.
+  - 同業比較 (peer valuation): P/E, P/B, yield and revenue growth side by side with the industry, medians and missing data marked.
+  - 敏感度分析 (sensitivity): a five-year free-cash-flow model with conservative, base and optimistic inputs, a discount-rate × growth grid and the most sensitive input; no probabilities are assigned.
+  - 事件日曆 (event calendar): events with date or "to be confirmed", official source, the hypothesis to test and data to update; a weekly checklist; facts and market guesses recorded separately.
+  - 提示詞 (prompts): the twelve research prompts, filled with the page's data (OHLCV, indicators, fundamentals, holdings, journal), ready to copy into Claude.
+  These tools help with risk and discipline; none of them can promise a profit.
+
 ## Files
 
 ```
 index.html               Sign-in gate, device PIN, page shell and the three tabs
 assets/twmain.js/.css    The app: data loading, 總覽, 自選股, 個股分析, charts, AI analysis
+assets/twlab.js          The 研究室 tab (uses helpers exposed by twmain.js as window.TWDash.api)
 assets/twaccount.js      Account, device PIN and watchlist sync (same Supabase project and Worker as EZexams)
 assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill (mobile)
 assets/twdash.css, twmarket.css, twglass.css, twtheme.css   Shared look: cards, chips, glass surfaces, theme
