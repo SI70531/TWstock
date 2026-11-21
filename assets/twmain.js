@@ -746,7 +746,7 @@
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) {
         const st = r.status;
-        throw new Error(st === 404 ? "AI 分析需要部署新版 Worker 後才能使用。" : st === 401 ? "登入已過期，請重新登入。" : st === 429 ? "AI 用量暫時到上限，請稍後再試。" : "AI 暫時寫不出分析，請稍後再試一次。");
+        throw new Error(st === 404 ? "AI 分析需要部署新版 Worker 後才能使用。" : st === 401 ? "登入已過期，請重新登入。" : st === 429 ? "AI 用量暫時到上限，請稍後再試。" : `AI 暫時寫不出分析（錯誤代碼 ${st}${j && (j.error || j.message) ? "：" + String(j.error || j.message).slice(0, 120) : ""}），請稍後再試一次。`);
       }
       AI.set(code, { at: j.at || Date.now(), data: j });
       if (code === CODE) { paintAI(); rise(Array.from($(".aiout", box).children), 90); }
