@@ -26,7 +26,7 @@
   const today = () => { const d = new Date(Date.now() + 8 * 3600e3); return d.toISOString().slice(0, 10); };
   const dayNum = s => Date.parse(String(s).replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3") + "T00:00:00Z") / 864e5;
   const iso = ds => ds.slice(0, 4) + "-" + ds.slice(4, 6) + "-" + ds.slice(6);
-  const K = { hold: "twlab-hold", cash: "twlab-cash", pref: "twlab-pref", trades: "twlab-trades", events: "twlab-events", tool: "twlab-tool", dcf: "twlab-dcf", bt: "twlab-bt", peers: "twlab-peers", check: "twlab-check" };
+  const K = { hold: "twlab-hold", cash: "twlab-cash", pref: "twlab-pref", trades: "twlab-trades", events: "twlab-events", tool: "twlab-tool", dcf: "twlab-dcf", bt: "twlab-bt", peers: "twlab-peers", mc: "twlab-mc", check: "twlab-check" };
   const get = (k, d) => A.store.get(k, d), set = (k, v) => A.store.set(k, v);
 
   const TOOLS = [
@@ -34,6 +34,7 @@
     ["journal", "交易日誌", "勝率、盈虧比、獲利因子、持有時間與違反規則的交易", "#6"],
     ["tech", "技術情境", "日線＋週線的支撐壓力、趨勢線與偏多／盤整／偏空條件", "#2"],
     ["bt", "策略回測", "含手續費、證交稅、滑價，樣本內外分開看", "#4"],
+    ["mc", "時光機", "拿過去 N 天的真實走勢隨機重播一萬次：先碰停利、先碰停損、還是都沒碰到", "#4+"],
     ["peer", "同業比較", "本益比、淨值比、殖利率、營收年增並排，標出不可比", "#9"],
     ["dcf", "敏感度分析", "保守／基準／樂觀三種假設與折現率×成長率表", "#10"],
     ["cal", "事件日曆", "財報、法說、股東會：日期、來源、要驗證的假設", "#11"],
@@ -440,6 +441,91 @@
   }
   let BTLAST = null;
 
+
+  /* ================= 時光機（歷史日報酬自助抽樣，重播一萬次） ================= */
+  function viewMC() {
+    const s = Object.assign({ code: A.code(), entry: "", tp: 8, sl: 5, days: 20, look: 60 }, get(K.mc, {}));
+    return `<div class="dcard lrise"><h3>時光機</h3>
+      <p class="sub">把最近 N 個交易日的真實日 K（漲跌幅＋當天最高、最低）打散重抽，從進場價往後模擬 10,000 次，數一數每次是先碰到停利、先碰到停損，還是期限到了都沒碰到。</p>
+      <div class="lform lmform">
+        <label>代號 <input class="in" name="code" value="${A.esc(s.code)}" inputmode="numeric"></label>
+        <label>進場價（空白＝最新收盤）<input class="in" name="entry" inputmode="decimal" value="${s.entry}"></label>
+        <label>停利 % <input class="in" name="tp" inputmode="decimal" value="${s.tp}"></label>
+        <label>停損 % <input class="in" name="sl" inputmode="decimal" value="${s.sl}"></label>
+        <label>持有最多（交易日）<input class="in" name="days" inputmode="numeric" value="${s.days}"></label>
+        <label>取樣最近（交易日）<select class="in" name="look">${[60, 120, 250].map(m => `<option value="${m}" ${m === +s.look ? "selected" : ""}>${m} 日</option>`).join("")}</select></label>
+        <button type="button" class="aigo" data-act="mgo">重播一萬次</button>
+      </div>
+      <p class="sub lmsg"></p><div class="lmc"></div></div>`;
+  }
+  function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function simulate(cs, look, P0, tp, sl, days, runs, seed) {
+    const src = cs.slice(-(look + 1)), D = [];
+    for (let i = 1; i < src.length; i++) { const p = src[i - 1][4]; if (p > 0) D.push([src[i][4] / p, src[i][2] / p, src[i][3] / p]); }
+    const R = rng(seed), up = P0 * (1 + tp), dn = P0 * (1 - sl), keep = 150, paths = [];
+    let nT = 0, nS = 0, both = 0; const ends = new Float64Array(runs), hitDay = [];
+    for (let k = 0; k < runs; k++) {
+      let P = P0, res = 0; const path = k < keep ? [P0] : null;
+      for (let d = 0; d < days; d++) {
+        const x = D[Math.floor(R() * D.length)], hi = P * x[1], lo = P * x[2];
+        P *= x[0]; if (path) path.push(Math.min(up, Math.max(dn, P)));
+        const hT = hi >= up, hS = lo <= dn;
+        if (hT && hS) { both++; res = -1; } else if (hT) res = 1; else if (hS) res = -1;
+        if (res) { hitDay.push(d + 1); if (path) path[path.length - 1] = res > 0 ? up : dn; P = res > 0 ? up : dn; break; }
+      }
+      if (res > 0) nT++; else if (res < 0) nS++;
+      ends[k] = P; if (path) paths.push({ v: path, res });
+    }
+    const sorted = Array.from(ends).sort((a, b) => a - b), q = f => sorted[Math.floor(f * (runs - 1))];
+    return { nT, nS, nN: runs - nT - nS, both, paths, up, dn, n: D.length, from: src[0][0], to: src[src.length - 1][0], q10: q(0.1), q50: q(0.5), q90: q(0.9), avgDay: hitDay.length ? mean(hitDay) : NaN };
+  }
+  function mcSVG(r, P0, days) {
+    const W = 640, H = 340, P = 46, lo = r.dn - (r.up - r.dn) * 0.08, hi = r.up + (r.up - r.dn) * 0.08, d2 = A.dig(P0);
+    const X = i => P + i / days * (W - P - 70), Y = v => 10 + (hi - v) / (hi - lo) * (H - 34);
+    const hl = (v, cls, t) => `<g class="mcb"><line class="mcl ${cls}" x1="${P}" x2="${W - 70}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><rect class="mctag ${cls}" x="${W - 66}" y="${(Y(v) - 10).toFixed(1)}" width="64" height="20" rx="5"/><text class="mctx" x="${W - 34}" y="${(Y(v) + 4).toFixed(1)}">${t} ${A.fmt(v, d2)}</text></g>`;
+    const grid = [0, Math.round(days / 2), days].map(i => `<text class="mcb" x="${X(i)}" y="${H - 6}" text-anchor="middle">第 ${i} 日</text>`).join("") + [lo, P0, hi].map(v => `<g class="mcb"><line class="gridl" x1="${P}" x2="${W - 70}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="0" y="${(Y(v) + 4).toFixed(1)}">${A.fmt(v, d2)}</text></g>`).join("");
+    const paths = r.paths.map(p => `<path class="mcp ${p.res > 0 ? "t" : p.res < 0 ? "s" : "n"}" d="${p.v.map((v, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join("")}"/>`).join("");
+    return `<svg class="lfig mcfig" viewBox="0 0 ${W} ${H}" role="img" aria-label="時光機：${r.paths.length} 條抽樣路徑">${grid}${hl(r.up, "t", "停利")}${hl(r.dn, "s", "停損")}${paths}<circle class="mcb mcdot" cx="${X(0)}" cy="${Y(P0).toFixed(1)}" r="5"/></svg>`;
+  }
+  /* backdrop first (grid, stop/target lines, entry dot), then the paths run out from the entry point, then the result bars */
+  function mcPlay(root) {
+    const svg = root.querySelector(".mcfig"); if (!svg) return;
+    const bk = Array.from(svg.querySelectorAll(".mcb")), ps = Array.from(svg.querySelectorAll(".mcp"));
+    bk.forEach((g, i) => g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: i * 60, fill: "backwards" }));
+    const t0 = bk.length * 60 + 300;
+    ps.forEach((p, i) => { const L = p.getTotalLength(); p.style.strokeDasharray = L; p.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 1400, delay: t0 + (i % 50) * 18, easing: "ease-out", fill: "backwards" }); });
+    const t1 = t0 + 50 * 18 + 1400;
+    Array.from(root.querySelectorAll(".mcres .lbar i")).forEach((b, i) => b.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 600, delay: t1 + i * 150, easing: "cubic-bezier(.2,.9,.3,1)", fill: "backwards" }));
+    Array.from(root.querySelectorAll(".mcres .lrise")).forEach((b, i) => b.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 400, delay: t1 + i * 150, fill: "backwards" }));
+  }
+  async function mcRun() {
+    const f = n => $(`.lmform [name="${n}"]`), code = f("code").value.trim(), msg = $(".lmsg"), out = $(".lmc");
+    const tp = Math.max(0.1, parseFloat(f("tp").value) || 8), sl = Math.max(0.1, Math.min(90, parseFloat(f("sl").value) || 5)), days = Math.max(1, Math.min(250, parseInt(f("days").value, 10) || 20)), look = +f("look").value || 60, entryIn = parseFloat(f("entry").value);
+    set(K.mc, { code, entry: ok(entryIn) ? entryIn : "", tp, sl, days, look });
+    if (!A.DB.by.get(code)) { msg.textContent = "找不到這個代號（支援上市、上櫃股票與 ETF）。"; return; }
+    const cs = await bars(code, Math.ceil(look / 20) + 1, (i, n) => { msg.textContent = `讀取日線 ${i}/${n} 個月…`; });
+    if (cs.length < Math.min(look, 40) + 1) { msg.textContent = `日線只有 ${cs.length} 日，不夠取樣。`; return; }
+    const last = cs[cs.length - 1][4], P0 = ok(entryIn) && entryIn > 0 ? entryIn : last, seed = Math.floor(Math.random() * 1e9);
+    msg.textContent = "重播中…"; await new Promise(r => setTimeout(r, 30));
+    const runs = 10000, r = simulate(cs, look, P0, tp / 100, sl / 100, days, runs, seed), pc = x => x / runs * 100, d2 = A.dig(P0);
+    const gap = pc(r.nT) - pc(r.nS), verdict = Math.abs(gap) < 8 ? "跟擲硬幣差不多" : gap > 0 ? "先碰停利的機會較高" : "先碰停損的機會較高";
+    const ev = (pc(r.nT) * tp - pc(r.nS) * sl) / 100;
+    const res = (t, n, cls, sub) => `<div class="mcrow lrise"><span>${t}</span><b class="${cls === "pos" ? "up" : cls === "neg" ? "down" : ""}">${A.fmt(pc(n), 1)}%</b>${bar(pc(n), 100, cls)}<em class="sub">${sub}</em></div>`;
+    out.innerHTML = `
+      ${mcSVG(r, P0, days)}
+      <p class="sub"><i class="lg mct"></i>先碰停利 <i class="lg mcs"></i>先碰停損 <i class="lg mcn"></i>期限到都沒碰（畫出其中 ${r.paths.length} 條）</p>
+      <div class="lgrid2 mcres">
+        <div>${res("先碰停利", r.nT, "pos", `+${tp}% → ${A.fmt(r.up, d2)}`)}${res("先碰停損", r.nS, "neg", `−${sl}% → ${A.fmt(r.dn, d2)}`)}${res(`${days} 日內都沒碰到`, r.nN, "", `期末中位數 ${A.fmt(r.q50, d2)}`)}
+          <div class="mcverdict lrise"><b>${verdict}</b><span class="sub">停利 ${A.fmt(pc(r.nT), 1)}% vs 停損 ${A.fmt(pc(r.nS), 1)}%；只算碰到的部分，每筆期望 ${A.signed(ev, 2)}%（未扣成本）</span></div></div>
+        <div>${kv("進場價", A.fmt(P0, d2) + (P0 === last ? "（最新收盤）" : `（最新收盤 ${A.fmt(last, d2)}）`))}${kv("取樣", `${iso(r.from)}～${iso(r.to)}，${r.n} 根日 K`)}${kv("重播", `${runs.toLocaleString()} 次 × 最多 ${days} 日・seed ${seed}`)}
+          ${kv("平均幾天碰到", ok(r.avgDay) ? A.fmt(r.avgDay, 1) + " 日" : "—")}${kv("期末價 10%／50%／90%", `${A.fmt(r.q10, d2)}／${A.fmt(r.q50, d2)}／${A.fmt(r.q90, d2)}`)}
+          ${kv("同一天兩邊都碰到", `${r.both} 次（日 K 看不出先後，保守算停損）`)}</div>
+      </div>
+      ${note("假設：未來每天的漲跌像是從最近 N 日隨機抽出來的（自助抽樣，日與日之間獨立）。它只告訴你「如果接下來跟最近差不多」會怎樣，抓不到趨勢延續、消息面、除權息、跳空與漲跌停鎖死。研究輔助用途｜不保證獲利。")}`;
+    msg.textContent = `完成：${nameOf(code)}（${code}）`;
+    mcPlay(out);
+  }
+
   /* ================= 同業比較 ================= */
   function viewPeer() {
     const H = get(K.hold, []).map(h => h.code), def = get(K.peers, H.length ? H.join(" ") : "2330 2303 2454 3711 2379");
@@ -580,7 +666,7 @@
   }
 
   /* ---------------- shell: card menu → one tool, a button back to the menu ---------------- */
-  const VIEWS = { hold: [viewHold, () => { loadIndustry().then(paintHold); paintHold(); }], journal: [viewJournal, paintJournal], tech: [viewTech, () => {}], bt: [viewBT, () => {}], peer: [viewPeer, () => {}], dcf: [viewDCF, () => { if (get(K.dcf, null)) dcfRun(); }], cal: [viewCal, paintCal], prompt: [viewPrompt, paintPrompt] };
+  const VIEWS = { hold: [viewHold, () => { loadIndustry().then(paintHold); paintHold(); }], journal: [viewJournal, paintJournal], tech: [viewTech, () => {}], bt: [viewBT, () => {}], mc: [viewMC, () => {}], peer: [viewPeer, () => {}], dcf: [viewDCF, () => { if (get(K.dcf, null)) dcfRun(); }], cal: [viewCal, paintCal], prompt: [viewPrompt, paintPrompt] };
   let TOOL = null;
   function menu() {
     TOOL = null; set(K.tool, "");
@@ -621,6 +707,7 @@
       if (act === "jdel") { set(K.trades, get(K.trades, []).filter(t => t.id !== a.dataset.id)); paintJournal(); return; }
       if (act === "jcsv") return download("twstock-journal.csv", TCOLS.map(c => c[1]).join(",") + "\n" + get(K.trades, []).map(t => TCOLS.map(([k]) => csvCell(ok(t[k]) || typeof t[k] === "string" ? t[k] : "")).join(",")).join("\n"));
       if (act === "tgo") { a.disabled = true; techRun().finally(() => { a.disabled = false; }); return; }
+      if (act === "mgo") { a.disabled = true; mcRun().catch(err => { $(".lmsg").textContent = "出錯了：" + err.message; }).finally(() => { a.disabled = false; }); return; }
       if (act === "bgo") { a.disabled = true; btRun().finally(() => { a.disabled = false; }); return; }
       if (act === "bcsv" && BTLAST) return download(`backtest-${BTLAST.code}-${BTLAST.strat}.csv`, "進場日,出場日,進場價(含滑價),出場價(含滑價),淨報酬%,持有日,未平倉\n" + BTLAST.trades.map(t => [iso(t.din), t.dout ? iso(t.dout) : "", t.pin.toFixed(2), t.pout.toFixed(2), t.ret.toFixed(3), t.days, t.open ? "Y" : ""].join(",")).join("\n") + `\n\n# 參數,${csvCell(JSON.stringify({ strat: BTLAST.strat, prm: BTLAST.prm, stop: BTLAST.stop, cost: BTLAST.cost }))}\n# 資料來源,臺灣證券交易所 STOCK_DAY`);
       if (act === "bdata" && BTLAST) return download(`ohlcv-${BTLAST.code}.csv`, "date,open,high,low,close,volume_lots\n" + BTLAST.cs.map(c => [iso(c[0]), ...c.slice(1)].join(",")).join("\n"));

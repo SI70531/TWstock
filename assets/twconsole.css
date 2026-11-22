@@ -642,3 +642,19 @@ a.nrow:hover .ntext { text-decoration: underline; text-decoration-color: var(--c
 .lcheck { display: flex; align-items: flex-start; gap: var(--space-xs); padding: var(--space-3xs) 0; font-size: var(--text-sm); color: var(--color-ink) !important; }
 .lcheck input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--color-accent); }
 .lpchips { flex-wrap: wrap; }
+
+/* 時光機 */
+#dpLab svg .mcp { fill: none; stroke-width: 1; opacity: .38; }
+#dpLab svg .mcp.t, .lg.mct { stroke: var(--color-up); background: var(--color-up); }
+#dpLab svg .mcp.s, .lg.mcs { stroke: var(--color-down); background: var(--color-down); }
+#dpLab svg .mcp.n, .lg.mcn { stroke: var(--color-rule-2); background: var(--color-rule-2); }
+#dpLab svg .mcl { stroke-width: 1.5; stroke-dasharray: 6 5; }
+#dpLab svg .mcl.t { stroke: var(--color-up); } #dpLab svg .mcl.s { stroke: var(--color-down); }
+#dpLab svg .mctag.t { fill: var(--color-up); } #dpLab svg .mctag.s { fill: var(--color-down); }
+#dpLab svg text.mctx { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; }
+#dpLab svg .mcdot { fill: #f5b942; }
+.mcrow { display: grid; grid-template-columns: 9em 4.5em 1fr; gap: 4px 10px; align-items: center; margin: 10px 0; }
+.mcrow b { font-size: 1.15em; text-align: right; }
+.mcrow em { grid-column: 1 / -1; font-style: normal; }
+.mcverdict { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--color-paper-3); display: grid; gap: 4px; }
+.mcverdict b { font-size: 1.2em; }
