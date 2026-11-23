@@ -1,0 +1,14 @@
+name: Diag
+on: workflow_dispatch
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36"
+          Y="https://tw.stock.yahoo.com/_td-stock/api/resource"
+          echo "== auto 電子"; curl -s -m 20 -A "$UA" "$Y/AutocompleteService;query=%E9%9B%BB%E5%AD%90%E9%A1%9E" | head -c 700; echo
+          echo "== auto 金融"; curl -s -m 20 -A "$UA" "$Y/AutocompleteService;query=%E9%87%91%E8%9E%8D%E4%BF%9D%E9%9A%AA" | head -c 700; echo
+          for s in "%5ETWII" "WTX%26" "%5ETWE" "TE00"; do echo "== tick $s"; curl -s -m 20 -A "$UA" "$Y/FinanceChartService.ApacLibraCharts;symbols=%5B%22$s%22%5D;type=tick" | head -c 500; echo; done
+          echo "== day WTX&"; curl -s -m 20 -A "$UA" "$Y/FinanceChartService.ApacLibraCharts;symbols=%5B%22WTX%26%22%5D;type=day;period=d" | head -c 400; echo
+          echo "== q1 TWII"; curl -s -m 20 -A "$UA" "https://query1.finance.yahoo.com/v8/finance/chart/%5ETWII?range=1d&interval=5m" | head -c 300; echo
