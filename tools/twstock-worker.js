@@ -293,19 +293,23 @@ function twPrompt(code, name, facts, news, ann, world) {
 "- Nobody can know the future price. Give the direction you think is more likely and why, with rough chances that add up to about 100%, and say plainly what would prove you wrong. Never promise a result.",
 "- 'entry' is about timing: the concrete conditions under which buying makes sense (for example a close above a named level with volume above the 20-day average, or a pull-back to a named support that holds), a price zone, a stop level, and when NOT to buy. If the better choice now is to wait, say so.",
 "- Be CONSERVATIVE (the user asked for this): when unsure, lean toward the smaller move, the nearer level and the lower confidence; scenario chances never above about 65%; targets are the nearest resistance, not the farthest; when signals disagree, the answer is 中性 / 等待訊號.",
+"- order.days: a conservative day-by-day plan for each of the next 5 trading days listed in DAYS: the likely view, a price range (use DATA.research.timeMachine and the support / resistance levels; one day is narrower than the 20-day spread) and what to do that day. For 分批買進 say on which day and at which price or condition each batch is bought, and when to stop adding or cut.",
 "- Each analyst: stance is exactly one of 偏多, 中性, 偏空; 2 or 3 points, each ONE short sentence (under about 35 Chinese characters).",
 "- Keep every other field short and plain too: headline under 25 Chinese characters, short_term / mid_term / why one sentence each, at most 3 conditions, risks and watch items.",
 "- 'order' is the bottom line, read FIRST: one concrete order suggestion. action is exactly one of 買進, 分批買進, 觀望, 續抱, 減碼, 賣出. If DATA.research.myPosition exists the user already holds the stock, so choose among 續抱, 加碼 (write it as 分批買進), 減碼, 賣出; otherwise among 買進, 分批買進, 觀望. Give the order type and price (for example 限價 or 收盤站上某價位後), how to split it, the stop, one or two targets, and the risk-reward ratio, all from DATA levels. If the answer is to wait, action is 觀望 and say exactly what would change that.",
 "",
 "Return ONE JSON object and nothing else, in exactly this shape:",
 '{"team":[{"role":"技術面分析師","stance":"偏多","points":["..."]},{"role":"基本面分析師","stance":"中性","points":["..."]},{"role":"籌碼面分析師","stance":"中性","points":["..."]},{"role":"時事與國際分析師","stance":"中性","points":["..."]},{"role":"風險控管","stance":"中性","points":["..."]}],',
-'"order":{"action":"買進|分批買進|觀望|續抱|減碼|賣出","how":"order type, price and timing","split":"how to split the order","stop":"stop price and which level","targets":["first target and which level"],"rr":"risk-reward, e.g. 1 : 2.1","why":"one or two sentences"},',
+'"order":{"action":"買進|分批買進|觀望|續抱|減碼|賣出","how":"order type, price and timing","split":"how to split the order","stop":"stop price and which level","targets":["first target and which level"],"rr":"risk-reward, e.g. 1 : 2.1","why":"one or two sentences",',
+'"days":[{"d":"11/25","view":"偏多|盤整|偏空","range":"price range","do":"what to do that day"}]},',
 '"summary":{"stance":"偏多|中性|偏空","confidence":"低|中|高","headline":"one sentence","short_term":"the next 1 to 2 weeks","mid_term":"the next 1 to 3 months",',
 '"scenarios":[{"name":"樂觀","chance":"約 30%","trigger":"what has to happen","range":"price area"},{"name":"基本","chance":"約 50%","trigger":"...","range":"..."},{"name":"悲觀","chance":"約 20%","trigger":"...","range":"..."}],',
 '"entry":{"now":"適合進場|等待訊號|不建議進場","conditions":["..."],"zone":"price zone","stop":"stop level and why","avoid":"when not to buy"},',
 '"risks":["..."],"watch":["upcoming events or dates to watch"]}}',
 "",
 "DATA.research (when present) holds the page's own research tools for this stock: technical scenarios with support and resistance, a 10,000-run bootstrap 'time machine' (how often the target or the stop was hit first), backtests of four simple strategies with Taiwan costs and an out-of-sample split, and the user's own position, trades, events and valuation. Every analyst must use the parts that concern them (the 技術面 analyst the scenarios and time machine, 風險控管 the time machine, backtests and the user's position) and say when a backtest has too few trades to mean anything.",
+"",
+"DAYS (the next 5 trading days): " + JSON.stringify(nextDays(new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10), 5)),
 "",
 "DATA (computed by the page from TWSE figures; prices in NT$, volume in lots of 1,000 shares):",
 facts,
@@ -529,6 +533,7 @@ function pmPrompt(day, madeAt, night, world, inst, news, cands) {
 "- Use ONLY the numbers in DATA and the headlines given. Never invent a price, a figure or an event; if something important is missing say so.",
 "- Keep it SHORT and plain, for reading on a phone: every sentence under about 35 Chinese characters, headline under 25, each list at most 3 items. No jargon where a plain word works.",
 "- TSMC ADR: one ADR is 5 shares; if you compare it with the Taiwan price, say that you need the exchange rate and use the one in DATA.",
+"- For EVERY pick also give 'analysis': 3 or 4 short points labelled 技術, 量能籌碼, 消息 and 風險, each one sentence from that stock's numbers and the headlines; and 'days': a conservative plan for each of the trading days in DATA.days (open day first), with the likely view, a price range anchored on next5d (p10 to p90 over five days, so a single day is narrower) and what to do that day. For 分批買進 the days must say when each batch is bought and under which condition, and when to stop adding.",
 "- 'picks': one entry for EVERY stock in DATA.candidates, none left out: all 持股 first, then all 自選, then the 強勢 ones (the strongest movers, potential stocks), best first within each group. tag says why it is a candidate (持股 = the user holds it, 自選 = on the user's watchlist, 強勢 = strong mover yesterday with volume). For each give one concrete order like a trader would: action is exactly one of 買進, 分批買進, 觀望, 續抱, 減碼, 賣出 (for a 持股 choose among 續抱, 分批買進 as adding, 減碼, 賣出); how = order type and price (限價 or after a close above a named level), split = how to split the order, stop = the stop price and which level it is, targets = one or two target prices with the level they come from, rr = risk-reward like 1 : 2.0, why = one or two sentences tying the stock to tonight's factors. Every price must come from that candidate's numbers (ma5/ma20/ma60, bollinger, 20/60-day highs and lows, last close) or be a round number near them, and say which. If a stock is not worth buying today its action is 觀望 (or 續抱 / 減碼 / 賣出 for a 持股) and why says what would change that; say in picks_note how many are worth acting on.",
 "- Nobody can know the open for sure. Give the more likely direction for today's open, a rough gap range in TAIEX points, and chances that add up to about 100%. Say what would prove the call wrong in the first 30 minutes.",
 "- Be CONSERVATIVE in every estimate (the user asked for this): when unsure, lean toward the smaller move, the nearer price level and the lower confidence. Gap and close ranges stay close to what DATA.anchor and recent days support, chances are never above about 70%, confidence is 高 only when the night session, the US close and the news all point the same way, picks use the nearest stop and the nearest target, and 觀望 is a fine answer.",
@@ -540,10 +545,12 @@ function pmPrompt(day, madeAt, night, world, inst, news, cands) {
 '"close":{"call":"收紅|平盤|收黑","range":"例如 36,500–36,900","chances":{"收紅":"約 50%","平盤":"約 20%","收黑":"約 30%"},"why":"one short sentence"},',
 '"night":"what the night session did and what it implies","us":"the US close and what matters for Taiwan","factors":[{"name":"factor","effect":"利多|利空|中性","note":"one or two sentences"}],',
 '"sectors":["sectors or big names likely to lead or lag, with the reason"],"levels":"TAIEX levels to watch, only from DATA","risks":["..."],"watch":["what to check between 09:00 and 09:30, and events later today"],',
-'"picks":[{"code":"2454","name":"聯發科","tag":"強勢|自選|持股","action":"分批買進","how":"...","split":"...","stop":"...","targets":["..."],"rr":"1 : 2.0","why":"..."}],"picks_note":"one sentence on the candidates overall"}',
+'"picks":[{"code":"2454","name":"聯發科","tag":"強勢|自選|持股","action":"分批買進","how":"...","split":"...","stop":"...","targets":["..."],"rr":"1 : 2.0","why":"...",',
+'"analysis":["技術：...","量能籌碼：...","消息：...","風險：..."],"days":[{"d":"11/25","view":"偏多|盤整|偏空","range":"price range","do":"what to do that day, e.g. 第一批 3,600 掛單 / 不動 / 第二批若站上 3,700"}]}],"picks_note":"one sentence on the candidates overall"}',
 "",
 "DATA.night (TAIEX futures, TAIFEX): " + JSON.stringify(night),
 "DATA.anchor: " + JSON.stringify(pmAnchor(night, world)),
+"DATA.days (the open day and the four trading days after it): " + JSON.stringify([day.slice(5).replace("-", "/").replace(/^0/, "").replace("/0", "/")].concat(nextDays(day, 4))),
 "DATA.world (Yahoo Finance, last price and % change from the previous close, time in Taipei): " + JSON.stringify(world),
 "DATA.institutions (TWSE, NT$ 100 million, previous trading day): " + JSON.stringify(inst),
 "DATA.candidates (computed here from Yahoo Taiwan daily bars up to the last close; prices NT$, volume in lots): " + JSON.stringify(cands || []),
@@ -552,6 +559,8 @@ function pmPrompt(day, madeAt, night, world, inst, news, cands) {
 list(news, x => "- " + (x.at ? new Date(x.at + 8 * 3600e3).toISOString().slice(5, 16).replace("T", " ") : "") + " " + x.t + (x.src ? "（" + x.src + "）" : "")),
   ].join("\n");
 }
+/* the next n weekdays after a date (exchange holidays are not known here) */
+function nextDays(day, n) { const out = []; let t = new Date(day + "T00:00:00Z"); while (out.length < n) { t = new Date(t.getTime() + 864e5); if (t.getUTCDay() % 6) out.push((t.getUTCMonth() + 1) + "/" + t.getUTCDate()); } return out; }
 const WD = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
 /* the next Taiwan session to open: today before 09:00 on a weekday, otherwise the next weekday (exchange holidays are not known here) */
 function nextOpenDay(now) {
@@ -591,6 +600,13 @@ async function pmCandidates(env) {
       const hi = k => Math.max(...rows.slice(-k).map(r => r[1])), lo = k => Math.min(...rows.slice(-k).map(r => r[2])), vols = rows.map(r => r[3] || 0), v20 = vols.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
       return { code, name: m.name || code, tag, market: ex === "TW" ? "上市" : "上櫃/興櫃", close: r2(last), changePct: r2((last / cl[n - 2] - 1) * 100), ma5: r2(ma(5)), ma20: r2(ma(20)), ma60: r2(ma(60)),
         bollUpper: r2(ma(20) + 2 * sd20), bollLower: r2(ma(20) - 2 * sd20), rsi14: r2(l ? 100 - 100 / (1 + g / l) : 100), high20: r2(hi(20)), low20: r2(lo(20)), high60: r2(hi(Math.min(60, n))), low60: r2(lo(Math.min(60, n))),
+        next5d: (() => {   /* 4,000 bootstrap replays of the last 60 daily returns, 5 trading days ahead */
+          const R = []; for (let i = Math.max(1, n - 60); i < n; i++) R.push(cl[i] / cl[i - 1]);
+          let seed = 7; for (const ch of code) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0; const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+          const end = []; for (let k = 0; k < 4000; k++) { let p = last; for (let d = 0; d < 5; d++) p *= R[Math.floor(rnd() * R.length)]; end.push(p); }
+          end.sort((a, b) => a - b); const q = f => r2(end[Math.floor(f * 3999)]);
+          return { p10: q(0.1), p50: q(0.5), p90: q(0.9), upChancePct: r2(end.filter(v => v > last).length / 40) };
+        })(),
         volumeVs20d: v20 ? r2(vols[n - 1] / v20) : null, return5dPct: r2((last / cl[n - 6] - 1) * 100), return20dPct: n > 20 ? r2((last / cl[n - 21] - 1) * 100) : null };
     } catch (e) { return null; }
   }));

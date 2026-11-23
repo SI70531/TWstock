@@ -353,7 +353,8 @@ p.skel, div.skel.block { min-height: 64px; }
 .pmpick .aiohead b.up, .pmpick .aiohead b.down, .pmpick .aiohead > b:not(.pmpn) { font-size: 1.35em; }
 .pmpn { font-size: 1.15em !important; } .pmpn i { font-style: normal; font-size: .75em; color: var(--color-muted); }
 .pmpw { margin: 6px 0 10px; line-height: 1.6; }
-.pmpick .aikv { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pmpick .aikv { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .pmpick .aikv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .bd-picks { display: grid; gap: 2px; }
 
 /* search suggestions sit above everything else in the card, on solid frosted glass */
@@ -371,3 +372,16 @@ p.skel, div.skel.block { min-height: 64px; }
 .pmcw { margin: 6px 0 0; font-size: var(--text-sm); }
 .side .sb-row { height: auto !important; min-height: 44px !important; grid-auto-rows: auto; }
 .side .sb-watch { grid-auto-rows: max-content; }
+
+/* 5-day plan strip and short analysis points */
+.plan { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+@media (max-width: 760px) { .plan { grid-template-columns: 1fr; } }
+.pday { display: grid; align-content: start; gap: 3px; padding: 10px; border-radius: 12px; background: var(--glass-2); border: 1px solid var(--glass-line); border-top: 3px solid var(--color-muted); min-width: 0; }
+.pday.up { border-top-color: var(--color-up); } .pday.down { border-top-color: var(--color-down); }
+.pday b { font: 600 var(--text-sm)/1.2 var(--font-outlier); }
+.pday .pv { font-size: var(--text-xs); color: var(--color-muted); }
+.pday.up .pv { color: var(--color-up); } .pday.down .pv { color: var(--color-down); }
+.pday .pr { font: 500 var(--text-xs)/1.3 var(--font-outlier); }
+.pday .pdo { font-size: var(--text-xs); line-height: 1.5; }
+.pana { margin: 4px 0 8px; padding-left: 1.1em; display: grid; gap: 2px; font-size: var(--text-sm); line-height: 1.55; }
+.pmpgrid { grid-template-columns: 1fr !important; }

@@ -944,8 +944,8 @@
       <div class="aicols"><div class="lrise"><h4>夜盤</h4><p>${esc(a.night || "—")}</p></div><div class="lrise"><h4>美股與國際</h4><p>${esc(a.us || "—")}</p></div></div>
       ${Array.isArray(a.picks) && a.picks.length ? `<div class="pmpicks"><div class="pmph"><h4>潛力股與下單建議</h4><span class="sub">${esc(a.picks_note || "")}</span></div><div class="pmpgrid">${a.picks.map(x => { const t = /買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""; return `<button type="button" class="aiorder pmpick ${t ? "o-" + t : ""} lrise" data-pick="${esc(x.code)}">
         <div class="aiohead"><span class="ntag">${esc(x.tag || "")}</span><b class="pmpn">${esc(x.name || "")} <i>${esc(x.code)}</i></b><b class="${t}">${esc(x.action || "")}</b>${x.rr ? `<span class="sub">風險報酬 ${esc(x.rr)}</span>` : ""}</div>
-        <p class="pmpw">${esc(x.why || "")}</p>
-        <div class="aikv"><div><span>怎麼下</span><b>${esc(x.how || "—")}</b></div><div><span>分批</span><b>${esc(x.split || "—")}</b></div><div><span>停損</span><b>${esc(x.stop || "—")}</b></div><div><span>目標</span><b>${esc((Array.isArray(x.targets) ? x.targets : []).join("；") || "—")}</b></div></div></button>`; }).join("")}</div></div>` : ""}
+        <p class="pmpw">${esc(x.why || "")}</p>${anaHTML(x.analysis)}
+        <div class="aikv"><div><span>怎麼下</span><b>${esc(x.how || "—")}</b></div><div><span>分批</span><b>${esc(x.split || "—")}</b></div><div><span>停損</span><b>${esc(x.stop || "—")}</b></div><div><span>目標</span><b>${esc((Array.isArray(x.targets) ? x.targets : []).join("；") || "—")}</b></div></div>${planHTML(x.days)}</button>`; }).join("")}</div></div>` : ""}
       <div class="pmfac">${(Array.isArray(a.factors) ? a.factors : []).map(f => `<div class="pmf lrise"><span class="aitag ${f.effect === "利多" ? "up" : f.effect === "利空" ? "down" : ""}">${esc(f.effect || "")}</span><b>${esc(f.name)}</b><span class="sub">${esc(f.note)}</span></div>`).join("")}</div>
       <details class="pmmore"><summary>族群、關鍵點位、風險與開盤後要盯的事</summary>
         <div class="aicols"><div><h4>可能領漲／落後</h4><ul>${li(a.sectors)}</ul><h4>關鍵點位</h4><p>${esc(a.levels || "—")}</p></div><div><h4>風險</h4><ul>${li(a.risks)}</ul><h4>09:00–09:30 要盯</h4><ul>${li(a.watch)}</ul></div></div>
@@ -974,6 +974,10 @@
     b.disabled = false; b.textContent = "分析";
   }
 
+
+  /* a 5-day plan strip and a short analysis list, shared by the AI team's order and the pre-market picks */
+  const planHTML = days => (Array.isArray(days) && days.length ? `<div class="plan">${days.map(d => `<div class="pday ${/多/.test(d.view || "") ? "up" : /空/.test(d.view || "") ? "down" : ""}"><b>${esc(d.d || "")}</b><span class="pv">${esc(d.view || "")}</span><span class="pr">${esc(d.range || "")}</span><span class="pdo">${esc(d.do || "")}</span></div>`).join("")}</div>` : "");
+  const anaHTML = a => (Array.isArray(a) && a.length ? `<ul class="pana">${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
   /* ---------------- the AI analyst team ---------------- */
   const AI = new Map();                            /* code → { at, data } for this visit */
   const stanceTone = s => (/多/.test(s || "") ? "up" : /空/.test(s || "") ? "down" : "");
@@ -988,7 +992,7 @@
     out.innerHTML = `
       ${O.action ? `<div class="aiorder ${otn ? "o-" + otn : ""}"><div class="aiohead"><span class="sub">下單建議</span><b class="${otn}">${esc(O.action)}</b>${O.rr ? `<span class="sub">風險報酬 ${esc(O.rr)}</span>` : ""}</div>
         <p class="ailead">${esc(O.why || "")}</p>
-        <div class="aikv"><div><span>怎麼下</span><b>${esc(O.how || "—")}</b></div><div><span>分批</span><b>${esc(O.split || "—")}</b></div><div><span>停損</span><b>${esc(O.stop || "—")}</b></div><div><span>目標</span><b>${esc((Array.isArray(O.targets) ? O.targets : []).join("；") || "—")}</b></div></div></div>` : ""}
+        <div class="aikv"><div><span>怎麼下</span><b>${esc(O.how || "—")}</b></div><div><span>分批</span><b>${esc(O.split || "—")}</b></div><div><span>停損</span><b>${esc(O.stop || "—")}</b></div><div><span>目標</span><b>${esc((Array.isArray(O.targets) ? O.targets : []).join("；") || "—")}</b></div></div>${planHTML(O.days)}</div>` : ""}
       <div class="aisum"><div class="aiverdict"><span class="aitag ${stanceTone(S.stance)}">${esc(S.stance || "—")}</span><span class="sub">信心 ${esc(S.confidence || "—")}</span></div>
         <p class="ailead">${esc(S.headline || "")}</p>
         <div class="aicols"><div><h4>未來 1–2 週</h4><p>${esc(S.short_term || "—")}</p></div><div><h4>未來 1–3 個月</h4><p>${esc(S.mid_term || "—")}</p></div></div></div>
