@@ -62,7 +62,10 @@ body { background: radial-gradient(120% 80% at 10% -10%, var(--bg-1), var(--bg-0
 @keyframes drift4 { to { transform: translate(16vmax, -12vmax) scale(1.1); } }
 .aurora::after { content: ""; position: absolute; inset: 0; background-image: radial-gradient(color-mix(in oklch, var(--color-ink) 7%, transparent) 1px, transparent 1px); background-size: 3px 3px; opacity: .25; }
 .app { position: relative; z-index: 2; }
-#gate { background: transparent; }
+/* sign-in gate: frosts the whole page behind it, the ticket is nearly solid glass */
+#gate { background: color-mix(in oklch, var(--bg-0) 72%, transparent); -webkit-backdrop-filter: blur(28px) saturate(140%); backdrop-filter: blur(28px) saturate(140%); }
+#gate .ticket { background: var(--glass-strong); }
+#gate .overlay { background: var(--glass-strong); -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px); border-radius: inherit; }
 
 /* ---------- 3. glass surfaces ---------- */
 .dcard, .ticket, .dash-note, .thmenu, .side, .topbar, .apppill, .dtabs, .ixdetail, .levent, .lscen {
@@ -156,9 +159,9 @@ body { background: radial-gradient(120% 80% at 10% -10%, var(--bg-1), var(--bg-0
 /* ---------- 5. page layouts ---------- */
 /* overview: index tiles, then the pre-market note beside the market figures, then the list */
 .ixgrid { gap: 14px; }
-.ixcard { min-height: 132px; }
+.ixcard { min-height: 178px; padding-bottom: 62px; }
 .ixcard .big { font-size: clamp(1.5rem, 2.2vw, 2rem); letter-spacing: -.02em; }
-.ixcard svg.spark { width: 42%; height: 46px; right: 14px; bottom: 14px; }
+.ixcard svg.spark { position: absolute; left: 16px; right: 16px; width: auto; height: 42px; bottom: 14px; }
 .ovbento { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 14px; align-items: stretch; }
 .ovbento > .dcard { margin: 0; }
 .ovbento .mstrip { grid-template-columns: 1fr 1fr; align-content: start; gap: 10px; }
@@ -214,3 +217,13 @@ p.skel, div.skel.block { min-height: 64px; }
 
 .ixcard svg.spark:not(.up):not(.down) { display: none; }
 @media (max-width: 720px) { .topbar #who { display: none; } .topbar { top: 6px; padding: 8px 10px; } .topbar .tb-right { padding-right: 44px; } .tbchip .tt { display: none; } }
+
+/* theme switch in the top bar: follow the device / light / dark */
+.thseg { position: relative; display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--glass-line-2); }
+.thseg button { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: none; color: var(--color-muted); font-size: var(--text-xs); cursor: pointer; transition: color .25s; }
+.thseg button[aria-checked="true"] { color: var(--color-ink); }
+.thseg svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.thseg .th-hl { position: absolute; top: 3px; bottom: 3px; left: 0; border-radius: 999px; background: var(--glass-strong); box-shadow: 0 4px 14px -6px rgb(0 0 0 / .4); transition: transform .4s cubic-bezier(.2,.9,.3,1.2), width .4s; }
+@media (max-width: 900px) { .thseg span { display: none; } .thseg button { padding: 0 9px; } }
+.topbar .tb-right { padding-right: 0 !important; }
+:root, body, .dcard, .side, .topbar { transition: background-color .5s ease, color .5s ease, border-color .5s ease; }

@@ -57,6 +57,19 @@
     main.insertBefore(bar, main.firstChild);
     const right = $(".tb-right", bar);
     ["#who", "#pinBtn", "#accountBtn"].forEach(s => { const el = $(s); if (el) right.appendChild(el); });
+    /* light / dark / follow the device */
+    const T = window.__twTheme, seg = document.createElement("div");
+    seg.className = "thseg"; seg.setAttribute("role", "radiogroup"); seg.setAttribute("aria-label", "外觀");
+    seg.innerHTML = [["system", "跟隨裝置", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'], ["light", "淺色", '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'], ["dark", "深色", '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>']]
+      .map(([k, l, ic]) => `<button type="button" role="radio" data-t="${k}" title="${l}" aria-label="${l}"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span>${l}</span></button>`).join("") + '<i class="th-hl"></i>';
+    right.appendChild(seg);
+    const markTheme = () => {
+      const bs = $$("button", seg), i = Math.max(0, bs.findIndex(b => b.dataset.t === (T ? T.mode : "system")));
+      bs.forEach((b, k) => b.setAttribute("aria-checked", String(k === i)));
+      const hl = $(".th-hl", seg); hl.style.width = bs[i].offsetWidth + "px"; hl.style.transform = `translateX(${bs[i].offsetLeft}px)`;
+    };
+    seg.addEventListener("click", e => { const b = e.target.closest("button"); if (!b || !T) return; T.set(b.dataset.t); markTheme(); });
+    requestAnimationFrame(markTheme); addEventListener("resize", markTheme);
     requestAnimationFrame(place);
     addEventListener("resize", place);
   }
