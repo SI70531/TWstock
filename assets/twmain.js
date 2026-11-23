@@ -340,7 +340,7 @@
         <div class="dcard bd-pm"><div class="bd-h"><h3>盤前分析</h3><button type="button" class="btn bd-go" data-goto="dpPre">看完整分析 →</button></div><div class="bd-pmout"><p class="sub">載入中…</p></div></div>
       </div>
       <div class="dcard mkt">
-        <div class="mbar"><input class="msearch" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
+        <div class="mbar"><input class="msearch msfull" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
           <div class="chips">${PRESETS.map(([k, t]) => `<button type="button" class="chip" data-preset="${k}" aria-pressed="${k === VIEW.preset}">${t}</button>`).join("")}</div>
           <span class="sub mcount"></span></div>
         <div class="mwrap"><table class="mtbl ttbl mktab"><thead><tr><th class="l">商品</th>${COLS.map(([k, t]) => `<th class="sort" data-key="${k}">${t}<i></i></th>`).join("")}<th aria-label="自選"></th></tr></thead><tbody></tbody></table></div>
@@ -352,6 +352,7 @@
       if (!e.target.closest("#dpOverview, #dpPre, #dpList")) return;
       const p = e.target.closest("[data-preset]");
       if (p) {
+        VIEW.q = ""; $("#dpList .msearch").value = "";
         VIEW.preset = p.dataset.preset; VIEW.shown = 50;
         const o = { all: ["vol", -1], w1: ["ord", 1], w2: ["ord", 1], w3: ["ord", 1], w4: ["ord", 1], w5: ["ord", 1], strong: ["pct", -1], weak: ["pct", 1], volume: ["vol", -1] }[VIEW.preset];
         VIEW.key = o[0]; VIEW.dir = o[1]; paintTable(true); return;
@@ -360,7 +361,7 @@
       if (th) { const k = th.dataset.key; if (VIEW.key === k) VIEW.dir *= -1; else { VIEW.key = k; VIEW.dir = -1; } paintTable(true); return; }
       if (e.target.closest(".mmore")) { VIEW.shown += 100; paintTable(false); return; }
       const st = e.target.closest(".wlbtn");
-      if (st) { toggleWatch(st.dataset.code, listIdx()); return; }
+      if (st) { if (st.classList.contains("wladd")) wlMenu(st); else toggleWatch(st.dataset.code, listIdx()); return; }
       const tr = e.target.closest("tr[data-code]");
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
@@ -380,7 +381,9 @@
     const q = VIEW.q.toLowerCase();
     let rows = DB.list;
     const L = /^w[1-5]$/.test(VIEW.preset) ? LISTS[listIdx()] : null;
-    if (L && !q) rows = rows.filter(s => L.includes(s.code));   /* a search looks through every stock */
+    if (q) return DB.list.filter(s => s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))   /* a search looks through every stock */
+      .sort((a, b) => (a.code.toLowerCase() === q ? -1 : 0) - (b.code.toLowerCase() === q ? -1 : 0) || (ok(b.vol) ? b.vol : 0) - (ok(a.vol) ? a.vol : 0));
+    if (L) rows = rows.filter(s => L.includes(s.code));
     if (VIEW.preset === "strong" || VIEW.preset === "weak") rows = rows.filter(s => s.vol >= 500);   /* thin stocks are left out, as broker apps do */
     if (q) rows = rows.filter(s => s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
     const k = VIEW.key, d = VIEW.dir;
@@ -396,10 +399,27 @@
   };
   /* inside 自選1–5: ＋ adds a searched stock to that list, − takes one out */
   const wlBtn = s => {
+    if (VIEW.q) { const has = LISTS.some(l => l.includes(s.code)); return `<button type="button" class="wlbtn wladd${has ? " in" : ""}" data-code="${esc(s.code)}" aria-label="加入自選 ${esc(s.name)}">＋</button>`; }
     if (!/^w[1-5]$/.test(VIEW.preset)) return "";
     const n = listIdx() + 1, inL = LISTS[n - 1].includes(s.code);
     return `<button type="button" class="wlbtn${inL ? " in" : ""}" data-code="${esc(s.code)}" aria-label="${inL ? "從" : "加入"}自選${n}${inL ? "移除" : ""} ${esc(s.name)}">${inL ? "−" : "＋"}</button>`;
   };
+  /* the ＋ on a search result opens a small menu: tap 自選1–5 to add or remove */
+  let menuEl = null;
+  function wlMenu(btn) {
+    const code = btn.dataset.code;
+    if (menuEl && menuEl.dataset.code === code) { menuEl.remove(); menuEl = null; return; }
+    if (menuEl) menuEl.remove();
+    menuEl = document.createElement("div"); menuEl.className = "wlmenu"; menuEl.dataset.code = code;
+    const paint = () => { menuEl.innerHTML = LISTS.map((l, i) => `<button type="button" data-i="${i}" aria-pressed="${l.includes(code)}">自選${i + 1}<i>${l.includes(code) ? "✓" : "＋"}</i></button>`).join(""); };
+    paint(); document.body.appendChild(menuEl);
+    const r = btn.getBoundingClientRect(), w = menuEl.offsetWidth, h = menuEl.offsetHeight;
+    menuEl.style.left = Math.max(8, Math.min(innerWidth - w - 8, r.right - w)) + "px";
+    menuEl.style.top = (r.bottom + h + 8 > innerHeight ? r.top - h - 6 : r.bottom + 6) + "px";
+    menuEl.addEventListener("click", e => { const b = e.target.closest("[data-i]"); if (!b) return; e.stopPropagation(); toggleWatch(code, +b.dataset.i); paint(); });
+  }
+  document.addEventListener("click", e => { if (menuEl && !e.target.closest(".wlmenu, .wladd")) { menuEl.remove(); menuEl = null; } }, true);
+  addEventListener("scroll", () => { if (menuEl) { menuEl.remove(); menuEl = null; } }, { passive: true });
   function paintTable(animate) {
     const box = $("#dpList"); if (!$(".mtbl", box)) return;
     const rows = rowsNow(), show = rows.slice(0, VIEW.shown);
@@ -407,7 +427,7 @@
       `<tr><td class="mempty" colspan="6">${/^w[1-5]$/.test(VIEW.preset) && !VIEW.q ? `自選${listIdx() + 1} 還沒有股票。`  : DB.list.length ? "找不到符合的股票。" : "載入中…"}</td></tr>`;
     $(".mmore", box).hidden = rows.length <= VIEW.shown;
     $(".mcount", box).textContent = DB.list.length ? `${fmt(rows.length)} 檔${VIEW.preset === "strong" || VIEW.preset === "weak" ? "（成交量 500 張以上）" : ""}` : "";
-    $$("[data-preset]", box).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.preset === VIEW.preset)));
+    $$("[data-preset]", box).forEach(b => b.setAttribute("aria-pressed", String(!VIEW.q && b.dataset.preset === VIEW.preset)));
     $$("th.sort", box).forEach(th => { th.dataset.dir = th.dataset.key === VIEW.key ? (VIEW.dir < 0 ? "desc" : "asc") : ""; });
     if (animate && box.classList.contains("on")) rise($$(".mtbl tbody tr", box).slice(0, 24), 18);
     if (animate) rtPoll();
@@ -492,7 +512,7 @@
     saveLists();
     if (i === 0) alertSync();
     paintWatch(false);
-    if (/^w[1-5]$/.test(VIEW.preset)) paintTable(false);
+    if (VIEW.q || /^w[1-5]$/.test(VIEW.preset)) paintTable(false);
   }
   async function pullWatch() {
     try {
