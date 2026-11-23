@@ -1,0 +1,44 @@
+# TWstock Worker (name "twstock-ai"). Its own Cloudflare secrets: GEMINI_KEY (its own Gemini account) and TG_TOKEN.
+name = "twstock-ai"
+main = "twstock-worker.js"
+compatibility_date = "2026-01-01"
+workers_dev = true
+
+[placement]
+region = "gcp:us-central1"
+
+# The call to Google goes through this Durable Object, created in North America (locationHint "enam"),
+# so it never leaves from a place where Gemini is not offered.
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "GeminiRelay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GeminiRelay"]
+
+
+# AI calls counted per account (GUARD); ERRLOG is an old class kept so the existing Durable Objects stay valid.
+[[durable_objects.bindings]]
+name = "GUARD"
+class_name = "Guard"
+
+[[durable_objects.bindings]]
+name = "ERRLOG"
+class_name = "ErrLog"
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["Guard", "ErrLog"]
+
+# The daily pre-market note (05:30 Taipei, Monday to Friday mornings = 21:30 UTC Sunday to Thursday) and where it is kept.
+[triggers]
+crons = ["30 21 * * SUN-THU"]
+
+[[durable_objects.bindings]]
+name = "DAILY"
+class_name = "Daily"
+
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["Daily"]

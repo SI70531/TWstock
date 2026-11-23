@@ -43,15 +43,15 @@ tools/supabase-twstock.sql  Watchlist table (Row Level Security)
 
 - **TPEx closing data**: `tpex_mainboard_daily_close_quotes` (TPEx open data) for the list and the TPEx per-stock monthly report for daily bars. Fundamentals, institutional flows and intraday quotes are TWSE only, so TPEx stocks show closing prices.
 - **Closing data (no backend needed)**: TWSE open data, read by the browser. `STOCK_DAY_ALL` (all listed stocks), `MI_INDEX` (indices), `FMTQIK` (TAIEX history and turnover), `BFI82U` and `T86` (institutions), `STOCK_DAY` (daily bars per stock), `BWIBBU_ALL` and `t187ap05_L` (valuation and monthly revenue). Finished months are cached in the browser.
-- **Intraday quotes, futures, news and AI (through the Worker)**: the `ezexams-ai` Worker (source in the EZexams repo, `tools/ezexams-worker.js`) serves
+- **Intraday quotes, futures, news and AI (through the Worker)**: the `twstock-ai` Worker (source in this repository, `tools/twstock-worker.js`, settings in `tools/wrangler.toml`) serves
   - `GET /tw/rt` intraday quotes from TWSE's market information system and the TAIEX futures quote from TAIFEX. These are unofficial interfaces and can change or stop working.
   - `GET /tw/news` headlines (Google News) and material announcements (TWSE open data).
   - `POST /tw/analyze` the AI analysis (Gemini), counted per account. The page also sends the research tools' numbers for the stock (technical scenarios, the 10,000-run time machine, four strategy backtests, and the user's own position, trades and events); the tools themselves sit in a fold under the AI team on the stock page.
-  - `GET /tw/premarket` the latest pre-market note. The Worker writes it at 05:30 Taipei on trading-day mornings from the TAIEX futures night session, the US close, rates, the NT dollar, institutional flows and headlines, and sends it to Telegram (secret `TELEGRAM_BOT_TOKEN` in the EZexams repository; the chat is whoever first messages the bot). `POST /tw/premarket/run` writes one on request for a signed-in account.
+  - `GET /tw/premarket` the latest pre-market note. The Worker writes it at 05:30 Taipei on trading-day mornings from the TAIEX futures night session, the US close, rates, the NT dollar, institutional flows and headlines, and sends it to Telegram (secret `TELEGRAM_BOT_TOKEN` in this repository; the chat is whoever first messages the bot). `POST /tw/premarket/run` writes one on request for a signed-in account.
 - Intraday quotes cover the stocks currently on screen (up to 70 rows, the watchlist, or the open stock) and refresh every 10 seconds during trading hours; the rest of the list stays at the last close until scrolled into the first rows or opened. Sorting therefore mixes live and closing values.
 - When the Worker does not answer, the page keeps working on closing data and says so in the banner. When TWSE cannot be reached at all, the banner says 示意資料 and the numbers are sample values.
 
-After changing the Worker source, run the **Deploy Worker** workflow in the EZexams repository (Actions → Deploy Worker → Run workflow).
+The **Deploy Worker** workflow (`.github/workflows/worker.yml`) deploys it on every push that changes the Worker, or by hand (Actions → Deploy Worker → Run workflow). It needs the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and `TELEGRAM_BOT_TOKEN` for the notification. The Worker's `GEMINI_KEY` is kept in Cloudflare (Workers → twstock-ai → Settings → Variables and Secrets).
 
 ## About the AI analysis
 
