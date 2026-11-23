@@ -569,7 +569,7 @@
   function buildStock() {
     $("#dpStock").innerHTML = `
       <div class="dcard shead">
-        <div class="sfind"><input class="ssearch" type="search" placeholder="輸入代號或名稱換一檔" aria-label="搜尋股票" autocomplete="off"><div class="ssug" hidden></div></div>
+        <div class="sfind"><button type="button" class="sback" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span></span></button><input class="ssearch" type="search" placeholder="輸入代號或名稱換一檔" aria-label="搜尋股票" autocomplete="off"><div class="ssug" hidden></div></div>
         <div class="stitle"><h2></h2><button type="button" class="starbtn sstar" aria-pressed="false" aria-label="加入自選">★</button></div>
         <div class="spx"><span class="big">—</span><span class="schg"></span><span class="sub stime"></span></div>
         <div class="sohlc"></div>
@@ -604,6 +604,7 @@
     box.addEventListener("click", e => {
       if (e.target.closest("#dpLab")) return;                 /* the research tools handle their own clicks */
       const s = e.target.closest(".ssug button"); if (s) { inp.value = ""; sug.hidden = true; setStock(s.dataset.code, true); navPush(); return; }
+      if (e.target.closest(".sback")) { goBack(); return; }
       if (e.target.closest(".sstar")) { toggleWatch(CODE); starHead(); return; }
       const sp = e.target.closest("[data-span]"); if (sp) { SPAN = +sp.dataset.span; store.set("twmain-span", SPAN); drawChart(true); return; }
       const ind = e.target.closest("[data-ind]"); if (ind) { IND[ind.dataset.ind] = !IND[ind.dataset.ind]; store.set("twmain-ind", IND); drawChart(true); return; }
@@ -753,11 +754,27 @@
       else open("dpOverview", true);
     } finally { navLock = false; }
   }
-  addEventListener("popstate", () => navGo(location.hash));
+  addEventListener("popstate", () => { const bk = BACK; navGo(location.hash); if (bk && cur === bk.tab) backTo(bk); });
+  /* where a stock was opened from: the 返回 button (and the browser's back) returns there, at the same scroll position */
+  let BACK = null;
+  function showBack() {
+    const b = $("#dpStock .sback"); if (!b) return;
+    b.hidden = !BACK;
+    if (BACK) { const t = tabs.find(x => x.dataset.p === BACK.tab); const name = t ? t.textContent.trim() : ""; $("span", b).textContent = "返回" + name; b.setAttribute("aria-label", "返回" + name); }
+  }
+  function backTo(bk) {
+    requestAnimationFrame(() => {
+      scrollTo({ top: bk.y, behavior: "instant" in window ? "instant" : "auto" });
+      const row = document.querySelector(`#${bk.tab} [data-code="${CSS.escape(bk.code)}"], #${bk.tab} [data-pick="${CSS.escape(bk.code)}"]`);
+      if (row && row.animate) row.animate([{ boxShadow: "inset 0 0 0 2px var(--color-accent)" }, { boxShadow: "inset 0 0 0 2px transparent" }], { duration: 1400, easing: "ease-out" });
+    });
+  }
+  function goBack() { const bk = BACK; if (!bk) return; open(bk.tab, true); backTo(bk); }
   function openStock(code, from) {
     const a = from && from.getBoundingClientRect();
+    if (cur && cur !== "dpStock") BACK = { tab: cur, y: scrollY, code };
     navLock = true; open("dpStock", true, true); navLock = false;
-    setStock(code, true); navPush();
+    setStock(code, true); navPush(); showBack();
     const head = $("#dpStock .shead");
     scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
     if (a && head) {
@@ -942,7 +959,7 @@
         <div class="pmrow"><div class="pmseg"><h4>09:00 開盤</h4><div class="pmchance">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc(ch[k] || "—")}</b></div>`).join("")}</div></div>
         ${a.close && a.close.call ? `<div class="pmseg"><h4>13:30 收盤 <span class="aitag ${/紅/.test(a.close.call) ? "up" : /黑/.test(a.close.call) ? "down" : ""}">${esc(a.close.call)}</span> <span class="sub">${esc(a.close.range || "")}</span></h4><div class="pmchance">${["收紅", "平盤", "收黑"].map(k => `<div><span>${k}</span><b class="${k === "收紅" ? "up" : k === "收黑" ? "down" : ""}">${esc((a.close.chances || {})[k] || "—")}</b></div>`).join("")}</div>${a.close.why ? `<p class="pmcw">${esc(a.close.why)}</p>` : ""}</div>` : ""}</div></div>
       <div class="aicols"><div class="lrise"><h4>夜盤</h4><p>${esc(a.night || "—")}</p></div><div class="lrise"><h4>美股與國際</h4><p>${esc(a.us || "—")}</p></div></div>
-      ${Array.isArray(a.picks) && a.picks.length ? `<div class="pmpicks"><div class="pmph"><h4>潛力股與下單建議</h4><span class="sub">${esc(a.picks_note || "")}</span></div><div class="pmpgrid">${a.picks.map(x => { const t = /買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""; return `<button type="button" class="aiorder pmpick ${t ? "o-" + t : ""} lrise" data-pick="${esc(x.code)}">
+      ${Array.isArray(a.picks) && a.picks.length ? `<div class="pmpicks"><div class="pmph"><h4>推薦下單</h4><span class="sub">${esc(a.picks_note || "")}</span></div><div class="pmpgrid">${a.picks.map(x => { const t = /買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""; return `<button type="button" class="aiorder pmpick ${t ? "o-" + t : ""} lrise" data-pick="${esc(x.code)}">
         <div class="aiohead"><span class="ntag">${esc(x.tag || "")}</span><b class="pmpn">${esc(x.name || "")} <i>${esc(x.code)}</i></b><b class="${t}">${esc(x.action || "")}</b>${x.rr ? `<span class="sub">風險報酬 ${esc(x.rr)}</span>` : ""}</div>
         <p class="pmpw">${esc(x.why || "")}</p>${anaHTML(x.analysis)}
         <div class="aikv"><div><span>怎麼下</span><b>${esc(x.how || "—")}</b></div><div><span>分批</span><b>${esc(x.split || "—")}</b></div><div><span>停損</span><b>${esc(x.stop || "—")}</b></div><div><span>目標</span><b>${esc((Array.isArray(x.targets) ? x.targets : []).join("；") || "—")}</b></div></div>${planHTML(x.days)}</button>`; }).join("")}</div></div>` : ""}
@@ -961,7 +978,7 @@
     try {
       const r = await fetch(WORKER + "/tw/premarket/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk }) });
       const j = await r.json().catch(() => null);
-      if (!r.ok || !j || !j.analysis) throw new Error(r.status === 401 ? "登入過期了，請重新登入" : j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試");
+      if (!r.ok || !j || !j.analysis) throw new Error(r.status === 401 ? "登入過期了，請重新登入" : aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
       pmPaint({ note: j }, true);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
@@ -980,6 +997,18 @@
   const anaHTML = a => (Array.isArray(a) && a.length ? `<ul class="pana">${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
   /* ---------------- the AI analyst team ---------------- */
   const AI = new Map();                            /* code → { at, data } for this visit */
+  /* the two limits that need their own words: the Gemini free tier's daily cap (reset at midnight US Pacific) and this account's own cap;
+     anything else (a busy minute included) keeps the Worker's own message */
+  function aiLimitMsg(j) {
+    const code = j && j.error && j.error.status;
+    if (code === "AI_DAILY") {
+      const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hourCycle: "h23", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(new Date()).map(x => [x.type, x.value]));
+      const t = Date.now() + (86400 - (+p.hour * 3600 + +p.minute * 60 + +p.second)) * 1000, tw = ms => new Date(ms + 8 * 3600e3).toISOString();
+      return `AI 今天的額度用完了，${tw(t).slice(0, 10) === tw(Date.now()).slice(0, 10) ? "今天" : "明天"} ${tw(t).slice(11, 16)} 重置`;
+    }
+    if (code === "RESOURCE_EXHAUSTED") return "這個帳號的分析次數到上限了，晚一點再試";
+    return null;
+  }
   const stanceTone = s => (/多/.test(s || "") ? "up" : /空/.test(s || "") ? "down" : "");
   function paintAI() {
     const box = $("#dpStock"), out = $(".aiout", box), msg = $(".aimsg", box), go = $(".aihead .aigo", box); if (!out) return;
@@ -1012,6 +1041,7 @@
     let tk = null;
     try { tk = window.TWAccount && TWAccount.token ? await TWAccount.token() : null; } catch (e) { tk = null; }
     if (!tk) { msg.textContent = "AI 分析需要先登入帳號（右上角「登入」）。"; return; }
+    const fresh = AI.has(code);                    /* 重新分析 asks for a new one; 開始分析 may get today's saved one at no cost */
     go.disabled = true; go.textContent = "分析中…"; msg.textContent = "五位分析師正在讀數據與新聞，大約需要 20 到 40 秒。";
     $(".aiout", box).innerHTML = `<div class="aiwait"><i></i><i></i><i></i><i></i><i></i></div>`;
     try {
@@ -1020,16 +1050,17 @@
       try { lab = window.TWLab ? await TWLab.research(code, (i, n) => { if (code === CODE) msg.textContent = `整理研究資料（讀日線 ${i}/${n} 個月）…`; }) : null; } catch (e) { lab = null; }
       if (code === CODE) msg.textContent = "五位分析師正在讀數據、研究資料與新聞，大約需要 20 到 40 秒。";
       const F = facts(cs); if (lab) F.research = lab;
-      const r = await fetch(WORKER + "/tw/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk, code, name: s.name, facts: F }) });
+      const r = await fetch(WORKER + "/tw/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk, code, name: s.name, facts: F, fresh }) });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) {
         const st = r.status;
-        throw new Error(st === 401 ? "登入過期了，請重新登入" : st === 429 && !(j && j.error && /AI/.test(j.error.message || "")) ? "你這小時的分析次數用完了，晚一點再試" : j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : st >= 500 ? "Google 的 AI 現在太忙，過幾分鐘再按一次" : "AI 暫時沒有回應，過幾分鐘再試");
+        throw new Error(st === 401 ? "登入過期了，請重新登入" : aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : st >= 500 ? "Google 的 AI 現在太忙，過幾分鐘再按一次" : "AI 暫時沒有回應，過幾分鐘再試"));
       }
       AI.set(code, { at: j.at || Date.now(), data: j });
       if (code === CODE) { paintAI(); rise(Array.from($(".aiout", box).children), 90); }
     } catch (e) {
-      if (code === CODE) { $(".aiout", box).innerHTML = ""; msg.textContent = e && e.message && /[一-鿿]/.test(e.message) ? e.message : "連不到 AI 服務，請稍後再試。"; go.disabled = false; go.textContent = "開始分析"; }
+      /* a failed 重新分析 keeps the analysis already on screen */
+      if (code === CODE) { paintAI(); msg.textContent = e && e.message && /[一-鿿]/.test(e.message) ? e.message : "連不到 AI 服務，請稍後再試。"; }
     }
   }
 
@@ -1063,6 +1094,7 @@
   }
   function open(id, animate, quiet) {
     const b = tabs.find(t => t.dataset.p === id) || tabs[0], panel = document.getElementById(b.dataset.p), same = cur === b.dataset.p;
+    if (b.dataset.p !== "dpStock" && typeof BACK !== "undefined" && BACK) { BACK = null; showBack(); }
     tabs.forEach(t => t.setAttribute("aria-selected", t === b ? "true" : "false"));
     movePill(b, animate);
     $$(".dpanel").forEach(p => p.classList.toggle("on", p === panel));

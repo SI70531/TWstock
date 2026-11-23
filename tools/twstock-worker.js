@@ -74,7 +74,7 @@ export default {
       const q = await guard(env, "pin:" + who, "ai");
       if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached for this sign-in; try again later", { "Retry-After": String(q.aiWait || 60) });
       const r = await premarket(env, true);   /* a manual run is also sent to Telegram (useful as a test) */
-      return r.error ? fail(502, "AI_FAILED", r.error) : json(r);
+      return r.error ? (r.daily ? fail(429, "AI_DAILY", r.error) : fail(502, "AI_FAILED", r.error)) : json(r);
     }
     return fail(404, "NOT_FOUND", "Unknown path");
   },
@@ -331,6 +331,10 @@ async function twAnalyze(env, who, bodyText, json, fail) {
   if (!/^[0-9A-Z]{4,6}$/.test(code)) return fail(400, "BAD_CODE", "Bad stock code");
   let facts; try { facts = JSON.stringify(b.facts || {}); } catch (e) { facts = "{}"; }
   if (facts.length > 16000) return fail(413, "TOO_BIG", "Too much data");
+  if (!b.fresh) {   /* today's analysis of this stock by this account, unless 重新分析 asked for a new one */
+    const c = await guard(env, "pin:" + who, "aiget", { code }).catch(() => ({}));
+    if (c && c.hit) return json({ ...c.hit, cached: true });
+  }
   const q = await guard(env, "pin:" + who, "ai");
   if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached for this sign-in; try again later", { "Retry-After": String(q.aiWait || 60) });
   const [news, ann, world] = await Promise.all([
@@ -339,15 +343,17 @@ async function twAnalyze(env, who, bodyText, json, fail) {
     twCached("world", 600000, () => twHeadlines("台股 OR 美股 OR 聯準會 OR 關稅 OR 匯率 when:3d", 10)).catch(() => []),
   ]);
   const g = await geminiJson(env, twPrompt(code, name, facts, news, ann, world), 0.4, 0);
-  if (g.error) return fail(g.error.status === 429 ? 429 : 502, "AI_FAILED", aiWhy(g.error.status), g.error.status === 429 ? { "Retry-After": "60" } : undefined);
+  if (g.error) return fail(g.error.status === 429 ? 429 : 502, g.error.daily ? "AI_DAILY" : "AI_FAILED", g.error.daily ? "AI 今天的額度用完了" : aiWhy(g.error.status), g.error.status === 429 && !g.error.daily ? { "Retry-After": "60" } : undefined);
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
   if (!a || !Array.isArray(a.team) || !a.summary) return fail(502, "AI_FAILED", "AI 的回答不完整，再按一次");
-  return json({ at: Date.now(), analysis: a, news: news.map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })), ann: ann.map(x => ({ d: x.d, t: x.t })), world: world.map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) });
+  const out = { at: Date.now(), analysis: a, news: news.map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })), ann: ann.map(x => ({ d: x.d, t: x.t })), world: world.map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
+  await guard(env, "pin:" + who, "aiput", { code, data: out }).catch(() => {});
+  return json(out);
 }
 
 /* what went wrong with the AI, in plain words for the page */
 function aiWhy(st) {
-  if (st === 429) return "AI 今天的使用量用完了，晚一點再試";
+  if (st === 429) return "AI 這一分鐘太忙，一分鐘後再按一次";   /* the daily cap has its own message (AI_DAILY) */
   if ([500, 502, 503, 504].includes(st)) return "Google 的 AI 現在太忙，過幾分鐘再按一次";
   if (st === 400 || st === 401 || st === 403) return "AI 金鑰設定有問題，請檢查 Cloudflare 上的 GEMINI_KEY";
   return "AI 暫時沒有回應，過幾分鐘再試";
@@ -386,15 +392,28 @@ async function supaUser(jwt) {
 /* a device PIN is kept only as an HMAC of account + device + PIN, made with a key only this Worker has */
 
 /* AI calls per account: a running count per hour and per day (one Durable Object per account) */
-async function guard(env, key, op) {
+async function guard(env, key, op, body) {
   if (!env.GUARD) return { blocked: false };
-  const r = await env.GUARD.get(env.GUARD.idFromName(key)).fetch("https://guard/" + op, { method: "POST" });
+  const r = await env.GUARD.get(env.GUARD.idFromName(key)).fetch("https://guard/" + op, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
   return r.json();
 }
+/* the same account's analysis of a stock is kept for the rest of the Taipei day, so opening it again costs no AI call
+   (kept per account because the page sends the user's own position and trades with it) */
+const twToday = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 export class Guard {
   constructor(state) { this.state = state; }
   async fetch(req) {
     const op = new URL(req.url).pathname.slice(1), now = Date.now();
+    if (op === "aiget" || op === "aiput") {
+      const b = await req.json().catch(() => ({})), code = String(b.code || ""), day = twToday();
+      if (!/^[0-9A-Z]{4,6}$/.test(code)) return Response.json({});
+      if (op === "aiget") { const v = await this.state.storage.get("a:" + code); return Response.json(v && v.day === day ? { hit: v.data } : {}); }
+      const old = await this.state.storage.list({ prefix: "a:" });
+      const stale = [...old].filter(([, v]) => !v || v.day !== day).map(([k]) => k);
+      if (stale.length) await this.state.storage.delete(stale.slice(0, 128));
+      await this.state.storage.put("a:" + code, { day, data: b.data });
+      return Response.json({ ok: true });
+    }
     const d = (await this.state.storage.get("d")) || {};
     const hr = Math.floor(now / 3600000), day = Math.floor(now / 86400000);
     if (!d.ai || d.ai.hr !== hr) d.ai = { hr, n: 0, day: d.ai && d.ai.day === day ? d.ai.day : day, dn: d.ai && d.ai.day === day ? d.ai.dn : 0 };
@@ -418,7 +437,7 @@ export class ErrLog {
 /* one Gemini call that moves on to the next model when one is overloaded, over quota or retired */
 async function geminiJson(env, prompt, temperature, attempt) {
   const body = JSON.stringify({ contents: [{ role: "user", parts: [{ text: prompt }] }], generationConfig: { temperature, responseMimeType: "application/json" } });
-  let last = { status: 502 };
+  let last = { status: 502 }, n429 = 0, nDay = 0;   /* nDay: 429s that name a per-day quota (the free tier's daily cap) */
   for (let k = 0; k < MODELS.length; k++) {
     const model = MODELS[(attempt + k) % MODELS.length];
     const target = "https://generativelanguage.googleapis.com/v1beta/models/" + model + ":generateContent";
@@ -427,12 +446,14 @@ async function geminiJson(env, prompt, temperature, attempt) {
       r = env.RELAY ? await env.RELAY.get(env.RELAY.idFromName("gemini-relay-us"), { locationHint: "enam" }).fetch("https://relay/" + encodeURIComponent(target), { method: "POST", body })
                     : await callGemini(env, target, body);
     } catch (e) { last = { status: 502 }; continue; }
+    if (r.status === 429) { n429++; if (/PerDay/i.test(await r.text().catch(() => ""))) nDay++; }
     if (!r.ok) { if (r.status !== 404 || last.status === 502) last = { status: r.status }; if ([404, 429, 500, 502, 503, 504].includes(r.status)) continue; return { error: last }; }   /* a retired model (404) must not hide the 429 / 503 the others gave */
     const j = await r.json().catch(() => null), c = j && j.candidates && j.candidates[0];
     const text = c && c.content && Array.isArray(c.content.parts) ? c.content.parts.filter(p => !p.thought).map(p => p.text || "").join("") : "";
     if (text.trim()) return { text };
     last = { status: 502 };
   }
+  if (n429 && nDay === n429) last = { status: 429, daily: true };   /* every model that answered 429 is out for the day */
   return { error: last };
 }
 /* ---------- health: is each secret still good? ---------- */
@@ -534,7 +555,7 @@ function pmPrompt(day, madeAt, night, world, inst, news, cands) {
 "- Keep it SHORT and plain, for reading on a phone: every sentence under about 35 Chinese characters, headline under 25, each list at most 3 items. No jargon where a plain word works.",
 "- TSMC ADR: one ADR is 5 shares; if you compare it with the Taiwan price, say that you need the exchange rate and use the one in DATA.",
 "- For EVERY pick also give 'analysis': 3 or 4 short points labelled 技術, 量能籌碼, 消息 and 風險, each one sentence from that stock's numbers and the headlines; and 'days': a conservative plan for each of the trading days in DATA.days (open day first), with the likely view, a price range anchored on next5d (p10 to p90 over five days, so a single day is narrower) and what to do that day. For 分批買進 the days must say when each batch is bought and under which condition, and when to stop adding.",
-"- 'picks': one entry for EVERY stock in DATA.candidates, none left out: all 持股 first, then all 自選, then the 強勢 ones (the strongest movers, potential stocks), best first within each group. tag says why it is a candidate (持股 = the user holds it, 自選 = on the user's watchlist, 強勢 = strong mover yesterday with volume). For each give one concrete order like a trader would: action is exactly one of 買進, 分批買進, 觀望, 續抱, 減碼, 賣出 (for a 持股 choose among 續抱, 分批買進 as adding, 減碼, 賣出); how = order type and price (限價 or after a close above a named level), split = how to split the order, stop = the stop price and which level it is, targets = one or two target prices with the level they come from, rr = risk-reward like 1 : 2.0, why = one or two sentences tying the stock to tonight's factors. Every price must come from that candidate's numbers (ma5/ma20/ma60, bollinger, 20/60-day highs and lows, last close) or be a round number near them, and say which. If a stock is not worth buying today its action is 觀望 (or 續抱 / 減碼 / 賣出 for a 持股) and why says what would change that; say in picks_note how many are worth acting on.",
+"- 'picks': one entry for EVERY stock in DATA.candidates, none left out: all 推薦 first, then all 持股, then all 自選, best first within each group. tag says why it is a candidate (推薦 = screened here as a stock worth ordering today: liquid, in an uptrend with close above MA20 above MA60, sitting near MA20 rather than stretched, RSI not overbought; 持股 = the user holds it; 自選 = on the user's watchlist). For a 推薦 stock the action is 買進 or 分批買進 with a limit price at or just above its support (MA20, the lower Bollinger band or a recent low), unless tonight's factors make buying it today clearly unwise, then 觀望 and why says what would change that. For each give one concrete order like a trader would: action is exactly one of 買進, 分批買進, 觀望, 續抱, 減碼, 賣出 (for a 持股 choose among 續抱, 分批買進 as adding, 減碼, 賣出); how = order type and price (限價 or after a close above a named level), split = how to split the order, stop = the stop price and which level it is, targets = one or two target prices with the level they come from, rr = risk-reward like 1 : 2.0, why = one or two sentences tying the stock to tonight's factors. Every price must come from that candidate's numbers (ma5/ma20/ma60, bollinger, 20/60-day highs and lows, last close) or be a round number near them, and say which. If a stock is not worth buying today its action is 觀望 (or 續抱 / 減碼 / 賣出 for a 持股) and why says what would change that; say in picks_note how many are worth acting on.",
 "- Nobody can know the open for sure. Give the more likely direction for today's open, a rough gap range in TAIEX points, and chances that add up to about 100%. Say what would prove the call wrong in the first 30 minutes.",
 "- Be CONSERVATIVE in every estimate (the user asked for this): when unsure, lean toward the smaller move, the nearer price level and the lower confidence. Gap and close ranges stay close to what DATA.anchor and recent days support, chances are never above about 70%, confidence is 高 only when the night session, the US close and the news all point the same way, picks use the nearest stop and the nearest target, and 觀望 is a fine answer.",
 "- Anchor the gap on DATA.anchor: the night-session TAIEX future versus the last TAIEX close. The gap is normally within a few hundred points of that difference and almost never beyond ±3% of the TAIEX; never give a range wider than the data supports.",
@@ -545,7 +566,7 @@ function pmPrompt(day, madeAt, night, world, inst, news, cands) {
 '"close":{"call":"收紅|平盤|收黑","range":"例如 36,500–36,900","chances":{"收紅":"約 50%","平盤":"約 20%","收黑":"約 30%"},"why":"one short sentence"},',
 '"night":"what the night session did and what it implies","us":"the US close and what matters for Taiwan","factors":[{"name":"factor","effect":"利多|利空|中性","note":"one or two sentences"}],',
 '"sectors":["sectors or big names likely to lead or lag, with the reason"],"levels":"TAIEX levels to watch, only from DATA","risks":["..."],"watch":["what to check between 09:00 and 09:30, and events later today"],',
-'"picks":[{"code":"2454","name":"聯發科","tag":"強勢|自選|持股","action":"分批買進","how":"...","split":"...","stop":"...","targets":["..."],"rr":"1 : 2.0","why":"...",',
+'"picks":[{"code":"2454","name":"聯發科","tag":"推薦|持股|自選","action":"分批買進","how":"...","split":"...","stop":"...","targets":["..."],"rr":"1 : 2.0","why":"...",',
 '"analysis":["技術：...","量能籌碼：...","消息：...","風險：..."],"days":[{"d":"11/25","view":"偏多|盤整|偏空","range":"price range","do":"what to do that day, e.g. 第一批 3,600 掛單 / 不動 / 第二批若站上 3,700"}]}],"picks_note":"one sentence on the candidates overall"}',
 "",
 "DATA.night (TAIEX futures, TAIFEX): " + JSON.stringify(night),
@@ -568,23 +589,25 @@ function nextOpenDay(now) {
   if (!(t.getUTCDay() >= 1 && t.getUTCDay() <= 5 && t.getUTCHours() < 9)) { t = new Date(t.getTime() + 864e5); while (t.getUTCDay() === 0 || t.getUTCDay() === 6) t = new Date(t.getTime() + 864e5); }
   return t.toISOString().slice(0, 10);
 }
-/* candidates for the pre-market picks: the owner's holdings and watchlist, plus yesterday's strongest movers with volume;
+/* candidates for the pre-market picks: stocks recommended for an order today (screened below), the owner's holdings and watchlist;
    each with a few numbers from about a year of Yahoo Taiwan daily bars */
 async function pmCandidates(env) {
-  /* every holding and every watchlist stock, plus the 5 strongest movers (capped at 35 in all to stay within the Worker's request limit) */
+  /* every holding and every watchlist stock, plus up to 12 liquid stocks to screen for an order (35 chart requests in all, within the Worker's request limit).
+     First cut on yesterday's close only: price 10 or more, 2,000 lots or more, a day's move between -3% and +4% (no chasing limit-ups),
+     largest turnover first; the daily bars then decide (end of this function). */
   const wl = await pmStore(env, "wl").catch(() => ({})), hold = (wl.hold || []).slice(0, 30), watch = (wl.watch || []).filter(c => !hold.includes(c)).slice(0, Math.max(0, 30 - hold.length));
   const mkt = new Map(), strong = [];
   try {
     const a = await (await twFetch("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
     (Array.isArray(a) ? a : []).forEach(x => { const c = String(x.Code || "").trim(), z = twNum(x.ClosingPrice), ch = twNum(x.Change), v = Math.round((twNum(x.TradeVolume) || 0) / 1000), val = twNum(x.TradeValue) || 0;
-      if (!/^\d{4}$/.test(c) || !(z > 0)) return; mkt.set(c, "TW"); const p = ch != null ? ch / (z - ch) * 100 : 0; if (p >= 3 && v >= 2000 && z >= 10) strong.push({ c, val, n: String(x.Name || "").trim() }); });
+      if (!/^\d{4}$/.test(c) || !(z > 0)) return; mkt.set(c, "TW"); const p = ch != null ? ch / (z - ch) * 100 : 0; if (p > -3 && p < 4 && v >= 2000 && z >= 10) strong.push({ c, val, n: String(x.Name || "").trim() }); });
   } catch (e) {}
   try {
     const o = await (await fetch("https://raw.githubusercontent.com/SI70531/TWstock/data/otc.json", { headers: { "User-Agent": TW_UA } })).json();
-    (o.list || []).forEach(x => { if (!mkt.has(x[0])) mkt.set(x[0], "TWO"); const p = x[2] > 0 && x[3] != null ? x[3] / (x[2] - x[3]) * 100 : 0; if (x[8] === "otc" && /^\d{4}$/.test(x[0]) && p >= 3 && x[7] >= 2000 && x[2] >= 10) strong.push({ c: x[0], val: x[2] * x[7] * 1000, n: x[1] }); });
+    (o.list || []).forEach(x => { if (!mkt.has(x[0])) mkt.set(x[0], "TWO"); const p = x[2] > 0 && x[3] != null ? x[3] / (x[2] - x[3]) * 100 : 0; if (x[8] === "otc" && /^\d{4}$/.test(x[0]) && p > -3 && p < 4 && x[7] >= 2000 && x[2] >= 10) strong.push({ c: x[0], val: x[2] * x[7] * 1000, n: x[1] }); });
   } catch (e) {}
-  const pick = strong.sort((a, b) => b.val - a.val).map(x => x.c).filter(c => !hold.includes(c) && !watch.includes(c)).slice(0, 5);
-  const list = [...hold.map(c => [c, "持股"]), ...watch.map(c => [c, "自選"]), ...pick.map(c => [c, "強勢"])];
+  const pick = strong.sort((a, b) => b.val - a.val).map(x => x.c).filter(c => !hold.includes(c) && !watch.includes(c)).slice(0, Math.max(0, Math.min(12, 35 - hold.length - watch.length)));
+  const list = [...hold.map(c => [c, "持股"]), ...watch.map(c => [c, "自選"]), ...pick.map(c => [c, "推薦"])];
   const r2 = v => (Number.isFinite(v) ? Math.round(v * 100) / 100 : null);
   const out = await Promise.all(list.map(async ([code, tag]) => {
     try {
@@ -610,7 +633,12 @@ async function pmCandidates(env) {
         volumeVs20d: v20 ? r2(vols[n - 1] / v20) : null, return5dPct: r2((last / cl[n - 6] - 1) * 100), return20dPct: n > 20 ? r2((last / cl[n - 21] - 1) * 100) : null };
     } catch (e) { return null; }
   }));
-  return out.filter(Boolean);
+  /* the screen: an uptrend (close > MA20 > MA60, up over 20 days), close 0-6% above MA20 (near support, not stretched), RSI 40-68;
+     the closer to MA20 and the calmer the RSI, the better; the best 5 stay */
+  const fit = x => x.ma20 && x.ma60 && x.close > x.ma20 && x.ma20 > x.ma60 && x.close <= x.ma20 * 1.06 && x.rsi14 >= 40 && x.rsi14 <= 68 && (x.return20dPct || 0) > 0;
+  const score = x => (x.close / x.ma20 - 1) * 100 + Math.abs(x.rsi14 - 55) / 5;
+  const rec = out.filter(x => x && x.tag === "推薦" && fit(x)).sort((a, b) => score(a) - score(b)).slice(0, 5);
+  return [...rec, ...out.filter(x => x && x.tag !== "推薦")];
 }
 /* the night future against the last TAIEX close: the main anchor for the opening gap */
 function pmAnchor(night, world) {
@@ -636,12 +664,12 @@ async function premarket(env, notify) {
     await new Promise(r => setTimeout(r, (notify ? 20000 : 4000) * k));
     g = await geminiJson(env, prompt, 0.3, k);
   }
-  if (g.error) return { error: aiWhy(g.error.status) };
+  if (g.error) return { error: g.error.daily ? "AI 今天的額度用完了" : aiWhy(g.error.status), daily: !!g.error.daily };
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
   if (!a) { const t = String(g.text || "").replace(/^```(?:json)?|```$/g, "").trim(), i = t.indexOf("{"), j = t.lastIndexOf("}"); try { a = JSON.parse(t.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e) { a = null; } }
   if (!a || !a.call) return { error: "AI 的回答不完整，再按一次" };
   if (Array.isArray(a.picks)) {
-    const ord = { 持股: 0, 自選: 1, 強勢: 2 }, tagOf = c => (cands.find(x => x.code === c) || {}).tag;
+    const ord = { 推薦: 0, 持股: 1, 自選: 2 }, tagOf = c => (cands.find(x => x.code === c) || {}).tag;
     a.picks = a.picks.filter(x => x && cands.some(c => c.code === String(x.code))).map(x => Object.assign(x, { tag: tagOf(String(x.code)) || x.tag }))
       .sort((x, y) => (ord[x.tag] ?? 3) - (ord[y.tag] ?? 3));
   }
@@ -669,7 +697,7 @@ async function pmTelegram(env, a, day) {
     `<b>夜盤</b> ${esc(a.night || "—")}`, `<b>美股</b> ${esc(a.us || "—")}`, "",
     ...f.map(x => `${x.effect === "利多" ? "🔺" : x.effect === "利空" ? "🔻" : "▪️"} ${esc(x.name)}：${esc(x.note)}`), "",
     `<b>開盤後盯</b> ${esc((a.watch || []).slice(0, 3).join("；"))}`,
-    ...(Array.isArray(a.picks) && a.picks.length ? ["", "<b>潛力股與下單建議</b>", ...a.picks.map(x => `${/賣|減/.test(x.action) ? "🔻" : /觀望|續抱/.test(x.action) ? "▪️" : "🔺"} <b>${esc(x.name)}（${esc(x.code)}）${esc(x.action)}</b>　${esc(x.how || "")}\n　停損 ${esc(x.stop || "—")}｜目標 ${esc((x.targets || []).join("、") || "—")}｜${esc(x.rr || "")}`)] : []),
+    ...(Array.isArray(a.picks) && a.picks.length ? ["", "<b>推薦下單</b>", ...a.picks.map(x => `${/賣|減/.test(x.action) ? "🔻" : /觀望|續抱/.test(x.action) ? "▪️" : "🔺"} <b>${esc(x.name)}（${esc(x.code)}）${esc(x.action)}</b>　${esc(x.how || "")}\n　停損 ${esc(x.stop || "—")}｜目標 ${esc((x.targets || []).join("、") || "—")}｜${esc(x.rr || "")}`)] : []),
     `<a href="https://si70531.github.io/TWstock/">完整分析</a>｜AI 研究參考，不保證漲跌`,
   ].join("\n").slice(0, 4000);
   try { const r = await fetch(api("sendMessage"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) }); return r.ok ? "sent" : "telegram " + r.status; }
