@@ -747,7 +747,7 @@
     const a = n.analysis, ch = a.chances || {}, li = arr => (Array.isArray(arr) ? arr : []).map(x => `<li>${esc(x)}</li>`).join(""), tn = /高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : "";
     const at = new Date(n.at).toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
     el.innerHTML = `
-      <div class="aisum lrise"><div class="aiverdict"><span class="aitag ${tn}">${esc(a.call)}</span><span class="sub">${esc(a.gap || "")}・信心 ${esc(a.confidence || "—")}・${at} 產生${n.day !== new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10) ? "（不是今天的）" : ""}</span></div>
+      <div class="aisum lrise"><div class="aiverdict"><span class="aitag ${tn}">${esc(a.call)}</span><b class="pmday">預測 ${esc(String(n.day).slice(5).replace("-", "/"))}（週${"日一二三四五六"[new Date(n.day + "T00:00:00Z").getUTCDay()]}）09:00 開盤</b><span class="sub">${esc(a.gap || "")}・信心 ${esc(a.confidence || "—")}・${at} 產生${n.day < new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10) || (n.day === new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10) && new Date(Date.now() + 8 * 3600e3).getUTCHours() >= 9) ? "（這天已經開過盤，是舊的分析）" : ""}</span></div>
         <p class="ailead">${esc(a.headline || "")}</p>
         <div class="pmchance">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc(ch[k] || "—")}</b></div>`).join("")}</div></div>
       <div class="aicols"><div class="lrise"><h4>夜盤</h4><p>${esc(a.night || "—")}</p></div><div class="lrise"><h4>美股與國際</h4><p>${esc(a.us || "—")}</p></div></div>

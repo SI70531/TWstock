@@ -495,10 +495,11 @@ async function pmInst() {
   } catch (e) {}
   return null;
 }
-function pmPrompt(day, night, world, inst, news) {
+function pmPrompt(day, madeAt, night, world, inst, news) {
   const list = (a, f) => (a && a.length ? a.map(f).join("\n") : "(none found)");
   return [
-"You are the pre-market desk of a Taiwan equity research team, writing at about 05:30 Taipei time for one private investor, before the Taiwan stock market opens at 09:00 on " + day + ".",
+"You are the pre-market desk of a Taiwan equity research team, writing for one private investor. It is now " + madeAt + " Taipei time. You are calling the open of the NEXT Taiwan trading session: 09:00 on " + day + " (" + WD[new Date(day + "T00:00:00Z").getUTCDay()] + ").",
+"Whenever you say 今日, 明日 or 今晚, name the date instead (for example 11/24 開盤), so the reader never has to guess which day you mean.",
 "Write everything in Traditional Chinese as used in Taiwan. Be concrete; no filler.",
 "",
 "Weigh every factor that can move the Taiwan market at today's open: the TAIEX futures night session (it trades 15:00 to 05:00 and is the most direct signal of the open), the US close (S&P 500, Nasdaq, Philadelphia Semiconductor, TSMC ADR versus its Taiwan price, Nvidia), the VIX, US yields and the dollar, the NT dollar, oil, yesterday's institutional flows in Taiwan, and the news: Fed and US data, tariffs and export controls, geopolitics, big earnings, Taiwan policy.",
@@ -521,9 +522,16 @@ function pmPrompt(day, night, world, inst, news) {
 list(news, x => "- " + (x.at ? new Date(x.at + 8 * 3600e3).toISOString().slice(5, 16).replace("T", " ") : "") + " " + x.t + (x.src ? "（" + x.src + "）" : "")),
   ].join("\n");
 }
+const WD = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"];
+/* the next Taiwan session to open: today before 09:00 on a weekday, otherwise the next weekday (exchange holidays are not known here) */
+function nextOpenDay(now) {
+  let t = new Date(now.getTime() + 8 * 3600e3);
+  if (!(t.getUTCDay() >= 1 && t.getUTCDay() <= 5 && t.getUTCHours() < 9)) { t = new Date(t.getTime() + 864e5); while (t.getUTCDay() === 0 || t.getUTCDay() === 6) t = new Date(t.getTime() + 864e5); }
+  return t.toISOString().slice(0, 10);
+}
 async function premarket(env, notify) {
   if (!env.GEMINI_KEY) return { error: "no GEMINI_KEY" };
-  const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
+  const day = nextOpenDay(new Date()), madeAt = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
   const [night, world, inst, n1, n2, n3] = await Promise.all([
     pmNight().catch(() => null), pmWorld().catch(() => []), pmInst().catch(() => null),
     twHeadlines("台股 OR 台指期 OR 夜盤 when:1d", 10).catch(() => []),
@@ -531,11 +539,11 @@ async function premarket(env, notify) {
     twHeadlines("關稅 OR 出口管制 OR 地緣政治 OR 匯率 OR 輝達 when:1d", 8).catch(() => []),
   ]);
   const seen = new Set(), news = [...n1, ...n2, ...n3].filter(x => !seen.has(x.t) && seen.add(x.t)).sort((a, b) => b.at - a.at).slice(0, 24);
-  const g = await geminiJson(env, pmPrompt(day, night, world, inst, news), 0.3, 0);
+  const g = await geminiJson(env, pmPrompt(day, madeAt, night, world, inst, news), 0.3, 0);
   if (g.error) return { error: "Gemini " + g.error.status };
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
   if (!a || !a.call) return { error: "unexpected AI reply" };
-  const note = { at: Date.now(), day, analysis: a, data: { night, world, inst }, news: news.slice(0, 12).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
+  const note = { at: Date.now(), day, madeAt, analysis: a, data: { night, world, inst }, news: news.slice(0, 12).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
   await pmStore(env, "put", { note });
   if (notify) note.sent = await pmTelegram(env, a, day);
   return note;
@@ -552,7 +560,7 @@ async function pmTelegram(env, a, day) {
   const esc = v => String(v == null ? "" : v).replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]);
   const ch = a.chances || {}, f = (Array.isArray(a.factors) ? a.factors : []).slice(0, 6);
   const text = [
-    `<b>台股盤前 ${esc(day)}：${esc(a.call)}</b>（信心 ${esc(a.confidence || "—")}，${esc(a.gap || "")}）`,
+    `<b>預測 ${esc(day.slice(5).replace("-", "/"))}（${WD[new Date(day + "T00:00:00Z").getUTCDay()]}）台股開盤：${esc(a.call)}</b>（信心 ${esc(a.confidence || "—")}，${esc(a.gap || "")}）`,
     esc(a.headline || ""), "",
     `開高 ${esc(ch["開高"] || "—")}｜平盤 ${esc(ch["平盤"] || "—")}｜開低 ${esc(ch["開低"] || "—")}`, "",
     `<b>夜盤</b> ${esc(a.night || "—")}`, `<b>美股</b> ${esc(a.us || "—")}`, "",

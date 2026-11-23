@@ -679,3 +679,5 @@ a.nrow:hover .ntext { text-decoration: underline; text-decoration-color: var(--c
 .aiohead b { font-size: 1.6em; }
 .aiorder .aikv { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-xs); }
 @media (max-width: 800px) { .aiorder .aikv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.pmday { font-size: 1.05em; }
