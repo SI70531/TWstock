@@ -788,7 +788,7 @@
     try { history[history.state && history.state.tw ? "pushState" : "replaceState"]({ tw: 1, p: cur, code: CODE }, "", h); } catch (e) {}
   }
   function navGo(h) {
-    const m = /^#stock\/([0-9A-Z]{4,6})$/.exec(h || ""), p = m ? "dpStock" : (h || "").slice(1);
+    const m = /^#stock\/([0-9A-Z]{4,6})$/.exec(h || ""), p = m ? "dpStock" : (h || "").slice(1).replace(/^dpWatch$/, "dpList");
     navLock = true;
     try {
       if (m) { if (CODE !== m[1] || !HIST.get(m[1])) setStock(m[1], true); open("dpStock", true); }
