@@ -606,8 +606,14 @@ async function premarket(env, notify) {
     pmCandidates(env).catch(() => []),
   ]);
   const seen = new Set(), news = [...n1, ...n2, ...n3].filter(x => !seen.has(x.t) && seen.add(x.t)).sort((a, b) => b.at - a.at).slice(0, 24);
-  const g = await geminiJson(env, pmPrompt(day, madeAt, night, world, inst, news, cands), 0.3, 0);
-  if (g.error) return { error: g.error.status === 429 ? "Gemini 用量到上限" : "Gemini 錯誤 " + g.error.status };
+  /* Gemini answers 503 when Google is overloaded: wait and go round the models again (a few times for the 05:30 run) */
+  const prompt = pmPrompt(day, madeAt, night, world, inst, news, cands);
+  let g = await geminiJson(env, prompt, 0.3, 0);
+  for (let k = 1; g.error && [500, 502, 503, 504].includes(g.error.status) && k <= (notify ? 4 : 2); k++) {
+    await new Promise(r => setTimeout(r, (notify ? 20000 : 4000) * k));
+    g = await geminiJson(env, prompt, 0.3, k);
+  }
+  if (g.error) return { error: g.error.status === 429 ? "Gemini 用量到上限" : g.error.status === 503 ? "Gemini 伺服器忙碌，稍後再試" : "Gemini 錯誤 " + g.error.status };
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
   if (!a) { const t = String(g.text || "").replace(/^```(?:json)?|```$/g, "").trim(), i = t.indexOf("{"), j = t.lastIndexOf("}"); try { a = JSON.parse(t.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e) { a = null; } }
   if (!a || !a.call) return { error: "AI 回覆格式不對（" + String(g.text || "").length + " 字）" };
