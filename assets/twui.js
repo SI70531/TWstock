@@ -173,6 +173,7 @@
     setInterval(tickClock, 1000);
     setInterval(paintSide, 3000);
     document.addEventListener("twdash:list", paintSide);
+    document.addEventListener("twdash:live", paintSide);
     new MutationObserver(schedule).observe(document.querySelector(".app") || document.body, { subtree: true, childList: true, characterData: true });
     document.addEventListener("pointermove", tilt, { passive: true });
     document.addEventListener("pointerleave", () => $$(".tilting").forEach(untilt));

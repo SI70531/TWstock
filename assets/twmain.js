@@ -941,7 +941,7 @@
 
   /* ---------------- live repaint ---------------- */
   function paintLive() {
-    paintIdx(); paintStrip();
+    paintIdx(); paintStrip(); document.dispatchEvent(new Event("twdash:live"));   /* the sidebar repaints in the same frame */
     if (cur === "dpList") {
       $$("#dpList .mtbl tbody tr[data-code]").forEach(tr => {
         const s = DB.by.get(tr.dataset.code); if (!s || !s.rt) return;
