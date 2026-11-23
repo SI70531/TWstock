@@ -42,3 +42,12 @@ class_name = "Daily"
 [[migrations]]
 tag = "v3"
 new_sqlite_classes = ["Daily"]
+
+# TWSE / TAIFEX requests go out from Asia (they often refuse US servers)
+[[durable_objects.bindings]]
+name = "ASIA"
+class_name = "AsiaRelay"
+
+[[migrations]]
+tag = "v4"
+new_sqlite_classes = ["AsiaRelay"]

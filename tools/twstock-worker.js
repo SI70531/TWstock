@@ -16,9 +16,11 @@ const MAX_BODY = 60000;
 const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-flash-lite-latest"];
 const AI_HOUR = 600, AI_DAY = 3000;
 
+let ENV = null;   /* the current request's bindings, so the data fetchers can reach the Asia relay */
 export default {
-  async scheduled(event, env, ctx) { ctx.waitUntil(premarket(env, true)); },
+  async scheduled(event, env, ctx) { ENV = env; ctx.waitUntil(premarket(env, true)); },
   async fetch(req, env) {
+    ENV = env;
     const origin = req.headers.get("Origin") || "";
     const ok = ALLOWED.includes(origin);
     const cors = {
@@ -81,8 +83,29 @@ async function twCached(key, ms, make) {
 const twNum = v => { const n = parseFloat(String(v == null ? "" : v).replace(/,/g, "")); return Number.isFinite(n) ? n : null; };
 const twClip = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n);
 /* TWSE market information system: one request carries many symbols (tse_2330.tw|tse_t00.tw|…) */
+/* TWSE and TAIFEX often refuse servers in the US (where this Worker runs), so their requests go out from a Durable Object
+   placed in Asia (locationHint "apac"); when that fails, the request is made directly */
+const TW_HOSTS = ["mis.twse.com.tw", "www.twse.com.tw", "openapi.twse.com.tw", "mis.taifex.com.tw", "openapi.taifex.com.tw", "www.tpex.org.tw"];
+async function twFetch(url, init) {
+  init = init || {};
+  if (ENV && ENV.ASIA && TW_HOSTS.includes(new URL(url).hostname)) {
+    try {
+      const r = await ENV.ASIA.get(ENV.ASIA.idFromName("tw-relay-asia"), { locationHint: "apac" }).fetch("https://relay/", { method: "POST", body: JSON.stringify({ url, method: init.method || "GET", headers: init.headers || {}, body: init.body || null }) });
+      if (r.ok) return r;
+    } catch (e) {}
+  }
+  return fetch(url, init);
+}
+export class AsiaRelay {
+  async fetch(req) {
+    const b = await req.json().catch(() => null);
+    if (!b || !TW_HOSTS.includes(new URL(b.url).hostname)) return new Response("bad target", { status: 400 });
+    const r = await fetch(b.url, { method: b.method, headers: b.headers, body: b.method === "GET" ? undefined : b.body });
+    return new Response(r.body, { status: r.status, headers: { "Content-Type": r.headers.get("Content-Type") || "application/json" } });
+  }
+}
 async function twMis(chs) {
-  const r = await fetch("https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch=" + encodeURIComponent(chs.join("|")) + "&_=" + Date.now(),
+  const r = await twFetch("https://mis.twse.com.tw/stock/api/getStockInfo.jsp?json=1&delay=0&ex_ch=" + encodeURIComponent(chs.join("|")) + "&_=" + Date.now(),
     { headers: { "User-Agent": TW_UA, Accept: "application/json, text/plain, */*", Referer: "https://mis.twse.com.tw/stock/fibest.jsp?lang=zh_tw" } });
   if (!r.ok) throw new Error("MIS " + r.status);
   const j = await r.json();
@@ -95,21 +118,26 @@ async function twMis(chs) {
 }
 /* front-month TAIEX futures: the futures exchange's live quote list, or its daily report when that fails */
 async function twFut() {
+  /* day session 08:45–13:45, night session 15:00–05:00 (Taipei); outside both, the last session's quote */
+  const t = new Date(Date.now() + 8 * 3600e3), m = t.getUTCHours() * 60 + t.getUTCMinutes();
+  const night = m >= 15 * 60 || m < 5 * 60 + 5, order = night ? ["1", "0"] : m >= 13 * 60 + 50 ? ["0", "1"] : ["0", "1"];
+  for (const mt of order) {
+    try {
+      const r = await twFetch("https://mis.taifex.com.tw/futures/api/getQuoteList", {
+        method: "POST", headers: { "Content-Type": "application/json", "User-Agent": TW_UA, Referer: "https://mis.taifex.com.tw/futures/" },
+        body: JSON.stringify({ MarketType: mt, SymbolType: "F", KindID: "1", CID: "TXF", ExpireMonth: "", RowSize: "全部", PageNo: "", SortColumn: "", AscDesc: "A" }),
+      });
+      const j = await r.json(), list = (j && j.RtData && j.RtData.QuoteList) || [];
+      const q = list.find(x => /-[FM]$/.test(String(x.SymbolID || "")) && !String(x.SymbolID).includes("/") && twNum(x.CLastPrice) > 0);
+      if (q) {
+        const tt = String(q.CTime || "").replace(/\D/g, ""), live = mt === "1" ? night : (m >= 8 * 60 + 45 && m < 13 * 60 + 45);
+        return { src: live ? (mt === "1" ? "night" : "rt") : "eod", sess: mt === "1" ? "夜盤" : "日盤", n: twClip(q.DispCName || "臺指期", 20), z: twNum(q.CLastPrice), y: twNum(q.CRefPrice), o: twNum(q.COpenPrice), h: twNum(q.CHighPrice), l: twNum(q.CLowPrice), v: twNum(q.CTotalVolume),
+          tm: tt.length >= 6 ? tt.slice(0, 2) + ":" + tt.slice(2, 4) + ":" + tt.slice(4, 6) : "" };
+      }
+    } catch (e) {}
+  }
   try {
-    const r = await fetch("https://mis.taifex.com.tw/futures/api/getQuoteList", {
-      method: "POST", headers: { "Content-Type": "application/json", "User-Agent": TW_UA, Referer: "https://mis.taifex.com.tw/futures/" },
-      body: JSON.stringify({ MarketType: "0", SymbolType: "F", KindID: "1", CID: "TXF", ExpireMonth: "", RowSize: "全部", PageNo: "", SortColumn: "", AscDesc: "A" }),
-    });
-    const j = await r.json(), list = (j && j.RtData && j.RtData.QuoteList) || [];
-    const q = list.find(x => /-F$/.test(String(x.SymbolID || "")) && !String(x.SymbolID).includes("/") && twNum(x.CLastPrice) > 0);
-    if (q) {
-      const t = String(q.CTime || "").replace(/\D/g, "");
-      return { src: "rt", n: twClip(q.DispCName || "臺指期", 20), z: twNum(q.CLastPrice), y: twNum(q.CRefPrice), o: twNum(q.COpenPrice), h: twNum(q.CHighPrice), l: twNum(q.CLowPrice), v: twNum(q.CTotalVolume),
-        tm: t.length >= 6 ? t.slice(0, 2) + ":" + t.slice(2, 4) + ":" + t.slice(4, 6) : "" };
-    }
-  } catch (e) {}
-  try {
-    const a = await (await fetch("https://openapi.taifex.com.tw/v1/DailyMarketReportFut", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
+    const a = await (await twFetch("https://openapi.taifex.com.tw/v1/DailyMarketReportFut", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
     const month = x => String(x["ContractMonth(Week)"] || "").trim();
     const x = a.find(r => String(r.Contract).trim() === "TX" && /^\d{6}$/.test(month(r)) && !/盤後|After/i.test(String(r.TradingSession || "")) && twNum(r.Last) > 0);
     if (x) {
@@ -187,7 +215,7 @@ async function twHeadlines(q, n) {
 /* the company's own material announcements (TWSE open data: every listed company's announcements of the day) */
 async function twAnnouncements(code) {
   const all = await twCached("ann", 600000, async () => {
-    const r = await fetch("https://openapi.twse.com.tw/v1/opendata/t187ap04_L", { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
+    const r = await twFetch("https://openapi.twse.com.tw/v1/opendata/t187ap04_L", { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
     return r.ok ? await r.json() : [];
   });
   const pick = (o, sub) => { const k = Object.keys(o).find(x => x.includes(sub)); return k ? o[k] : ""; };
@@ -391,7 +419,7 @@ export class Daily {
 /* night-session TAIEX futures (MarketType "1"), or the futures exchange's after-hours daily report */
 async function pmNight() {
   try {
-    const r = await fetch("https://mis.taifex.com.tw/futures/api/getQuoteList", {
+    const r = await twFetch("https://mis.taifex.com.tw/futures/api/getQuoteList", {
       method: "POST", headers: { "Content-Type": "application/json", "User-Agent": TW_UA, Referer: "https://mis.taifex.com.tw/futures/" },
       body: JSON.stringify({ MarketType: "1", SymbolType: "F", KindID: "1", CID: "TXF", ExpireMonth: "", RowSize: "全部", PageNo: "", SortColumn: "", AscDesc: "A" }),
     });
@@ -400,7 +428,7 @@ async function pmNight() {
     if (q) return { src: "taifex-live", name: twClip(q.DispCName, 20), last: twNum(q.CLastPrice), ref: twNum(q.CRefPrice), high: twNum(q.CHighPrice), low: twNum(q.CLowPrice), volume: twNum(q.CTotalVolume), time: String(q.CTime || "") };
   } catch (e) {}
   try {
-    const a = await (await fetch("https://openapi.taifex.com.tw/v1/DailyMarketReportFut", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
+    const a = await (await twFetch("https://openapi.taifex.com.tw/v1/DailyMarketReportFut", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
     const month = x => String(x["ContractMonth(Week)"] || "").trim();
     const tx = a.filter(r => String(r.Contract).trim() === "TX" && /^\d{6}$/.test(month(r)) && twNum(r.Last) > 0);
     const night = tx.find(r => /盤後|After/i.test(String(r.TradingSession || ""))), day = tx.find(r => !/盤後|After/i.test(String(r.TradingSession || "")));
@@ -429,7 +457,7 @@ async function pmInst() {
     for (let back = 1; back < 6; back++) {
       const x = new Date(d.getTime() - back * 864e5); if (x.getUTCDay() % 6 === 0) continue;
       const ds = x.toISOString().slice(0, 10).replace(/-/g, "");
-      const j = await (await fetch(`https://www.twse.com.tw/rwd/zh/fund/BFI82U?type=day&dayDate=${ds}&response=json`, { headers: { "User-Agent": TW_UA } })).json();
+      const j = await (await twFetch(`https://www.twse.com.tw/rwd/zh/fund/BFI82U?type=day&dayDate=${ds}&response=json`, { headers: { "User-Agent": TW_UA } })).json();
       if (j.stat === "OK" && Array.isArray(j.data)) return { date: ds, rows: j.data.map(r => [String(r[0]), Math.round(twNum(r[3]) / 1e6) / 100]) };
     }
   } catch (e) {}
