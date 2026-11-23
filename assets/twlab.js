@@ -101,7 +101,7 @@
     return `<svg class="lfig" viewBox="0 0 ${W} ${H}" role="img" aria-label="${A.esc(opt.label || "")}">${ticks}${base}${split}${paths}</svg>`;
   }
   const kv = (k, v, t) => `<div class="snap lrise"><span>${k}</span><b class="${t || ""}">${v}</b></div>`;
-  const note = t => `<p class="sub lnote">${t}</p>`;
+  const note = t => "";   /* explanations are not shown (the user asked for none) */
   const csvCell = v => { const s = String(v == null ? "" : v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   function download(name, text) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + text], { type: "text/csv;charset=utf-8" })); a.download = name;
@@ -148,7 +148,7 @@
         <div class="dcard lrise"><h3>集中度</h3><div class="lconc">${note("加入持股後顯示。")}</div></div>
         <div class="dcard lrise"><h3>產業分布</h3><div class="lind">${note("加入持股後顯示。")}</div></div>
       </div>
-      <div class="dcard lrise"><div class="lhead"><div><h3>相關性、β 與壓力測試</h3><p class="sub">用最近 6 個月日線計算每檔與 0050 的 β，以及持股之間的報酬相關係數（每日收盤），再估算市場下跌 20% 時的損失。</p></div>
+      <div class="dcard lrise"><div class="lhead"><div><h3>相關性、β 與壓力測試</h3></div>
         <button type="button" class="aigo" data-act="hrisk" ${H.length ? "" : "disabled"}>計算</button></div>
         <p class="sub lmsg"></p><div class="lrisk"></div></div>`;
   }
@@ -220,7 +220,7 @@
       </tbody></table></div>
       <div class="lgrid2">
         <div>${kv("組合 β（現金 β=0）", A.fmt(portBeta, 2))}${kv("市場跌 20%，每檔同跌 20%", "−" + A.fmt(-loss(live, false)) + "（" + A.fmt(-loss(live, false) / total * 100, 1) + "%）", "down")}${kv("市場跌 20%，依 β 調整", "−" + A.fmt(l0) + "（" + A.fmt(l0 / total * 100, 1) + "%）", "down")}${kv("可承受損失 " + P.tol + "%", A.fmt(tolAmt) + (l0 > tolAmt ? "，壓力損失超過" : "，在範圍內"), l0 > tolAmt ? "down" : "up")}</div>
-        <div class="lfig">${hm.length > 1 ? `<table class="lheat"><tr><th></th>${hm.map(c => `<th>${A.esc(c)}</th>`).join("")}</tr>${hm.map(a => `<tr><th>${A.esc(a)}</th>${hm.map(b => { const v = a === b ? 1 : corr(R.get(a), R.get(b)); return `<td data-v style="--a:${ok(v) ? Math.abs(v).toFixed(2) : 0}" class="${v < 0 ? "neg" : ""}">${ok(v) ? A.fmt(v, 2) : "—"}</td>`; }).join("")}</tr>`).join("")}</table><p class="sub">相關係數：1 = 完全同向，0 = 無關，負數 = 反向。</p>` : note("只有一檔，沒有相關性可算。")}</div>
+        <div class="lfig">${hm.length > 1 ? `<table class="lheat"><tr><th></th>${hm.map(c => `<th>${A.esc(c)}</th>`).join("")}</tr>${hm.map(a => `<tr><th>${A.esc(a)}</th>${hm.map(b => { const v = a === b ? 1 : corr(R.get(a), R.get(b)); return `<td data-v style="--a:${ok(v) ? Math.abs(v).toFixed(2) : 0}" class="${v < 0 ? "neg" : ""}">${ok(v) ? A.fmt(v, 2) : "—"}</td>`; }).join("")}</tr>`).join("")}</table>` : note("只有一檔，沒有相關性可算。")}</div>
       </div>
       <h3 class="lsub">再平衡方案比較（不保證避開虧損）</h3>
       <div class="ltblwrap"><table class="mtbl ltbl"><thead><tr><th class="l">方案</th><th>現金</th><th>最大單檔</th><th>壓力損失</th><th>占總資產</th><th>賣出成本</th></tr></thead><tbody>
@@ -293,7 +293,7 @@
 
   /* ================= 技術情境（日線＋週線） ================= */
   function viewTech() {
-    return `<div class="dcard lrise"><div class="lhead"><div><h3>技術情境</h3><p class="sub">讀取約 14 個月日線，另外合成週線。所有數字都由證交所日線計算；資料不夠的指標會標「無法計算」。</p></div>
+    return `<div class="dcard lrise"><div class="lhead"><div><h3>技術情境</h3></div>
       <div class="lform"><input class="in lcode" value="${A.esc(A.code())}" aria-label="股票代號" inputmode="numeric"><button type="button" class="aigo" data-act="tgo">分析</button></div></div>
       <p class="sub lmsg"></p><div class="ltech"></div></div>`;
   }
@@ -374,7 +374,7 @@
         <label>滑價 %（單邊）<input class="in" name="slip" inputmode="decimal" value="${P.slip}"></label>
         <button type="button" class="aigo" data-act="bgo">回測</button>
       </div>
-      <p class="sub lbhelp">${STRATS[s.strat].help} 訊號用當天收盤判斷，下一個交易日開盤成交（避免用到未來資料）；證交稅股票 0.3%、ETF 0.1%；全額進出、不加碼、只做多。</p>
+      
       <p class="sub lmsg"></p><div class="lbt"></div></div>`;
   }
   function backtest(cs, strat, prm, cost) {
@@ -446,7 +446,7 @@
   function viewMC() {
     const s = Object.assign({ code: A.code(), entry: "", tp: 8, sl: 5, days: 20, look: 60 }, get(K.mc, {}));
     return `<div class="dcard lrise"><h3>時光機</h3>
-      <p class="sub">把最近 N 個交易日的真實日 K（漲跌幅＋當天最高、最低）打散重抽，從進場價往後模擬 10,000 次，數一數每次是先碰到停利、先碰到停損，還是期限到了都沒碰到。</p>
+      
       <div class="lform lmform">
         <label>代號 <input class="in" name="code" value="${A.esc(s.code)}" inputmode="numeric"></label>
         <label>進場價（空白＝最新收盤）<input class="in" name="entry" inputmode="decimal" value="${s.entry}"></label>
@@ -529,7 +529,7 @@
   /* ================= 同業比較 ================= */
   function viewPeer() {
     const H = get(K.hold, []).map(h => h.code), def = get(K.peers, H.length ? H.join(" ") : "2330 2303 2454 3711 2379");
-    return `<div class="dcard lrise"><div class="lhead"><div><h3>同業估值比較</h3><p class="sub">輸入要比較的代號（空白或逗號分隔）。資料來自證交所每日本益比／殖利率／淨值比與最新月營收。</p></div>
+    return `<div class="dcard lrise"><div class="lhead"><div><h3>同業估值比較</h3></div>
       <div class="lform"><input class="in lpeers" value="${A.esc(def)}" aria-label="代號清單"><button type="button" class="aigo" data-act="pgo">比較</button></div></div>
       <p class="sub lmsg"></p><div class="lpeer"></div></div>`;
   }
@@ -560,7 +560,7 @@
       <div class="ltblwrap"><table class="mtbl ltbl lcases"><thead><tr><th class="l">情境</th><th>未來 5 年營收年成長 %</th><th>自由現金流率 %（FCF／營收）</th></tr></thead><tbody>
         ${Object.entries(d.cases).map(([k, v]) => `<tr><td class="l">${k}</td><td><input class="in" name="g_${k}" inputmode="decimal" value="${v.g}"></td><td><input class="in" name="m_${k}" inputmode="decimal" value="${v.m}"></td></tr>`).join("")}</tbody></table></div>
       <button type="button" class="aigo" data-act="dgo">計算</button>
-      <p class="sub">營收與股數請從公司財報或年報填入（公開資訊觀測站）。這裡不會自動補上缺的財務數據。</p>
+      
       <div class="ldcf"></div></div>`;
   }
   function dcfVal(d, g, m, r, gT) {
@@ -607,7 +607,7 @@
         <input class="in" name="upd" placeholder="事件前後要更新的資料" aria-label="要更新的資料">
         <button type="button" class="aigo" data-act="cadd">加入</button>
       </div>
-      <p class="sub">日期留空就標成「待確認」。每月 10 日前上市公司公布上月營收；季報法定期限：Q1 5/15、Q2 8/14、Q3 11/14、年報 3/31（以公開資訊觀測站公告為準）。</p></div>
+      </div>
       <div class="lgrid2"><div class="dcard lrise"><h3>本週檢查清單</h3><div class="lweek"></div></div><div class="dcard lrise"><h3>全部事件</h3><div class="lcal"></div></div></div>`;
   }
   function paintCal() {
@@ -670,9 +670,7 @@
   let TOOL = null;
   function menu() {
     TOOL = null; set(K.tool, "");
-    box().innerHTML = `<div class="dcard lintro lrise"><h3>研究室</h3><p>用真實收盤資料與你自己的紀錄做研究：先看清風險和自己的交易習慣，再決定要不要動。持股與交易日誌只存在這台裝置的瀏覽器。</p>
-      <p class="sub">這些工具能幫你少犯重複的錯、控制單一部位的風險，但沒有任何工具能保證帳面轉正或獲利。研究輔助用途｜資料需查證｜不保證獲利。</p></div>
-      <div class="lmenu">${TOOLS.map(([k, t, d, n]) => `<button type="button" class="dcard lcard lrise" data-tool="${k}"><span class="sub">${n}</span><b>${t}</b><span class="sub">${d}</span></button>`).join("")}</div>`;
+    box().innerHTML = `<div class="lmenu">${TOOLS.map(([k, t, d, n]) => `<button type="button" class="dcard lcard lrise" data-tool="${k}"><b>${t}</b></button>`).join("")}</div>`;
     A.rise($$(".lrise"), 50);
   }
   function openTool(k) {

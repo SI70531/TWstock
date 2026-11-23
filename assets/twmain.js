@@ -319,14 +319,14 @@
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}</span><span class="ixsrc"></span></h3>
         <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
-      <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每天 05:30 自動分析，並傳到 Telegram。</p></div>
-        <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert"></p></div>
+      <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3></div>
+        <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert" hidden></p></div>
       <div class="dcard mstrip"></div>
       <div class="board">
         <div class="dcard bd-dist"><div class="bd-h"><h3>漲跌分布</h3><span class="sub bd-n"></span></div><div class="bd-bars"></div></div>
         <div class="dcard bd-up"><div class="bd-h"><h3>漲幅排行</h3></div><div class="bd-list"></div></div>
         <div class="dcard bd-down"><div class="bd-h"><h3>跌幅排行</h3></div><div class="bd-list"></div></div>
-        <div class="dcard bd-vol"><div class="bd-h"><h3>成交量排行</h3><span class="sub">張</span></div><div class="bd-list"></div></div>
+        <div class="dcard bd-vol"><div class="bd-h"><h3>成交量排行</h3></div><div class="bd-list"></div></div>
         <div class="dcard bd-heat"><div class="bd-h"><h3>自選股熱力圖</h3></div><div class="bd-tiles"></div></div>
         <div class="dcard bd-pm"><div class="bd-h"><h3>盤前分析</h3><button type="button" class="btn bd-go" data-goto="dpPre">看完整分析 →</button></div><div class="bd-pmout"><p class="sub">載入中…</p></div></div>
       </div>
@@ -570,10 +570,10 @@
         <div class="dcard snews"><h3>新聞與公告</h3><div class="newslist"><p class="sub">載入中…</p></div></div>
       </div>
       <div class="dcard sai">
-        <div class="aihead"><div><h3>AI 分析團隊</h3><p class="sub">五位分析師＋研究工具一起判讀。</p></div>
+        <div class="aihead"><div><h3>AI 分析團隊</h3></div>
           <button type="button" class="aigo">開始分析</button></div>
         <p class="sub aimsg"></p><div class="aiout"></div>
-        <p class="sub ainote">AI 參考，非投資建議。</p>
+        
         <details class="slab"><summary>研究工具（自動交給 AI）</summary><div id="dpLab" class="on"></div></details>
       </div>`;
     const box = $("#dpStock"), inp = $(".ssearch", box), sug = $(".ssug", box);
@@ -839,7 +839,7 @@
           <div class="ixdnow"><b class="big ${t}">${ok(z) ? fmt(z, dg) : "—"}</b><span class="${t}">${ok(ch) ? `${arrow(ch)} ${fmt(Math.abs(ch), dg)}（${pct(ch / y * 100)}）` : ""}</span><span class="sub">${esc(it.src || "")} ${esc((it.tm || "").slice(0, 5))}</span></div></div>
         <div class="chips">${[["tick", sessName.replace(/（.*/, "") + "走勢"], ["3mo", "日線 3 個月"], ["1y", "日線 1 年"]].map(([v, l]) => `<button type="button" class="chip" data-ixr="${v}" aria-pressed="${v === r}">${l}</button>`).join("")}
           <button type="button" class="btn ixclose" aria-label="關閉">×</button></div></div>
-      <div class="ixdbody"><div class="ixdchart">${ixSVG(pts, r === "tick" ? y : null, r, k)}<p class="sub ixread">${r === "tick" ? sessName + "，每分鐘一點；虛線是昨收（參考價）。" : "每日收盤。"}移到圖上看各點數值。</p></div>
+      <div class="ixdbody"><div class="ixdchart">${ixSVG(pts, r === "tick" ? y : null, r, k)}<p class="sub ixread"></p></div>
         <div class="ixdstats">${kv("開盤", ok(d.open) ? fmt(d.open, dg) : "—")}${kv("最高", ok(it.h) ? fmt(it.h, dg) : ok(d.high) ? fmt(d.high, dg) : "—", "up")}${kv("最低", ok(it.l) ? fmt(it.l, dg) : ok(d.low) ? fmt(d.low, dg) : "—", "down")}
           ${kv(k === "fut" ? "參考價" : "昨收", ok(y) ? fmt(y, dg) : "—")}${kv("振幅", ok(d.high) && ok(d.low) && ok(y) ? pct((d.high - d.low) / y * 100).replace("+", "") : "—")}${kv("成交量", vol)}
           ${k === "fut" && ok(d.limitUp) ? kv("漲停／跌停", `${fmt(d.limitUp, 0)}／${fmt(d.limitDown, 0)}`) : ""}${r !== "tick" && pts.length > 1 ? kv("區間漲跌", pct((pts[pts.length - 1][1] / pts[0][1] - 1) * 100), tone(pts[pts.length - 1][1] - pts[0][1])) + kv("區間最高", fmt(Math.max(...pts.map(p => p[1])), 0), "up") + kv("區間最低", fmt(Math.min(...pts.map(p => p[1])), 0), "down") : ""}</div></div>`;
@@ -915,8 +915,7 @@
       <div class="pmfac">${(Array.isArray(a.factors) ? a.factors : []).map(f => `<div class="pmf lrise"><span class="aitag ${f.effect === "利多" ? "up" : f.effect === "利空" ? "down" : ""}">${esc(f.effect || "")}</span><b>${esc(f.name)}</b><span class="sub">${esc(f.note)}</span></div>`).join("")}</div>
       <details class="pmmore"><summary>族群、關鍵點位、風險與開盤後要盯的事</summary>
         <div class="aicols"><div><h4>可能領漲／落後</h4><ul>${li(a.sectors)}</ul><h4>關鍵點位</h4><p>${esc(a.levels || "—")}</p></div><div><h4>風險</h4><ul>${li(a.risks)}</ul><h4>09:00–09:30 要盯</h4><ul>${li(a.watch)}</ul></div></div>
-        ${n.news && n.news.length ? `<h4>參考的新聞</h4><div class="newslist">${newsHTML(n.news, null)}</div>` : ""}</details>
-      <p class="sub">AI 參考，非投資建議。</p>`;
+        ${n.news && n.news.length ? `<h4>參考的新聞</h4><div class="newslist">${newsHTML(n.news, null)}</div>` : ""}</details>`;
     if (animate) rise($$(".lrise", el), 70);
   }
   async function pmLoad() { try { pmPaint(await J(`${WORKER}/tw/premarket`), true); } catch (e) { const el = $("#dpPre .pmout"); if (el) el.innerHTML = `<p class="sub">盤前分析需要部署新版 Worker。</p>`; } }
