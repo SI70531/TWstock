@@ -320,7 +320,7 @@
         <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3></div>
-        <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert" hidden></p></div>
+        <button type="button" class="btn pmgo">分析</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert" hidden></p></div>
       <div class="dcard mstrip"></div>
       <div class="board">
         <div class="dcard bd-dist"><div class="bd-h"><h3>漲跌分布</h3><span class="sub bd-n"></span></div><div class="bd-bars"></div></div>
@@ -931,10 +931,10 @@
     } catch (e) {
       /* a long run can outlast the connection even though the note was written: look for it before saying it failed */
       await new Promise(r => setTimeout(r, 4000));
-      try { const j = await J(`${WORKER}/tw/premarket`); if (j.note && Date.now() - j.note.at < 180000) { pmPaint(j, true); b.disabled = false; b.textContent = "現在分析一次"; return; } } catch (e2) {}
+      try { const j = await J(`${WORKER}/tw/premarket`); if (j.note && Date.now() - j.note.at < 180000) { pmPaint(j, true); b.disabled = false; b.textContent = "分析"; return; } } catch (e2) {}
       el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連線中斷，請稍後重新整理。"}</p>`);
     }
-    b.disabled = false; b.textContent = "現在分析一次";
+    b.disabled = false; b.textContent = "分析";
   }
 
   /* ---------------- the AI analyst team ---------------- */
