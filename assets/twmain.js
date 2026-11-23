@@ -291,6 +291,7 @@
         any = true; Object.assign(it, { z: x.z, y: x.y, h: x.h, l: x.l, tm: x.tm, src: "盤中", rt: true });
       });
       if (j.fut && j.fut.z > 0) { any = true; Object.assign(IDX[1], { z: j.fut.z, y: j.fut.y, h: j.fut.h, l: j.fut.l, tm: j.fut.tm, src: j.fut.src === "rt" ? "盤中" : "收盤", rt: true, label: j.fut.n }); }
+      DB.rtSrc = j.src || "mis";
       if (any) { DB.rt = true; DB.rtAt = new Date().toLocaleTimeString("zh-TW", { hour12: false }); paintLive(); }
       else if (DB.rt == null) DB.rt = false;
     } catch (e) { DB.rt = false; rtFailAt = Date.now(); }
@@ -306,7 +307,7 @@
     const el = $(".dash-note"); if (!el) return;
     if (!DB.list.length) { el.innerHTML = `<b>載入中</b>正在讀取證交所公開資料…`; return; }
     if (!DB.live) { el.innerHTML = `<b>示意資料</b>目前連不到證交所，以下數字是示意，不代表真實行情。`; return; }
-    if (DB.rt) el.innerHTML = `<b class="live">盤中報價</b>${esc(DB.rtAt)} 更新，約延遲數秒；${marketOpen() ? "每 10 秒更新畫面上的股票" : "目前非交易時段，顯示最後成交"}。`;
+    if (DB.rt) el.innerHTML = `<b class="live">盤中報價</b>${esc(DB.rtAt)} 更新，${DB.rtSrc === "yahoo" ? "來源 Yahoo 財經（證交所即時系統沒回應），可能延遲數分鐘" : "約延遲數秒"}；${marketOpen() ? "每 10 秒更新畫面上的股票" : "目前非交易時段，顯示最後成交"}。`;
     else el.innerHTML = `<b>收盤資料</b>證交所公開資料 ${slash(DB.date)}。${DB.rt === false ? "盤中即時報價需要部署新版 Worker，部署後會自動切換。" : ""}`;
   }
 
