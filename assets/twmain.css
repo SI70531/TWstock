@@ -182,3 +182,8 @@ a.nrow:hover .ntext { text-decoration: underline; }
 .wtbl .wrng .rngbar { margin: 0 4px; }
 .wtbl tr[data-code] { cursor: pointer; }
 @media (max-width: 760px) { .wtbl th:nth-child(5), .wtbl td:nth-child(5), .wtbl .wrngh, .wtbl .wrng { display: none; } }
+
+.wlbtn { min-width: 32px; height: 32px; border-radius: 10px; border: 1px solid color-mix(in oklch, var(--color-accent) 45%, transparent); background: color-mix(in oklch, var(--color-accent) 16%, transparent); color: var(--color-ink); font-size: 17px; line-height: 1; cursor: pointer; transition: transform .15s, background .2s; }
+.wlbtn.in { border-color: var(--color-rule-2); background: none; color: var(--color-muted); }
+.wlbtn:hover { transform: scale(1.08); }
+.wlbtn:active { transform: scale(.9); }

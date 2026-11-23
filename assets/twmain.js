@@ -359,8 +359,8 @@
       const th = e.target.closest("th.sort");
       if (th) { const k = th.dataset.key; if (VIEW.key === k) VIEW.dir *= -1; else { VIEW.key = k; VIEW.dir = -1; } paintTable(true); return; }
       if (e.target.closest(".mmore")) { VIEW.shown += 100; paintTable(false); return; }
-      const st = e.target.closest(".starbtn");
-      if (st) { toggleWatch(st.dataset.code, st.closest("#dpList") ? listIdx() : 0); return; }
+      const st = e.target.closest(".wlbtn");
+      if (st) { toggleWatch(st.dataset.code, listIdx()); return; }
       const tr = e.target.closest("tr[data-code]");
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
@@ -392,7 +392,13 @@
     const d = dig(s.price), t = tone(s.chg);
     return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : s.mkt === "esb" ? " 興櫃" : ""}</span></td>
       <td><span class="pxpill ${t}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
-      <td class="vol">${fmt(s.vol)}</td><td><button type="button" class="starbtn" data-code="${esc(s.code)}" aria-pressed="${LISTS[listIdx()].includes(s.code)}" aria-label="自選${listIdx() + 1} ${esc(s.name)}">★</button></td></tr>`;
+      <td class="vol">${fmt(s.vol)}</td><td>${wlBtn(s)}</td></tr>`;
+  };
+  /* inside 自選1–5: ＋ adds a searched stock to that list, − takes one out */
+  const wlBtn = s => {
+    if (!/^w[1-5]$/.test(VIEW.preset)) return "";
+    const n = listIdx() + 1, inL = LISTS[n - 1].includes(s.code);
+    return `<button type="button" class="wlbtn${inL ? " in" : ""}" data-code="${esc(s.code)}" aria-label="${inL ? "從" : "加入"}自選${n}${inL ? "移除" : ""} ${esc(s.name)}">${inL ? "−" : "＋"}</button>`;
   };
   function paintTable(animate) {
     const box = $("#dpList"); if (!$(".mtbl", box)) return;
@@ -438,9 +444,8 @@
 
   /* ---------------- 自選股 ---------------- */
   function buildWatch() {
-    $("#dpWatch").innerHTML = `<div class="dcard wsum" hidden></div><div class="dcard mkt wlist"><div class="mwrap"><table class="mtbl ttbl mktab wtbl"><thead><tr><th class="l">商品</th><th>成交價</th><th>漲跌</th><th>漲跌幅</th><th>開盤</th><th>最高</th><th>最低</th><th class="wrngh">日內區間</th><th>成交量</th><th aria-label="自選"></th></tr></thead><tbody class="wgrid"></tbody></table></div></div>`;
+    $("#dpWatch").innerHTML = `<div class="dcard wsum" hidden></div><div class="dcard mkt wlist"><div class="mwrap"><table class="mtbl ttbl mktab wtbl"><thead><tr><th class="l">商品</th><th>成交價</th><th>漲跌</th><th>漲跌幅</th><th>開盤</th><th>最高</th><th>最低</th><th class="wrngh">日內區間</th><th>成交量</th></tr></thead><tbody class="wgrid"></tbody></table></div></div>`;
     $("#dpWatch").addEventListener("click", e => {
-      const st = e.target.closest(".starbtn"); if (st) { toggleWatch(st.dataset.code); return; }
       const c = e.target.closest("tr[data-code], .wpick[data-code]"); if (c) openStock(c.dataset.code, c);
     });
   }
@@ -448,15 +453,15 @@
     const g = $("#dpWatch .wgrid"); if (!g) return;
     const cards = WATCH.map(code => {
       const s = DB.by.get(code);
-      const star = `<td><button type="button" class="starbtn" data-code="${esc(code)}" aria-pressed="true" aria-label="移除自選">★</button></td>`;
-      if (!s) return `<tr class="wrow"><td class="l nm"><b>${esc(code)}</b><span>${DB.list.length ? "不在清單中" : "載入中…"}</span></td><td colspan="8"></td>${star}</tr>`;
+      const star = "";
+      if (!s) return `<tr class="wrow"><td class="l nm"><b>${esc(code)}</b><span>${DB.list.length ? "不在清單中" : "載入中…"}</span></td><td colspan="8"></td></tr>`;
       const d = dig(s.price), t = tone(s.chg), pos = s.high > s.low ? clamp((s.price - s.low) / (s.high - s.low) * 100, 0, 100) : 50;
       return `<tr class="wrow" data-code="${esc(code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}</b><span>${esc(code)}</span></td>
         <td><span class="pxpill ${t}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
         <td>${fmt(s.open, d)}</td><td>${fmt(s.high, d)}</td><td>${fmt(s.low, d)}</td>
         <td class="wrng"><div class="rngbar"><i class="rngdot" style="left:${pos.toFixed(1)}%"></i></div></td><td class="vol">${fmt(s.vol)}</td>${star}</tr>`;
     });
-    g.innerHTML = cards.join("") || `<tr><td class="mempty" colspan="10">還沒有自選股。</td></tr>`;
+    g.innerHTML = cards.join("") || `<tr><td class="mempty" colspan="9">還沒有自選股。</td></tr>`;
     paintWatchSum();
     if (animate && $("#dpWatch").classList.contains("on")) rise($$("tr", g).slice(0, 30), 25);
   }
@@ -486,7 +491,6 @@
     WATCH = LISTS[0];
     saveLists();
     if (i === 0) alertSync();
-    $$(".starbtn").forEach(b => b.setAttribute("aria-pressed", String((b.closest("#dpList") ? LISTS[listIdx()] : WATCH).includes(b.dataset.code))));
     paintWatch(false);
     if (/^w[1-5]$/.test(VIEW.preset)) paintTable(false);
   }
@@ -498,7 +502,7 @@
       let ch = false;
       if (sym && sym.length && JSON.stringify(sym) !== JSON.stringify(WATCH)) { WATCH = LISTS[0] = sym; ch = true; }
       if (Array.isArray(ex) && ex.length === 4 && JSON.stringify(ex) !== JSON.stringify(LISTS.slice(1))) { ex.forEach((l, j) => { LISTS[j + 1] = Array.isArray(l) ? l : []; }); ch = true; }
-      if (ch) { store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS); paintWatch(false); paintTable(false); starHead(); }
+      if (ch) { store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS); paintWatch(false); paintTable(false); }
       alertSync();
     } catch (e) {}
   }
@@ -593,7 +597,7 @@
     $("#dpStock").innerHTML = `
       <div class="dcard shead">
         <div class="sfind"><button type="button" class="sback" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span></span></button><input class="ssearch" type="search" placeholder="輸入代號或名稱換一檔" aria-label="搜尋股票" autocomplete="off"><div class="ssug" hidden></div></div>
-        <div class="stitle"><h2></h2><button type="button" class="starbtn sstar" aria-pressed="false" aria-label="加入自選">★</button></div>
+        <div class="stitle"><h2></h2></div>
         <div class="spx"><span class="big">—</span><span class="schg"></span><span class="sub stime"></span></div>
         <div class="sohlc"></div>
       </div>
@@ -628,17 +632,14 @@
       if (e.target.closest("#dpLab")) return;                 /* the research tools handle their own clicks */
       const s = e.target.closest(".ssug button"); if (s) { inp.value = ""; sug.hidden = true; setStock(s.dataset.code, true); navPush(); return; }
       if (e.target.closest(".sback")) { goBack(); return; }
-      if (e.target.closest(".sstar")) { toggleWatch(CODE); starHead(); return; }
       const sp = e.target.closest("[data-span]"); if (sp) { SPAN = +sp.dataset.span; store.set("twmain-span", SPAN); drawChart(true); return; }
       const ind = e.target.closest("[data-ind]"); if (ind) { IND[ind.dataset.ind] = !IND[ind.dataset.ind]; store.set("twmain-ind", IND); drawChart(true); return; }
       if (e.target.closest(".aigo")) analyze();
     });
   }
-  function starHead() { const b = $("#dpStock .sstar"); if (b) { b.dataset.code = CODE; b.setAttribute("aria-pressed", String(WATCH.includes(CODE))); } }
   function paintHead() {
     const box = $("#dpStock"), s = DB.by.get(CODE); if (!$(".shead", box)) return;
     $(".stitle h2", box).innerHTML = s ? `${esc(s.name)} <span>${esc(s.code)}</span>` : esc(CODE);
-    starHead();
     if (!s) { $(".spx .big", box).textContent = "—"; $(".schg", box).textContent = DB.list.length ? "找不到這檔上市股票" : ""; $(".sohlc", box).innerHTML = ""; return; }
     const d = dig(s.price), t = tone(s.chg);
     $(".spx .big", box).textContent = fmt(s.price, d); $(".spx .big", box).className = "big " + t;
