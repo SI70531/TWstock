@@ -33,10 +33,9 @@
     /* sidebar */
     const side = document.createElement("aside");
     side.className = "side"; side.setAttribute("aria-label", "側欄");
-    side.innerHTML = `<div class="sb-brand"><span class="mk">TW</span><div>TWstock<small>台股研究</small></div></div>
-      <nav aria-label="主要導覽"><i class="sb-hl"></i>${tabs.map(t => `<button type="button" data-p="${t.dataset.p}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t.dataset.p] || '<circle cx="12" cy="12" r="3"/>'}</svg>${t.textContent.trim()}</button>`).join("")}</nav>
-      <div class="sb-clock"><div class="s"><span class="statuschip" data-s="closed"><i></i><span class="ss">—</span></span><span class="sd"></span></div><div class="t">--:--:--</div>
+    side.innerHTML = `<div class="sb-clock"><div class="s"><span class="statuschip" data-s="closed"><i></i><span class="ss">—</span></span><span class="sd"></span></div><div class="t">--:--:--</div>
         <div class="sb-ix" data-k="t00"><span>加權</span><b>—</b></div><div class="sb-ix" data-k="fut"><span>台指期</span><b>—</b></div></div>
+      <nav aria-label="主要導覽"><i class="sb-hl"></i>${tabs.map(t => `<button type="button" data-p="${t.dataset.p}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t.dataset.p] || '<circle cx="12" cy="12" r="3"/>'}</svg>${t.textContent.trim()}</button>`).join("")}</nav>
       <div class="sb-h">自選股</div><div class="sb-watch"><p class="sb-empty">載入中…</p></div>`;
     document.body.appendChild(side);
     side.addEventListener("click", e => {
@@ -54,7 +53,7 @@
     /* top bar: page title, market status, the account buttons moved out of the old header */
     const main = $(".app main"), bar = document.createElement("div");
     bar.className = "topbar";
-    bar.innerHTML = `<div class="tb-brand"><span class="mk">TW</span>TWstock</div><div class="tb-title"><h2>總覽</h2></div>
+    bar.innerHTML = `<div class="tb-brand">TWstock</div><div class="tb-title"><h2>總覽</h2></div>
       <span class="statuschip tbchip" data-s="closed"><i></i><span class="ss">—</span><b class="tt"></b></span><div class="tb-right"></div>`;
     main.insertBefore(bar, main.firstChild);
     const right = $(".tb-right", bar);

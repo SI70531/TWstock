@@ -154,7 +154,8 @@ async function twFut() {
   try {
     const r = await fetch("https://tw.stock.yahoo.com/_td-stock/api/resource/StockServices.stockList;fields=avgPrice;symbols=WTX%26", { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
     const x = (await r.json())[0], raw = k => (x && x[k] && x[k].raw != null ? twNum(x[k].raw) : null);
-    if (x && raw("price") > 0) {
+    const lu = raw("limitUpPrice"), ld = raw("limitDownPrice");
+    if (x && raw("price") > 0 && raw("price") !== lu && raw("price") !== ld) {   /* a quote sitting exactly on the limit price is Yahoo's placeholder, not a trade */
       const at = Date.parse(x.regularMarketTime || ""), tm = at ? new Date(at + 8 * 3600e3).toISOString().slice(11, 19) : "";
       return tag({ n: "臺指期近一", z: raw("price"), y: raw("regularMarketPreviousClose"), o: raw("regularMarketOpen"), h: raw("regularMarketDayHigh"), l: raw("regularMarketDayLow"), v: twNum(x.volume), tm, via: "yahoo" },
         (night || day) && at && Date.now() - at < 20 * 60000);
