@@ -810,7 +810,7 @@
     $(".bd-down .bd-list", box).innerHTML = dn.map(s => row(s, pct(s.pct), "down")).join("");
     $(".bd-vol .bd-list", box).innerHTML = vol.map(s => `<button type="button" class="bd-row bd-vrow" data-code="${esc(s.code)}" style="--w:${(s.vol / vmx * 100).toFixed(1)}%"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i></span><span class="bd-px ${tone(s.chg)}">${pct(s.pct)}</span><span class="bd-v">${fmt(s.vol)}</span></button>`).join("");
     const a = PMN && PMN.analysis;
-    $(".bd-pmout", box).innerHTML = a ? `<div class="bd-call"><span class="aitag ${/高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : ""}">${esc(a.call)}</span><span class="sub">預測 ${esc(String(PMN.day).slice(5).replace("-", "/"))} 開盤・${esc(a.gap || "")}</span></div><p class="bd-head">${esc(a.headline || "")}</p>
+    $(".bd-pmout", box).innerHTML = a ? `<div class="bd-call"><span class="aitag ${/高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : ""}">${esc(a.call)}</span><span class="sub">預測 ${esc(String(PMN.day).slice(5).replace("-", "/"))} 開盤・${esc(a.gap || "")}</span>${a.close && a.close.call ? `<span class="aitag ${/紅/.test(a.close.call) ? "up" : /黑/.test(a.close.call) ? "down" : ""}">${esc(a.close.call)}</span><span class="sub">收盤 ${esc(a.close.range || "")}</span>` : ""}</div><p class="bd-head">${esc(a.headline || "")}</p>
       ${Array.isArray(a.picks) && a.picks.length ? `<div class="bd-picks">${a.picks.slice(0, 8).map(x => `<button type="button" class="bd-row" data-code="${esc(x.code)}"><span class="bd-nm"><b>${esc(x.name)}</b><i>${esc(x.code)}</i></span><span class="bd-px">${esc(x.tag || "")}</span><span class="bd-v ${/買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""}">${esc(x.action || "")}</span></button>`).join("")}</div>` : ""}<div class="bd-ch">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc((a.chances || {})[k] || "—")}</b></div>`).join("")}</div>` : `<p class="sub">05:30 自動產生。</p>`;
     if (first || cur === "dpOverview") boardIn(box, first);
   }
@@ -939,7 +939,8 @@
     el.innerHTML = `
       <div class="aisum lrise"><div class="aiverdict"><span class="aitag ${tn}">${esc(a.call)}</span><b class="pmday">預測 ${esc(String(n.day).slice(5).replace("-", "/"))}（週${"日一二三四五六"[new Date(n.day + "T00:00:00Z").getUTCDay()]}）09:00 開盤</b><span class="sub">${esc(a.gap || "")}・信心 ${esc(a.confidence || "—")}・${at} 產生${n.day < new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10) || (n.day === new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10) && new Date(Date.now() + 8 * 3600e3).getUTCHours() >= 9) ? "（這天已經開過盤，是舊的分析）" : ""}</span></div>
         <p class="ailead">${esc(a.headline || "")}</p>
-        <div class="pmchance">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc(ch[k] || "—")}</b></div>`).join("")}</div></div>
+        <div class="pmrow"><div class="pmseg"><h4>09:00 開盤</h4><div class="pmchance">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc(ch[k] || "—")}</b></div>`).join("")}</div></div>
+        ${a.close && a.close.call ? `<div class="pmseg"><h4>13:30 收盤 <span class="aitag ${/紅/.test(a.close.call) ? "up" : /黑/.test(a.close.call) ? "down" : ""}">${esc(a.close.call)}</span> <span class="sub">${esc(a.close.range || "")}</span></h4><div class="pmchance">${["收紅", "平盤", "收黑"].map(k => `<div><span>${k}</span><b class="${k === "收紅" ? "up" : k === "收黑" ? "down" : ""}">${esc((a.close.chances || {})[k] || "—")}</b></div>`).join("")}</div>${a.close.why ? `<p class="pmcw">${esc(a.close.why)}</p>` : ""}</div>` : ""}</div></div>
       <div class="aicols"><div class="lrise"><h4>夜盤</h4><p>${esc(a.night || "—")}</p></div><div class="lrise"><h4>美股與國際</h4><p>${esc(a.us || "—")}</p></div></div>
       ${Array.isArray(a.picks) && a.picks.length ? `<div class="pmpicks"><div class="pmph"><h4>潛力股與下單建議</h4><span class="sub">${esc(a.picks_note || "")}</span></div><div class="pmpgrid">${a.picks.map(x => { const t = /買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""; return `<button type="button" class="aiorder pmpick ${t ? "o-" + t : ""} lrise" data-pick="${esc(x.code)}">
         <div class="aiohead"><span class="ntag">${esc(x.tag || "")}</span><b class="pmpn">${esc(x.name || "")} <i>${esc(x.code)}</i></b><b class="${t}">${esc(x.action || "")}</b>${x.rr ? `<span class="sub">風險報酬 ${esc(x.rr)}</span>` : ""}</div>
@@ -960,7 +961,7 @@
     try {
       const r = await fetch(WORKER + "/tw/premarket/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk }) });
       const j = await r.json().catch(() => null);
-      if (!r.ok || !j || !j.analysis) throw new Error(r.status === 429 ? "AI 用量暫時到上限，請稍後再試。" : "AI 暫時寫不出分析，請稍後再試。");
+      if (!r.ok || !j || !j.analysis) throw new Error(r.status === 429 ? "AI 用量到上限，稍後再試。" : "分析失敗" + (j && j.error && j.error.message ? "：" + j.error.message : "，稍後再試。"));
       pmPaint({ note: j }, true);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);

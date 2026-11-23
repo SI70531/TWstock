@@ -365,3 +365,7 @@ p.skel, div.skel.block { min-height: 64px; }
 .ssug button { min-height: 44px; }
 .ssug button:hover, .ssug button:focus-visible { background: var(--glass-2); }
 .dcard.shead { overflow: visible; z-index: 20; }
+
+.pmrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 12px; margin-top: 10px; }
+.pmseg h4 { margin: 0 0 6px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--text-sm); }
+.pmcw { margin: 6px 0 0; font-size: var(--text-sm); }

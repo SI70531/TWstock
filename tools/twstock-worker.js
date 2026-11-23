@@ -522,14 +522,18 @@ function pmPrompt(day, madeAt, night, world, inst, news, cands) {
 "- TSMC ADR: one ADR is 5 shares; if you compare it with the Taiwan price, say that you need the exchange rate and use the one in DATA.",
 "- 'picks': one entry for EVERY stock in DATA.candidates, none left out: all 持股 first, then all 自選, then the 強勢 ones (the strongest movers, potential stocks), best first within each group. tag says why it is a candidate (持股 = the user holds it, 自選 = on the user's watchlist, 強勢 = strong mover yesterday with volume). For each give one concrete order like a trader would: action is exactly one of 買進, 分批買進, 觀望, 續抱, 減碼, 賣出 (for a 持股 choose among 續抱, 分批買進 as adding, 減碼, 賣出); how = order type and price (限價 or after a close above a named level), split = how to split the order, stop = the stop price and which level it is, targets = one or two target prices with the level they come from, rr = risk-reward like 1 : 2.0, why = one or two sentences tying the stock to tonight's factors. Every price must come from that candidate's numbers (ma5/ma20/ma60, bollinger, 20/60-day highs and lows, last close) or be a round number near them, and say which. If a stock is not worth buying today its action is 觀望 (or 續抱 / 減碼 / 賣出 for a 持股) and why says what would change that; say in picks_note how many are worth acting on.",
 "- Nobody can know the open for sure. Give the more likely direction for today's open, a rough gap range in TAIEX points, and chances that add up to about 100%. Say what would prove the call wrong in the first 30 minutes.",
+"- Anchor the gap on DATA.anchor: the night-session TAIEX future versus the last TAIEX close. The gap is normally within a few hundred points of that difference and almost never beyond ±3% of the TAIEX; never give a range wider than the data supports.",
+"- Also call the CLOSE of that same day (13:30): 'close' gives 收紅, 平盤 or 收黑 against the previous TAIEX close, a TAIEX range for the close (numbers near DATA levels), chances adding up to about 100%, and one short sentence why (for example whether an opening gap is likely to hold or fade).",
 "",
 "Return ONE JSON object and nothing else, in exactly this shape:",
 '{"call":"開高|平盤附近|開低","confidence":"低|中|高","gap":"例如 +80 到 +150 點","chances":{"開高":"約 55%","平盤":"約 25%","開低":"約 20%"},"headline":"one sentence for a phone notification",',
+'"close":{"call":"收紅|平盤|收黑","range":"例如 36,500–36,900","chances":{"收紅":"約 50%","平盤":"約 20%","收黑":"約 30%"},"why":"one short sentence"},',
 '"night":"what the night session did and what it implies","us":"the US close and what matters for Taiwan","factors":[{"name":"factor","effect":"利多|利空|中性","note":"one or two sentences"}],',
 '"sectors":["sectors or big names likely to lead or lag, with the reason"],"levels":"TAIEX levels to watch, only from DATA","risks":["..."],"watch":["what to check between 09:00 and 09:30, and events later today"],',
 '"picks":[{"code":"2454","name":"聯發科","tag":"強勢|自選|持股","action":"分批買進","how":"...","split":"...","stop":"...","targets":["..."],"rr":"1 : 2.0","why":"..."}],"picks_note":"one sentence on the candidates overall"}',
 "",
 "DATA.night (TAIEX futures, TAIFEX): " + JSON.stringify(night),
+"DATA.anchor: " + JSON.stringify(pmAnchor(night, world)),
 "DATA.world (Yahoo Finance, last price and % change from the previous close, time in Taipei): " + JSON.stringify(world),
 "DATA.institutions (TWSE, NT$ 100 million, previous trading day): " + JSON.stringify(inst),
 "DATA.candidates (computed here from Yahoo Taiwan daily bars up to the last close; prices NT$, volume in lots): " + JSON.stringify(cands || []),
@@ -582,6 +586,12 @@ async function pmCandidates(env) {
   }));
   return out.filter(Boolean);
 }
+/* the night future against the last TAIEX close: the main anchor for the opening gap */
+function pmAnchor(night, world) {
+  const tw = (world || []).find(x => x.symbol === "^TWII"), q = night && night.quote;
+  if (!tw || !q || !(q.last > 0)) return null;
+  return { taiexClose: tw.last, nightFuture: q.last, diffPoints: Math.round(q.last - tw.last), diffPct: Math.round((q.last / tw.last - 1) * 10000) / 100, futureTime: q.time };
+}
 async function premarket(env, notify) {
   if (!env.GEMINI_KEY) return { error: "no GEMINI_KEY" };
   const day = nextOpenDay(new Date()), madeAt = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
@@ -594,9 +604,10 @@ async function premarket(env, notify) {
   ]);
   const seen = new Set(), news = [...n1, ...n2, ...n3].filter(x => !seen.has(x.t) && seen.add(x.t)).sort((a, b) => b.at - a.at).slice(0, 24);
   const g = await geminiJson(env, pmPrompt(day, madeAt, night, world, inst, news, cands), 0.3, 0);
-  if (g.error) return { error: "Gemini " + g.error.status };
+  if (g.error) return { error: g.error.status === 429 ? "Gemini 用量到上限" : "Gemini 錯誤 " + g.error.status };
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
-  if (!a || !a.call) return { error: "unexpected AI reply" };
+  if (!a) { const t = String(g.text || "").replace(/^```(?:json)?|```$/g, "").trim(), i = t.indexOf("{"), j = t.lastIndexOf("}"); try { a = JSON.parse(t.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e) { a = null; } }
+  if (!a || !a.call) return { error: "AI 回覆格式不對（" + String(g.text || "").length + " 字）" };
   if (Array.isArray(a.picks)) {
     const ord = { 持股: 0, 自選: 1, 強勢: 2 }, tagOf = c => (cands.find(x => x.code === c) || {}).tag;
     a.picks = a.picks.filter(x => x && cands.some(c => c.code === String(x.code))).map(x => Object.assign(x, { tag: tagOf(String(x.code)) || x.tag }))
@@ -621,7 +632,8 @@ async function pmTelegram(env, a, day) {
   const text = [
     `<b>預測 ${esc(day.slice(5).replace("-", "/"))}（${WD[new Date(day + "T00:00:00Z").getUTCDay()]}）台股開盤：${esc(a.call)}</b>（信心 ${esc(a.confidence || "—")}，${esc(a.gap || "")}）`,
     esc(a.headline || ""), "",
-    `開高 ${esc(ch["開高"] || "—")}｜平盤 ${esc(ch["平盤"] || "—")}｜開低 ${esc(ch["開低"] || "—")}`, "",
+    `開高 ${esc(ch["開高"] || "—")}｜平盤 ${esc(ch["平盤"] || "—")}｜開低 ${esc(ch["開低"] || "—")}`,
+    ...(a.close && a.close.call ? [`<b>收盤：${esc(a.close.call)}</b>（${esc(a.close.range || "")}）${esc(a.close.why || "")}`] : []), "",
     `<b>夜盤</b> ${esc(a.night || "—")}`, `<b>美股</b> ${esc(a.us || "—")}`, "",
     ...f.map(x => `${x.effect === "利多" ? "🔺" : x.effect === "利空" ? "🔻" : "▪️"} ${esc(x.name)}：${esc(x.note)}`), "",
     `<b>開盤後盯</b> ${esc((a.watch || []).slice(0, 3).join("；"))}`,
