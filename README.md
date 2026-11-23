@@ -34,6 +34,7 @@ index.html               Sign-in gate, device PIN, page shell and the three tabs
 assets/twmain.js/.css    The app: data loading, 總覽, 自選股, 個股分析, charts, AI analysis
 assets/twlab.js          The 研究室 tab (uses helpers exposed by twmain.js as window.TWDash.api)
 assets/twui.css / twui.js  UI v3: glass shell (sidebar on wide screens, tabs on tablets, bottom bar on phones), light/dark from the device, drifting aurora tinted by the TAIEX, counting numbers, card tilt and sheen, loading skeletons
+tools/otc_list.py        Writes otc.json (上櫃 and 興櫃 stocks); the "OTC list" workflow publishes it on the `data` branch every 10 minutes in trading hours, because TPEx open data cannot be read by the page and refuses the Worker
 assets/twaccount.js      Account, device PIN and watchlist sync (same Supabase project and Worker as EZexams)
 assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill (mobile)
 assets/twdash.css, twmarket.css, twglass.css, twtheme.css   Shared look: cards, chips, glass surfaces, theme

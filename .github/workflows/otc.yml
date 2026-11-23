@@ -1,0 +1,25 @@
+# Publishes the 上櫃 / 興櫃 list (tools/otc_list.py) to the `data` branch as otc.json:
+# every 10 minutes during the trading day and a few times after the close, Taipei time.
+name: OTC list
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/10 0-6 * * 1-5"
+    - cron: "40 7,9,12 * * 1-5"
+permissions:
+  contents: write
+concurrency: otc-list
+jobs:
+  list:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch from TPEx
+        run: python3 tools/otc_list.py /tmp/otc.json
+      - name: Publish to the data branch (one commit, history replaced)
+        run: |
+          mkdir /tmp/pub && cd /tmp/pub && git init -q -b data
+          cp /tmp/otc.json otc.json
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" add otc.json
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" commit -q -m "OTC list $(date -u +%FT%TZ)"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data

@@ -98,7 +98,9 @@
   }
   /* 上櫃 and 興櫃 at the close, through the Worker (TPEx open data cannot be read by pages on other sites) */
   async function listOTC() {
-    const j = await J(`${WORKER}/tw/otc`);
+    /* published every 10 minutes by the "OTC list" GitHub Actions job (TPEx refuses both the page and the Worker) */
+    let j = null;
+    try { j = await J("https://raw.githubusercontent.com/SI70531/TWstock/data/otc.json"); } catch (e) { j = await J(`${WORKER}/tw/otc`); }
     return (j.list || []).map(([c, n, z, ch, o, h, l, v, m]) => Object.assign(mk(c, n, z == null ? NaN : z, ch == null ? NaN : ch, o == null ? NaN : o, h == null ? NaN : h, l == null ? NaN : l, v), { mkt: m }))
       .filter(s => s.code && s.name);
   }
