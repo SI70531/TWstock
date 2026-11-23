@@ -194,7 +194,13 @@ async function twRt(url, json) {
      every code still without a price is filled from Yahoo Finance (delayed a little, but the right day's price) */
   const have = new Set(out.q.filter(x => x.z > 0).map(x => x.c)), miss = codes.filter(c => !have.has(c));
   if (miss.length) {
-    try { const y = await twCached("yq:" + miss.join(","), 15000, () => twYahoo(miss)); out.q = out.q.filter(x => x.z > 0).concat(y); if (y.length) out.src = "yahoo"; }
+    try {
+      /* 興櫃 is not in TWSE's system at all: Yahoo Taiwan's quote list carries it (and 上市 / 上櫃 when TWSE refuses) */
+      let y = await twCached("ytw:" + miss.join(","), 5000, () => twYahooTW(miss)).catch(() => []);
+      const got = new Set(y.map(x => x.c)), rest = miss.filter(c => !got.has(c));
+      if (rest.length) y = y.concat(await twCached("yq:" + rest.join(","), 15000, () => twYahoo(rest)).catch(() => []));
+      out.q = out.q.filter(x => x.z > 0).concat(y); if (y.length) out.src = "yahoo";
+    }
     catch (e) { out.err = (out.err ? out.err + "; " : "") + twClip(e && e.message, 60); }
   }
   if (url.searchParams.get("idx") === "1" && !out.idx.some(x => x.c === "t00" && x.z > 0)) {
@@ -741,5 +747,29 @@ async function twHist(url, json, fail) {
     return { code, rows };
   }).catch(e => ({ error: String(e.message || e) }));
   return out.error ? fail(502, "SOURCE", out.error) : json(out, 200, { "Cache-Control": "no-store" });
+}
+
+/* Yahoo Taiwan quote list: real-time for 上市, 上櫃 and 興櫃 alike; each code is asked as .TWO, then the rest as .TW */
+async function twYahooTW(codes) {
+  const out = [];
+  const ask = async (list, ex) => {
+    for (let i = 0; i < list.length; i += 30) {
+      const part = list.slice(i, i + 30);
+      const r = await fetch("https://tw.stock.yahoo.com/_td-stock/api/resource/StockServices.stockList;fields=avgPrice;symbols=" + encodeURIComponent(part.map(c => c + "." + ex).join(",")), { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
+      if (!r.ok) continue;
+      const a = await r.json().catch(() => []);
+      (Array.isArray(a) ? a : []).forEach(x => {
+        const raw = k => (x && x[k] && x[k].raw != null ? twNum(x[k].raw) : null), z = raw("price"), y = raw("regularMarketPreviousClose");
+        if (!(z > 0) || !(y > 0)) return;
+        const at = Date.parse(x.regularMarketTime || ""), t = at ? new Date(at + 8 * 3600e3).toISOString() : "";
+        out.push({ c: String(x.symbol || "").replace(/\.TWO?$/, ""), n: String(x.symbolName || ""), z, y, o: raw("regularMarketOpen"), h: raw("regularMarketDayHigh"), l: raw("regularMarketDayLow"),
+          v: twNum(x.volume), tm: t.slice(11, 19), d: t.slice(0, 10).replace(/-/g, ""), src: "yahoo-tw" });
+      });
+    }
+  };
+  await ask(codes, "TWO");
+  const got = new Set(out.map(x => x.c)), rest = codes.filter(c => !got.has(c));
+  if (rest.length) await ask(rest, "TW");
+  return out;
 }
 

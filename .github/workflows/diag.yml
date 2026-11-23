@@ -1,0 +1,8 @@
+name: Diag
+on: workflow_dispatch
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -s -m 60 -H "Origin: https://si70531.github.io" "https://twstock-ai.ta77199ta.workers.dev/tw/rt?c=7742,6488,2330,6869" | head -c 1500; echo
