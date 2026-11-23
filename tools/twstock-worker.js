@@ -595,7 +595,7 @@ async function pmCandidates(env) {
   /* every holding and every watchlist stock, plus up to 12 liquid stocks to screen for an order (35 chart requests in all, within the Worker's request limit).
      First cut on yesterday's close only: price 10 or more, 2,000 lots or more, a day's move between -3% and +4% (no chasing limit-ups),
      largest turnover first; the daily bars then decide (end of this function). */
-  const wl = await pmStore(env, "wl").catch(() => ({})), hold = (wl.hold || []).slice(0, 30), watch = (wl.watch || []).filter(c => !hold.includes(c)).slice(0, Math.max(0, 30 - hold.length));
+  const wl = await pmStore(env, "wl").catch(() => ({})), hold = (wl.hold || []).slice(0, 30), watch = [];   /* watchlist stocks are left out of the pre-market analysis for now */
   const mkt = new Map(), strong = [];
   try {
     const a = await (await twFetch("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();

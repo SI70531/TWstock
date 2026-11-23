@@ -57,6 +57,16 @@
   const IDX = [{ k: "t00", name: "加權指數" }, { k: "fut", name: "台指期" }, { k: "t13", name: "電子" }, { k: "t17", name: "金融" }];
   const MKT = { rows: null, inst: null };          /* TAIEX history rows and the institutions of the day */
   let WATCH = store.get("twtrade-watch", DEFAULT_WATCH);
+  /* five watchlists 自選1–自選5; 自選1 is WATCH (the 自選股 tab, sidebar, alerts) */
+  const WL_SEED = [
+    ["6770", "2383", "3260", "4967", "5475", "8358", "3131", "6187", "3583", "2330", "2454", "2317", "2303", "3037", "2515", "1711", "2103", "3231", "2408", "2382", "1301", "6285", "2883", "1314", "2485", "3481", "3017", "1802", "2308", "2449", "2327", "4916", "2367", "5309", "7742"],
+    ["2887", "0050", "0056", "00878", "00919", "00929", "006208", "00403A", "0052"]];
+  let LISTS = store.get("twtrade-wl", null);
+  if (!Array.isArray(LISTS) || LISTS.length !== 5) LISTS = [WATCH.slice(), [], [], [], []];
+  let WL_SEEDED = false;
+  if (!store.get("twtrade-wl-seed", 0)) { LISTS[0] = WL_SEED[0].slice(); LISTS[1] = WL_SEED[1].slice(); WATCH = LISTS[0]; store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS); store.set("twtrade-wl-seed", 1); WL_SEEDED = true; }
+  LISTS[0] = WATCH;
+  const listIdx = () => (/^w[1-5]$/.test(VIEW.preset) ? +VIEW.preset[1] - 1 : 0);
   const IND = Object.assign({ ma: true, boll: false, vol: true, kd: true, macd: false, rsi: false }, store.get("twmain-ind", {}));
   let SPAN = store.get("twmain-span", 60);
   const VIEW = { q: "", preset: "all", key: "vol", dir: -1, shown: 50 };
@@ -312,7 +322,7 @@
   }
 
   /* ---------------- 總覽 ---------------- */
-  const PRESETS = [["all", "全部"], ["watch", "自選"], ["strong", "強勢股"], ["weak", "弱勢股"], ["volume", "成交量"]];
+  const PRESETS = [["all", "全部"], ["w1", "自選1"], ["w2", "自選2"], ["w3", "自選3"], ["w4", "自選4"], ["w5", "自選5"], ["strong", "強勢股"], ["weak", "弱勢股"], ["volume", "成交量"]];
   const COLS = [["price", "成交價"], ["chg", "漲跌"], ["pct", "漲跌幅"], ["vol", "成交量"]];
   function buildOverview() {
     $("#dpOverview").innerHTML = `
@@ -343,14 +353,14 @@
       const p = e.target.closest("[data-preset]");
       if (p) {
         VIEW.preset = p.dataset.preset; VIEW.shown = 50;
-        const o = { all: ["vol", -1], watch: ["pct", -1], strong: ["pct", -1], weak: ["pct", 1], volume: ["vol", -1] }[VIEW.preset];
+        const o = { all: ["vol", -1], w1: ["ord", 1], w2: ["ord", 1], w3: ["ord", 1], w4: ["ord", 1], w5: ["ord", 1], strong: ["pct", -1], weak: ["pct", 1], volume: ["vol", -1] }[VIEW.preset];
         VIEW.key = o[0]; VIEW.dir = o[1]; paintTable(true); return;
       }
       const th = e.target.closest("th.sort");
       if (th) { const k = th.dataset.key; if (VIEW.key === k) VIEW.dir *= -1; else { VIEW.key = k; VIEW.dir = -1; } paintTable(true); return; }
       if (e.target.closest(".mmore")) { VIEW.shown += 100; paintTable(false); return; }
       const st = e.target.closest(".starbtn");
-      if (st) { toggleWatch(st.dataset.code); return; }
+      if (st) { toggleWatch(st.dataset.code, st.closest("#dpList") ? listIdx() : 0); return; }
       const tr = e.target.closest("tr[data-code]");
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
@@ -369,24 +379,26 @@
   function rowsNow() {
     const q = VIEW.q.toLowerCase();
     let rows = DB.list;
-    if (VIEW.preset === "watch") rows = rows.filter(s => WATCH.includes(s.code));
+    const L = /^w[1-5]$/.test(VIEW.preset) ? LISTS[listIdx()] : null;
+    if (L) rows = rows.filter(s => L.includes(s.code));
     if (VIEW.preset === "strong" || VIEW.preset === "weak") rows = rows.filter(s => s.vol >= 500);   /* thin stocks are left out, as broker apps do */
     if (q) rows = rows.filter(s => s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
     const k = VIEW.key, d = VIEW.dir;
     const v = x => (ok(x) ? x : -Infinity);
+    if (k === "ord") return L ? rows.slice().sort((a, b) => L.indexOf(a.code) - L.indexOf(b.code)) : rows.slice();
     return rows.slice().sort((a, b) => (v(a[k]) - v(b[k])) * d || a.code.localeCompare(b.code));
   }
   const rowHTML = s => {
     const d = dig(s.price), t = tone(s.chg);
     return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : s.mkt === "esb" ? " 興櫃" : ""}</span></td>
       <td><span class="pxpill ${t}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
-      <td class="vol">${fmt(s.vol)}</td><td><button type="button" class="starbtn" data-code="${esc(s.code)}" aria-pressed="${WATCH.includes(s.code)}" aria-label="自選 ${esc(s.name)}">★</button></td></tr>`;
+      <td class="vol">${fmt(s.vol)}</td><td><button type="button" class="starbtn" data-code="${esc(s.code)}" aria-pressed="${LISTS[listIdx()].includes(s.code)}" aria-label="自選${listIdx() + 1} ${esc(s.name)}">★</button></td></tr>`;
   };
   function paintTable(animate) {
     const box = $("#dpList"); if (!$(".mtbl", box)) return;
     const rows = rowsNow(), show = rows.slice(0, VIEW.shown);
     $(".mtbl tbody", box).innerHTML = show.map(rowHTML).join("") ||
-      `<tr><td class="mempty" colspan="6">${VIEW.preset === "watch" && !VIEW.q ? "還沒有自選股，點任何一檔右邊的 ★ 加入。" : DB.list.length ? "找不到符合的股票。" : "載入中…"}</td></tr>`;
+      `<tr><td class="mempty" colspan="6">${/^w[1-5]$/.test(VIEW.preset) && !VIEW.q ? `自選${listIdx() + 1} 還沒有股票。`  : DB.list.length ? "找不到符合的股票。" : "載入中…"}</td></tr>`;
     $(".mmore", box).hidden = rows.length <= VIEW.shown;
     $(".mcount", box).textContent = DB.list.length ? `${fmt(rows.length)} 檔${VIEW.preset === "strong" || VIEW.preset === "weak" ? "（成交量 500 張以上）" : ""}` : "";
     $$("[data-preset]", box).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.preset === VIEW.preset)));
@@ -462,20 +474,30 @@
       <div class="wlead">${pick("領漲", best)}${best !== worst ? pick("落後", worst) : ""}</div>`;
   }
   const breadthBar = (up, flat, down) => `<div class="breadth" role="img" aria-label="上漲 ${up}、平盤 ${flat}、下跌 ${down}"><i class="up" style="flex-grow:${up}"></i><i class="flat" style="flex-grow:${flat}"></i><i class="down" style="flex-grow:${down}"></i></div>`;
-  function toggleWatch(code) {
-    WATCH = WATCH.includes(code) ? WATCH.filter(c => c !== code) : WATCH.concat(code);
-    store.set("twtrade-watch", WATCH);
-    try { window.TWAccount && TWAccount.saveWatchlist(WATCH).catch(() => {}); } catch (e) {}
-    alertSync();
-    $$(".starbtn").forEach(b => b.setAttribute("aria-pressed", String(WATCH.includes(b.dataset.code))));
+  function saveLists() {
+    store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS);
+    try { window.TWAccount && TWAccount.saveWatchlist(WATCH, LISTS.slice(1)).catch(() => {}); } catch (e) {}
+  }
+  function toggleWatch(code, i) {
+    i = i || 0;
+    const L = LISTS[i];
+    LISTS[i] = L.includes(code) ? L.filter(c => c !== code) : L.concat(code);
+    WATCH = LISTS[0];
+    saveLists();
+    if (i === 0) alertSync();
+    $$(".starbtn").forEach(b => b.setAttribute("aria-pressed", String((b.closest("#dpList") ? LISTS[listIdx()] : WATCH).includes(b.dataset.code))));
     paintWatch(false);
-    if (VIEW.preset === "watch") paintTable(false);
+    if (/^w[1-5]$/.test(VIEW.preset)) paintTable(false);
   }
   async function pullWatch() {
     try {
       if (!window.TWAccount || !TWAccount.account()) return;
-      const sym = await TWAccount.loadWatchlist();
-      if (sym && sym.length && JSON.stringify(sym) !== JSON.stringify(WATCH)) { WATCH = sym; store.set("twtrade-watch", WATCH); paintWatch(false); paintTable(false); starHead(); }
+      if (WL_SEEDED) { WL_SEEDED = false; await TWAccount.saveWatchlist(WATCH, LISTS.slice(1)); }
+      const sym = await TWAccount.loadWatchlist(), ex = TWAccount.watchExtra ? TWAccount.watchExtra() : null;
+      let ch = false;
+      if (sym && sym.length && JSON.stringify(sym) !== JSON.stringify(WATCH)) { WATCH = LISTS[0] = sym; ch = true; }
+      if (Array.isArray(ex) && ex.length === 4 && JSON.stringify(ex) !== JSON.stringify(LISTS.slice(1))) { ex.forEach((l, j) => { LISTS[j + 1] = Array.isArray(l) ? l : []; }); ch = true; }
+      if (ch) { store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS); paintWatch(false); paintTable(false); starHead(); }
       alertSync();
     } catch (e) {}
   }

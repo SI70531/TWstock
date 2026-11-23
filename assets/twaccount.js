@@ -224,7 +224,7 @@
     const ours = !local.owner || local.owner === s.uid;
     if (!remote) {                       /* first time in the cloud: upload what this browser has */
       const v = ours
-        ? { owner: s.uid, updatedAt: local.updatedAt || Date.now(), symbols: local.symbols }
+        ? { owner: s.uid, updatedAt: local.updatedAt || Date.now(), symbols: local.symbols, extra: local.extra }
         : { owner: s.uid, updatedAt: Date.now(), symbols: [] };
       localWLSet(v);
       await pushWatchlist(v);
@@ -236,7 +236,7 @@
       await pushWatchlist(v);
       return v.symbols;
     }
-    const v = { owner: s.uid, updatedAt: remote.updatedAt || 0, symbols: remote.symbols || [] };
+    const v = { owner: s.uid, updatedAt: remote.updatedAt || 0, symbols: remote.symbols || [], extra: remote.extra };
     localWLSet(v);
     return v.symbols;
   }
@@ -245,6 +245,7 @@
     const s = sess();
     if (!s) return;
     const payload = { updatedAt: v.updatedAt, symbols: v.symbols };
+    if (Array.isArray(v.extra)) payload.extra = v.extra;
     await withToken(tk => sb("POST", "/rest/v1/watchlist?on_conflict=user_id", {
       token: tk,
       body: { user_id: s.uid, payload, updated_at: new Date(v.updatedAt).toISOString() },
@@ -253,10 +254,12 @@
   }
 
   /* saves on this browser first, then to the account if signed in; throws if the account copy could not be saved */
-  async function saveWatchlist(symbols) {
+  const cleanList = a => [...new Set((a || []).map(x => String(x).trim()).filter(Boolean))].slice(0, MAX_SYMBOLS);
+  /* extra: the other watchlists (自選2–自選5), kept alongside 自選1 */
+  async function saveWatchlist(symbols, extra) {
     const s = sess();
-    const clean = [...new Set((symbols || []).map(x => String(x).trim()).filter(Boolean))].slice(0, MAX_SYMBOLS);
-    const v = { owner: s ? s.uid : localWL().owner, updatedAt: Date.now(), symbols: clean };
+    const clean = cleanList(symbols);
+    const v = { owner: s ? s.uid : localWL().owner, updatedAt: Date.now(), symbols: clean, extra: Array.isArray(extra) ? extra.map(cleanList) : localWL().extra };
     localWLSet(v);
     await pushWatchlist(v);
     return clean;
@@ -295,6 +298,7 @@
     clearPin,
     loadWatchlist,
     saveWatchlist,
+    watchExtra: () => localWL().extra || null,
     /* a valid access token for calls to the Worker (null when signed out) */
     token: () => token().catch(() => null),
     account: () => { const s = sess(); return s ? { uid: s.uid, username: s.username } : null; },
