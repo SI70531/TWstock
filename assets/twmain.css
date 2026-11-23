@@ -195,3 +195,5 @@ a.nrow:hover .ntext { text-decoration: underline; }
 .wlmenu button[aria-pressed="true"] { color: var(--color-accent); }
 .wlmenu i { font-style: normal; opacity: .8; }
 @keyframes wlpop { from { opacity: 0; transform: translateY(-4px) scale(.97); } }
+
+.wlbtn.arm { padding: 0 10px; font-size: 13px; white-space: nowrap; color: #fff; background: #d64545; border-color: #d64545; animation: wlpop .18s ease-out; }

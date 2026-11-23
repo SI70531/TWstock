@@ -359,7 +359,7 @@
       if (th) { const k = th.dataset.key; if (VIEW.key === k) VIEW.dir *= -1; else { VIEW.key = k; VIEW.dir = -1; } paintTable(true); return; }
       if (e.target.closest(".mmore")) { VIEW.shown += 100; paintTable(false); return; }
       const st = e.target.closest(".wlbtn");
-      if (st) { if (st.classList.contains("wladd")) wlMenu(st); else toggleWatch(st.dataset.code, listIdx()); return; }
+      if (st) { if (st.classList.contains("wladd")) wlMenu(st); else wlRemove(st); return; }
       const tr = e.target.closest("tr[data-code]");
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
@@ -418,6 +418,13 @@
   }
   document.addEventListener("click", e => { if (menuEl && !e.target.closest(".wlmenu, .wladd")) { menuEl.remove(); menuEl = null; } }, true);
   addEventListener("scroll", () => { if (menuEl) { menuEl.remove(); menuEl = null; } }, { passive: true });
+  /* − asks once before removing: the first tap turns it into 確定移除, a second tap within 3 seconds removes */
+  function wlRemove(btn) {
+    if (btn.classList.contains("arm")) { clearTimeout(btn._t); toggleWatch(btn.dataset.code, listIdx()); return; }
+    $$(".wlbtn.arm").forEach(b => { clearTimeout(b._t); b.classList.remove("arm"); b.textContent = "−"; });
+    btn.classList.add("arm"); btn.textContent = `確定移除`;
+    btn._t = setTimeout(() => { btn.classList.remove("arm"); btn.textContent = "−"; }, 3000);
+  }
   function paintTable(animate) {
     const box = $("#dpList"); if (!$(".mtbl", box)) return;
     const rows = rowsNow(), show = rows.slice(0, VIEW.shown);
