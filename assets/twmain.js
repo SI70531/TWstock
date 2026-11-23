@@ -379,7 +379,7 @@
   const rowHTML = s => {
     const d = dig(s.price), t = tone(s.chg);
     return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : s.mkt === "esb" ? " 興櫃" : ""}</span></td>
-      <td><span class="pxpill ${t}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t}">${pct(s.pct)}</td>
+      <td><span class="pxpill ${t}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
       <td class="vol">${fmt(s.vol)}</td><td><button type="button" class="starbtn" data-code="${esc(s.code)}" aria-pressed="${WATCH.includes(s.code)}" aria-label="自選 ${esc(s.name)}">★</button></td></tr>`;
   };
   function paintTable(animate) {
@@ -418,16 +418,18 @@
       cell("外資（億）", I ? signed(I.f, 1) : "—", I ? tone(I.f) : "", I && last && I.date !== last[0] ? shortDay(I.date) : ""),
       cell("投信（億）", I ? signed(I.t, 1) : "—", I ? tone(I.t) : ""),
       cell("自營商（億）", I ? signed(I.d, 1) : "—", I ? tone(I.d) : ""),
-      cell("上漲 / 下跌 / 平盤", DB.list.length ? `<em class="up">${fmt(up)}</em> / <em class="down">${fmt(down)}</em> / ${fmt(flat)}` : "—", "", DB.live ? "含 ETF" : "示意"),
+      cell("上漲 / 下跌 / 平盤", DB.list.length ? `<em class="up">${fmt(up)}</em><s>/</s><em class="down">${fmt(down)}</em><s>/</s>${fmt(flat)}` : "—", "brd", DB.live ? "含 ETF" : "示意"),
     ].join("");
+    const bc = el.lastElementChild;
+    if (bc && DB.list.length) bc.insertAdjacentHTML("beforeend", breadthBar(up, flat, down));
   }
 
   /* ---------------- 自選股 ---------------- */
   function buildWatch() {
-    $("#dpWatch").innerHTML = `<div class="wgrid"></div>`;
+    $("#dpWatch").innerHTML = `<div class="dcard wsum" hidden></div><div class="wgrid"></div>`;
     $("#dpWatch").addEventListener("click", e => {
       const st = e.target.closest(".starbtn"); if (st) { toggleWatch(st.dataset.code); return; }
-      const c = e.target.closest(".wcard[data-code]"); if (c) openStock(c.dataset.code, c);
+      const c = e.target.closest(".wcard[data-code], .wpick[data-code]"); if (c) openStock(c.dataset.code, c);
     });
   }
   function paintWatch(animate) {
@@ -442,8 +444,24 @@
         <div class="sub">開 ${fmt(s.open, d)} · 量 ${fmt(s.vol)} 張</div></div>`;
     });
     g.innerHTML = cards.join("") || `<p class="mempty">還沒有自選股。到「總覽」的清單點 ★ 加入。</p>`;
+    paintWatchSum();
     if (animate && $("#dpWatch").classList.contains("on")) rise($$(".wcard", g), 60);
   }
+  /* the watchlist in one line: the average move, how many rose and fell, who leads and who lags */
+  function paintWatchSum() {
+    const el = $("#dpWatch .wsum"); if (!el) return;
+    const got = WATCH.map(c => DB.by.get(c)).filter(s => s && ok(s.pct));
+    el.hidden = got.length < 2;
+    if (got.length < 2) return;
+    const up = got.filter(s => s.chg > 0).length, dn = got.filter(s => s.chg < 0).length, avg = got.reduce((a, s) => a + s.pct, 0) / got.length;
+    const best = got.reduce((a, s) => (s.pct > a.pct ? s : a)), worst = got.reduce((a, s) => (s.pct < a.pct ? s : a));
+    const pick = (k, s) => `<button type="button" class="wpick" data-code="${esc(s.code)}"><span>${k}</span><b>${esc(s.name)}</b><em class="${tone(s.pct)}">${pct(s.pct)}</em></button>`;
+    el.dataset.tone = tone(avg);
+    el.innerHTML = `<div class="wavg"><span>自選 ${got.length} 檔平均</span><b class="${tone(avg)}">${pct(avg)}</b></div>
+      <div class="wmid"><div class="wcount"><em class="up">${up} 漲</em><em class="down">${dn} 跌</em><em>${got.length - up - dn} 平</em></div>${breadthBar(up, got.length - up - dn, dn)}</div>
+      <div class="wlead">${pick("領漲", best)}${best !== worst ? pick("落後", worst) : ""}</div>`;
+  }
+  const breadthBar = (up, flat, down) => `<div class="breadth" role="img" aria-label="上漲 ${up}、平盤 ${flat}、下跌 ${down}"><i class="up" style="flex-grow:${up}"></i><i class="flat" style="flex-grow:${flat}"></i><i class="down" style="flex-grow:${down}"></i></div>`;
   function toggleWatch(code) {
     WATCH = WATCH.includes(code) ? WATCH.filter(c => c !== code) : WATCH.concat(code);
     store.set("twtrade-watch", WATCH);
@@ -1054,6 +1072,15 @@
   addEventListener("resize", () => { const b = tabs.find(t => t.getAttribute("aria-selected") === "true"); b && movePill(b, false); });
   root.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches && e.target.matches("tr[data-code], .wcard[data-code]")) e.target.click(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) rtPoll(); });
+  /* "/" jumps to the search box from anywhere: the stock page's own box there, the list's everywhere else */
+  document.addEventListener("keydown", e => {
+    if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "")) return;
+    const g = document.getElementById("gate"); if (g && !g.hidden) return;
+    e.preventDefault();
+    if (cur !== "dpStock" && cur !== "dpList") open("dpList", true);
+    const inp = cur === "dpStock" ? $("#dpStock .ssearch") : $("#dpList .msearch");
+    if (inp) { inp.focus(); inp.select(); }
+  });
 
   /* ---------------- start ---------------- */
   buildOverview(); buildWatch(); buildStock();

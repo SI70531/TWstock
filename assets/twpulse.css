@@ -1,0 +1,71 @@
+/* TWstock · pulse: loaded after twui.css.
+   The watchlist summary, breadth bars (market and watchlist), change-% bars in the stock list,
+   and phone fixes for the top bar and the data banner. Red is up, green is down. */
+
+/* ---------- breadth: one bar, red share / flat / green share ---------- */
+.breadth { display: flex; gap: 2px; height: 8px; border-radius: 999px; overflow: hidden; background: color-mix(in oklch, var(--color-ink) 8%, transparent); }
+.breadth i { flex: 0 1 0; min-width: 0; transition: flex-grow .6s var(--ease-out); }
+.breadth i.up { background: linear-gradient(90deg, color-mix(in oklch, var(--color-up) 65%, transparent), var(--color-up)); box-shadow: 0 0 12px -2px var(--color-up); }
+.breadth i.down { background: linear-gradient(90deg, var(--color-down), color-mix(in oklch, var(--color-down) 65%, transparent)); box-shadow: 0 0 12px -2px var(--color-down); }
+.breadth i.flat { background: color-mix(in oklch, var(--color-ink) 28%, transparent); }
+
+/* the 上漲 / 下跌 / 平盤 reading stays on one line, the bar sits under it */
+.mcell b.brd { display: flex; align-items: baseline; flex-wrap: nowrap; gap: .3em; white-space: nowrap; font-size: clamp(var(--text-md), 1.2vw, var(--text-lg)); }
+.mcell b.brd s { text-decoration: none; color: var(--color-muted); text-shadow: none; font-size: .8em; }
+.mcell b.brd em { font-style: normal; }
+.mcell .breadth { margin-top: 8px; }
+
+/* ---------- the stock list: how big the move was, at a glance ---------- */
+.mtbl td.pctc {
+  background: linear-gradient(currentColor, currentColor) right 12px bottom 9px / calc(var(--w, 0) * 7ch) 3px no-repeat;
+}
+.mtbl tbody tr { transition: background-color .2s var(--ease-out), box-shadow .2s var(--ease-out); }
+.mtbl tbody tr:hover { box-shadow: inset 3px 0 0 var(--color-accent); }
+.mtbl tbody tr:hover .nm b { color: var(--color-accent); }
+.mtbl .nm b { transition: color .2s var(--ease-out); }
+.msearch:focus, .ssearch:focus { outline: none; border-color: var(--color-accent); box-shadow: 0 0 0 3px color-mix(in oklch, var(--color-accent) 24%, transparent); }
+
+/* ---------- watchlist summary ---------- */
+.wsum { display: grid; grid-template-columns: auto minmax(160px, 1fr) auto; align-items: center; gap: var(--space-sm) clamp(16px, 3vw, 40px); margin-bottom: var(--space-sm); padding: 16px 20px; isolation: isolate; }
+.wsum::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .9; background: radial-gradient(90% 140% at 0% 50%, var(--wtint, transparent), transparent 60%); }
+.wsum[data-tone="up"] { --wtint: color-mix(in oklch, var(--color-up) 16%, transparent); }
+.wsum[data-tone="down"] { --wtint: color-mix(in oklch, var(--color-down) 14%, transparent); }
+.wavg { display: grid; gap: 4px; }
+.wavg span { color: var(--color-muted); font-size: var(--text-xs); }
+.wavg b { font: 500 clamp(1.75rem, 3.2vw, 2.4rem)/1 var(--font-outlier); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; text-shadow: 0 0 22px color-mix(in oklch, currentColor 45%, transparent); }
+.wmid { display: grid; gap: 8px; min-width: 0; }
+.wcount { display: flex; gap: 14px; font: var(--text-sm) var(--font-outlier); }
+.wcount em { font-style: normal; color: var(--color-muted); }
+.wcount em.up { color: var(--color-up); }
+.wcount em.down { color: var(--color-down); }
+.wlead { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.wpick {
+  display: inline-flex; align-items: baseline; gap: 8px; min-height: 40px; padding: 0 14px;
+  border: 1px solid var(--glass-line-2, var(--color-rule-2)); border-radius: 999px; background: var(--glass-2, var(--color-paper-3)); color: var(--color-ink); cursor: pointer;
+  transition: transform .2s var(--ease-out), border-color .2s var(--ease-out), background-color .2s var(--ease-out);
+}
+.wpick:hover { transform: translateY(-1px); border-color: var(--color-accent); }
+.wpick:active { transform: none; }
+.wpick span { color: var(--color-muted); font-size: var(--text-xs); }
+.wpick b { font-weight: 600; font-size: var(--text-sm); }
+.wpick em { font: var(--text-sm) var(--font-outlier); font-style: normal; font-variant-numeric: tabular-nums; }
+
+/* ---------- phones ---------- */
+.dash-note b { flex: none; white-space: nowrap; }
+@media (max-width: 720px) {
+  .topbar { flex-wrap: nowrap; gap: 8px; }
+  .topbar .tb-right { flex-wrap: nowrap; gap: 6px; }
+  .topbar .tb-right .btn { min-height: 34px; padding: 0 12px; }
+  .thseg button { height: 28px; padding: 0 7px; }
+  .wsum { grid-template-columns: 1fr; padding: 14px 16px; }
+  .wlead { justify-content: flex-start; }
+}
+@media (max-width: 440px) {
+  .topbar .tb-brand { font-size: 0; gap: 0; }          /* the TW mark alone; the name is in the sidebar and the page title */
+  .topbar .tb-brand .mk { font-size: var(--text-xs); }
+  .statuschip { padding: 4px 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wpick:hover { transform: none; }
+}
+@media (max-width: 560px) { .ovbento .mstrip .mcell:last-child { grid-column: 1 / -1; } }
