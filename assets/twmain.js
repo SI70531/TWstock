@@ -961,7 +961,7 @@
     try {
       const r = await fetch(WORKER + "/tw/premarket/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk }) });
       const j = await r.json().catch(() => null);
-      if (!r.ok || !j || !j.analysis) throw new Error(r.status === 429 ? "AI 用量到上限，稍後再試。" : "分析失敗" + (j && j.error && j.error.message ? "：" + j.error.message : "，稍後再試。"));
+      if (!r.ok || !j || !j.analysis) throw new Error(r.status === 401 ? "登入過期了，請重新登入" : j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試");
       pmPaint({ note: j }, true);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
@@ -1020,7 +1020,7 @@
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) {
         const st = r.status;
-        throw new Error(st === 404 ? "AI 分析需要部署新版 Worker 後才能使用。" : st === 401 ? "登入已過期，請重新登入。" : st === 429 ? "AI 用量暫時到上限，請稍後再試。" : `AI 暫時寫不出分析（錯誤代碼 ${st}${j && j.error ? "：" + String(j.error.message || j.error).slice(0, 120) : ""}），請稍後再試一次。`);
+        throw new Error(st === 401 ? "登入過期了，請重新登入" : st === 429 && !(j && j.error && /AI/.test(j.error.message || "")) ? "你這小時的分析次數用完了，晚一點再試" : j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : st >= 500 ? "Google 的 AI 現在太忙，過幾分鐘再按一次" : "AI 暫時沒有回應，過幾分鐘再試");
       }
       AI.set(code, { at: j.at || Date.now(), data: j });
       if (code === CODE) { paintAI(); rise(Array.from($(".aiout", box).children), 90); }

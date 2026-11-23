@@ -335,12 +335,19 @@ async function twAnalyze(env, who, bodyText, json, fail) {
     twCached("world", 600000, () => twHeadlines("台股 OR 美股 OR 聯準會 OR 關稅 OR 匯率 when:3d", 10)).catch(() => []),
   ]);
   const g = await geminiJson(env, twPrompt(code, name, facts, news, ann, world), 0.4, 0);
-  if (g.error) return fail(g.error.status === 429 ? 429 : 502, "AI_FAILED", "The analysis could not be written right now", g.error.status === 429 ? { "Retry-After": "60" } : undefined);
+  if (g.error) return fail(g.error.status === 429 ? 429 : 502, "AI_FAILED", aiWhy(g.error.status), g.error.status === 429 ? { "Retry-After": "60" } : undefined);
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
-  if (!a || !Array.isArray(a.team) || !a.summary) return fail(502, "AI_FAILED", "The analysis came back in an unexpected form; try again");
+  if (!a || !Array.isArray(a.team) || !a.summary) return fail(502, "AI_FAILED", "AI 的回答不完整，再按一次");
   return json({ at: Date.now(), analysis: a, news: news.map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })), ann: ann.map(x => ({ d: x.d, t: x.t })), world: world.map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) });
 }
 
+/* what went wrong with the AI, in plain words for the page */
+function aiWhy(st) {
+  if (st === 429) return "AI 今天的使用量用完了，晚一點再試";
+  if ([500, 502, 503, 504].includes(st)) return "Google 的 AI 現在太忙，過幾分鐘再按一次";
+  if (st === 400 || st === 401 || st === 403) return "AI 金鑰設定有問題，請檢查 Cloudflare 上的 GEMINI_KEY";
+  return "AI 暫時沒有回應，過幾分鐘再試";
+}
 function callGemini(env, target, body) {
   return fetch(target, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_KEY }, body });
 }
@@ -613,10 +620,10 @@ async function premarket(env, notify) {
     await new Promise(r => setTimeout(r, (notify ? 20000 : 4000) * k));
     g = await geminiJson(env, prompt, 0.3, k);
   }
-  if (g.error) return { error: g.error.status === 429 ? "Gemini 用量到上限" : g.error.status === 503 ? "Gemini 伺服器忙碌，稍後再試" : "Gemini 錯誤 " + g.error.status };
+  if (g.error) return { error: aiWhy(g.error.status) };
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
   if (!a) { const t = String(g.text || "").replace(/^```(?:json)?|```$/g, "").trim(), i = t.indexOf("{"), j = t.lastIndexOf("}"); try { a = JSON.parse(t.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e) { a = null; } }
-  if (!a || !a.call) return { error: "AI 回覆格式不對（" + String(g.text || "").length + " 字）" };
+  if (!a || !a.call) return { error: "AI 的回答不完整，再按一次" };
   if (Array.isArray(a.picks)) {
     const ord = { 持股: 0, 自選: 1, 強勢: 2 }, tagOf = c => (cands.find(x => x.code === c) || {}).tag;
     a.picks = a.picks.filter(x => x && cands.some(c => c.code === String(x.code))).map(x => Object.assign(x, { tag: tagOf(String(x.code)) || x.tag }))
