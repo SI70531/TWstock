@@ -327,7 +327,6 @@
         <div class="dcard bd-up"><div class="bd-h"><h3>漲幅排行</h3></div><div class="bd-list"></div></div>
         <div class="dcard bd-down"><div class="bd-h"><h3>跌幅排行</h3></div><div class="bd-list"></div></div>
         <div class="dcard bd-vol"><div class="bd-h"><h3>成交量排行</h3></div><div class="bd-list"></div></div>
-        <div class="dcard bd-heat"><div class="bd-h"><h3>自選股熱力圖</h3></div><div class="bd-tiles"></div></div>
         <div class="dcard bd-pm"><div class="bd-h"><h3>盤前分析</h3><button type="button" class="btn bd-go" data-goto="dpPre">看完整分析 →</button></div><div class="bd-pmout"><p class="sub">載入中…</p></div></div>
       </div>
       <div class="dcard mkt">
@@ -774,8 +773,6 @@
     $(".bd-up .bd-list", box).innerHTML = up.map(s => row(s, pct(s.pct), "up")).join("");
     $(".bd-down .bd-list", box).innerHTML = dn.map(s => row(s, pct(s.pct), "down")).join("");
     $(".bd-vol .bd-list", box).innerHTML = vol.map(s => `<button type="button" class="bd-row bd-vrow" data-code="${esc(s.code)}" style="--w:${(s.vol / vmx * 100).toFixed(1)}%"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i></span><span class="bd-px ${tone(s.chg)}">${pct(s.pct)}</span><span class="bd-v">${fmt(s.vol)}</span></button>`).join("");
-    const W = WATCH.map(c => DB.by.get(c)).filter(Boolean);
-    $(".bd-tiles", box).innerHTML = W.length ? W.map(s => { const a = Math.min(1, Math.abs(s.pct || 0) / 6); return `<button type="button" class="bd-tile ${tone(s.chg)}" data-code="${esc(s.code)}" style="--a:${(0.12 + a * 0.75).toFixed(2)}"><b>${esc(s.name)}</b><span>${pct(s.pct)}</span><i>${fmt(s.price, dig(s.price))}</i></button>`; }).join("") : `<p class="sub">還沒有自選股，在「股票」清單點 ★ 加入。</p>`;
     const a = PMN && PMN.analysis;
     $(".bd-pmout", box).innerHTML = a ? `<div class="bd-call"><span class="aitag ${/高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : ""}">${esc(a.call)}</span><span class="sub">預測 ${esc(String(PMN.day).slice(5).replace("-", "/"))} 開盤・${esc(a.gap || "")}</span></div><p class="bd-head">${esc(a.headline || "")}</p>
       ${Array.isArray(a.picks) && a.picks.length ? `<div class="bd-picks">${a.picks.slice(0, 8).map(x => `<button type="button" class="bd-row" data-code="${esc(x.code)}"><span class="bd-nm"><b>${esc(x.name)}</b><i>${esc(x.code)}</i></span><span class="bd-px">${esc(x.tag || "")}</span><span class="bd-v ${/買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""}">${esc(x.action || "")}</span></button>`).join("")}</div>` : ""}<div class="bd-ch">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc((a.chances || {})[k] || "—")}</b></div>`).join("")}</div>` : `<p class="sub">05:30 自動產生。</p>`;
