@@ -48,6 +48,8 @@ export default {
     if (url.pathname === "/tw/rt" && req.method === "GET") return twRt(url, json);
     if (url.pathname === "/tw/news" && req.method === "GET") return twNewsRoute(url, json, fail);
     if (url.pathname === "/tw/chart" && req.method === "GET") return twChart(url, json, fail);
+    if (url.pathname === "/tw/otc" && req.method === "GET") return twOtc(json, fail);
+    if (url.pathname === "/tw/hist" && req.method === "GET") return twHist(url, json, fail);
     if (url.pathname === "/tw/premarket" && req.method === "GET") return json(await pmStore(env, "get"), 200, { "Cache-Control": "no-store" });
 
     /* everything below needs a Supabase sign-in */
@@ -182,7 +184,7 @@ async function twRt(url, json) {
   const codes = [...new Set((url.searchParams.get("c") || "").split(",").map(v => v.trim()).filter(v => /^[0-9A-Z]{4,6}$/.test(v)))].slice(0, 80);
   const out = { at: Date.now(), q: [], idx: [], fut: null };
   const jobs = [];
-  if (codes.length) jobs.push(twCached("q:" + codes.join(","), 4000, () => twMis(codes.map(c => "tse_" + c + ".tw"))).then(v => { out.q = v; }));
+  if (codes.length) jobs.push(twCached("q:" + codes.join(","), 4000, () => twMis(codes.flatMap(c => ["tse_" + c + ".tw", "otc_" + c + ".tw"]))).then(v => { out.q = v; }));
   if (url.searchParams.get("idx") === "1") {
     jobs.push(twCached("idx", 4000, () => twMis(["tse_t00.tw", "tse_t13.tw", "tse_t17.tw"])).then(v => { out.idx = v; }));
     jobs.push(twCached("fut", 4000, twFut).then(v => { out.fut = v; }));
@@ -683,6 +685,50 @@ async function twChart(url, json, fail) {
     t.forEach((ts, i) => { const v = q.close && q.close[i]; if (v > 0) pts.push([ts, Math.round(v * 100) / 100, q.volume ? q.volume[i] || 0 : 0, q.high ? q.high[i] : null, q.low ? q.low[i] : null, q.open ? q.open[i] : null]); });
     return { k, r, name: m.name || "", prev: twNum(m.previousClose) || twNum(qq.previousClose), last: twNum(m.regularMarketPrice) || twNum(qq.price), open: twNum(qq.openPrice), high: twNum(qq.dayHighPrice), low: twNum(qq.dayLowPrice),
       volume: twNum(qq.volume), limitUp: twNum(m.limitUpPrice), limitDown: twNum(m.limitDownPrice), at: (m.regularMarketTime || 0) * 1000, pts };
+  }).catch(e => ({ error: String(e.message || e) }));
+  return out.error ? fail(502, "SOURCE", out.error) : json(out, 200, { "Cache-Control": "no-store" });
+}
+
+/* ---------- 上櫃 and 興櫃 lists (TPEx open data does not allow pages on other sites to read it, so the Worker does) ---------- */
+async function twOtc(json, fail) {
+  const out = await twCached("otc", 120000, async () => {
+    const get = async u => { const r = await fetch(u, { headers: { "User-Agent": TW_UA, Accept: "application/json" } }); if (!r.ok) throw new Error("TPEx " + r.status); return r.json(); };
+    const [main, esb] = await Promise.all([get("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes").catch(() => []), get("https://www.tpex.org.tw/openapi/v1/tpex_esb_latest_statistics").catch(() => [])]);
+    const keep = c => /^(\d{4}|00\d{3,4}[A-Z]?)$/.test(c);
+    const n = v => twNum(String(v == null ? "" : v).replace(/^\+/, ""));
+    let date = "";
+    const list = [];
+    (Array.isArray(main) ? main : []).forEach(x => {
+      const c = String(x.SecuritiesCompanyCode || "").trim(); if (!keep(c)) return;
+      if (!date && x.Date) date = String(x.Date);
+      list.push([c, String(x.CompanyName || "").trim(), n(x.Close), n(x.Change), n(x.Open), n(x.High), n(x.Low), Math.round((n(x.TradingShares) || 0) / 1000), "otc"]);
+    });
+    (Array.isArray(esb) ? esb : []).forEach(x => {
+      const c = String(x.SecuritiesCompanyCode || "").trim(); if (!/^\d{4}$/.test(c)) return;
+      const last = n(x.LatestPrice), prev = n(x.PreviousAveragePrice);
+      list.push([c, String(x.CompanyName || "").trim(), last, last != null && prev != null ? Math.round((last - prev) * 100) / 100 : null, null, n(x.Highest), n(x.Lowest), Math.round((n(x.TransactionVolume) || 0) / 1000), "esb"]);
+    });
+    if (!list.length) throw new Error("TPEx answered nothing");
+    return { date, list };
+  }).catch(e => ({ error: String(e.message || e) }));
+  return out.error ? fail(502, "SOURCE", out.error) : json(out, 200, { "Cache-Control": "no-store" });
+}
+/* about a year of daily bars for one stock from Yahoo Taiwan (used for 上櫃 and 興櫃, whose TPEx reports pages cannot read) */
+async function twHist(url, json, fail) {
+  const code = String(url.searchParams.get("c") || ""), ex = url.searchParams.get("x") === "TW" ? "TW" : "TWO";
+  if (!/^[0-9A-Z]{4,6}$/.test(code)) return fail(400, "BAD_CODE", "Bad stock code");
+  const out = await twCached("hist:" + code + ex, 1800000, async () => {
+    const u = "https://tw.stock.yahoo.com/_td-stock/api/resource/FinanceChartService.ApacLibraCharts;symbols=" + encodeURIComponent(JSON.stringify([code + "." + ex])) + ";type=day;period=d";
+    const r = await fetch(u, { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
+    if (!r.ok) throw new Error("Yahoo " + r.status);
+    const c = ((await r.json())[0] || {}).chart || {}, q = (c.indicators && c.indicators.quote && c.indicators.quote[0]) || {}, t = c.timestamp || [];
+    const rows = [];
+    t.forEach((ts, i) => {
+      const d = new Date((ts + 8 * 3600) * 1000).toISOString().slice(0, 10).replace(/-/g, "");
+      const o = q.open && q.open[i], h = q.high && q.high[i], l = q.low && q.low[i], cl = q.close && q.close[i];
+      if (o > 0 && h > 0 && l > 0 && cl > 0) rows.push([d, o, h, l, cl, q.volume ? q.volume[i] || 0 : 0]);
+    });
+    return { code, rows };
   }).catch(e => ({ error: String(e.message || e) }));
   return out.error ? fail(502, "SOURCE", out.error) : json(out, 200, { "Cache-Control": "no-store" });
 }

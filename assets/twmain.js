@@ -96,13 +96,11 @@
     }
     throw new Error("no daily report");
   }
-  /* 上櫃 (TPEx main board) at the close, from TPEx open data; field names are matched loosely */
+  /* 上櫃 and 興櫃 at the close, through the Worker (TPEx open data cannot be read by pages on other sites) */
   async function listOTC() {
-    const rows = await J("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes");
-    const g = (x, ...ks) => { for (const k of ks) if (x[k] != null) return x[k]; return undefined; };
-    return rows.map(x => Object.assign(mk(g(x, "SecuritiesCompanyCode", "Code", "代號"), g(x, "CompanyName", "Name", "名稱"), num(g(x, "Close", "收盤")), num(g(x, "Change", "漲跌")),
-      num(g(x, "Open", "開盤")), num(g(x, "High", "最高")), num(g(x, "Low", "最低")), Math.round(num(g(x, "TradingShares", "TradeVolume", "成交股數")) / 1000)), { mkt: "otc" }))
-      .filter(s => /^[0-9A-Z]{4,6}$/.test(s.code) && s.name);
+    const j = await J(`${WORKER}/tw/otc`);
+    return (j.list || []).map(([c, n, z, ch, o, h, l, v, m]) => Object.assign(mk(c, n, z == null ? NaN : z, ch == null ? NaN : ch, o == null ? NaN : o, h == null ? NaN : h, l == null ? NaN : l, v), { mkt: m }))
+      .filter(s => s.code && s.name);
   }
   async function loadList() {
     const otc = listOTC().catch(() => []);
@@ -174,16 +172,15 @@
 
   /* ---------------- loaders: one stock ---------------- */
   /* daily bars [yyyymmdd, open, high, low, close, lots]; finished months are kept in this browser */
+  const YH = new Map();                                       /* code → promise of a year of daily bars (上櫃 / 興櫃) */
   async function histMonth(code, ym, finished) {
     const key = `twh:${code}:${ym}`, hit = finished && store.get(key, null);
     if (hit) return hit;
-    if ((DB.by.get(code) || {}).mkt === "otc") {               /* 上櫃: TPEx per-stock monthly report, volume in 千股 = 張 */
-      const j = await J(`https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?code=${code}&date=${ym.slice(0, 4)}/${ym.slice(4)}/01&response=json`);
-      const t = (j.tables || [])[0] || {}, f = k => (t.fields || []).findIndex(x => x.includes(k));
-      const iD = Math.max(0, f("日期")), iV = f("成交") >= 0 ? f("成交") : 1, iO = f("開盤"), iH = f("最高"), iL = f("最低"), iC = f("收盤");
-      const rows = (t.data || j.aaData || []).map(r => [ymd(r[iD]), num(r[iO >= 0 ? iO : 3]), num(r[iH >= 0 ? iH : 4]), num(r[iL >= 0 ? iL : 5]), num(r[iC >= 0 ? iC : 6]), Math.round(num(r[iV]))])
-        .filter(r => r[0] && r.slice(1, 5).every(v => v > 0));
-      if (finished) store.set(key, rows);
+    const mkt = (DB.by.get(code) || {}).mkt;
+    if (mkt === "otc" || mkt === "esb") {                       /* 上櫃 / 興櫃: about a year of daily bars from Yahoo Taiwan through the Worker */
+      if (!YH.has(code)) YH.set(code, J(`${WORKER}/tw/hist?c=${code}`).then(j => j.rows || [], e => { YH.delete(code); throw e; }));
+      const rows = (await YH.get(code)).filter(r => r[0].startsWith(ym)).map(r => [r[0], r[1], r[2], r[3], r[4], Math.round(r[5] > 1e5 ? r[5] / 1000 : r[5])]);
+      if (finished && rows.length) store.set(key, rows);
       return rows;
     }
     const j = await J(`https://www.twse.com.tw/exchangeReport/STOCK_DAY?response=json&date=${ym}01&stockNo=${code}`);
@@ -369,7 +366,7 @@
   }
   const rowHTML = s => {
     const d = dig(s.price), t = tone(s.chg);
-    return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : ""}</span></td>
+    return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : s.mkt === "esb" ? " 興櫃" : ""}</span></td>
       <td><span class="pxpill ${t}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t}">${pct(s.pct)}</td>
       <td class="vol">${fmt(s.vol)}</td><td><button type="button" class="starbtn" data-code="${esc(s.code)}" aria-pressed="${WATCH.includes(s.code)}" aria-label="自選 ${esc(s.name)}">★</button></td></tr>`;
   };

@@ -5,9 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          UA="Mozilla/5.0 Chrome/126.0"
-          echo "== tpex mainboard (CORS headers)"; curl -s -m 30 -A "$UA" -H "Origin: https://si70531.github.io" -D - -o /tmp/otc.json https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes | grep -i "HTTP/\|access-control\|content-type"
-          python3 -c "import json; a=json.load(open('/tmp/otc.json')); print(len(a), list(a[0].keys())); print([x for x in a if '7742' in json.dumps(x, ensure_ascii=False)][:1])"
-          echo "== twse all"; curl -s -m 30 -A "$UA" https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL | python3 -c "import json,sys; a=json.load(sys.stdin); print(len(a), [x for x in a if x.get('Code')=='7742'])"
-          echo "== tpex emerging"; curl -s -m 30 -A "$UA" https://www.tpex.org.tw/openapi/v1/tpex_esb_latest_statistics | python3 -c "import json,sys; a=json.load(sys.stdin); print(len(a), list(a[0].keys()) if a else None); print([x for x in a if '7742' in json.dumps(x, ensure_ascii=False)][:1])"
-          echo "== yahoo auto"; curl -s -m 20 -A "$UA" "https://tw.stock.yahoo.com/_td-stock/api/resource/AutocompleteService;query=7742" | head -c 600; echo
+          W="https://twstock-ai.ta77199ta.workers.dev"; O="Origin: https://si70531.github.io"
+          echo "== otc"; curl -s -m 40 -H "$O" "$W/tw/otc" | python3 -c "import json,sys; d=json.load(sys.stdin); l=d.get('list',[]); print(d.get('error'), d.get('date'), len(l), sum(1 for x in l if x[8]=='esb'), [x for x in l if x[0] in ('7742','6488','8069')])"
+          echo "== hist 7742"; curl -s -m 40 -H "$O" "$W/tw/hist?c=7742" | python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('rows',[]); print(d.get('error'), len(r), r[-3:])"
+          echo "== hist 6488"; curl -s -m 40 -H "$O" "$W/tw/hist?c=6488" | python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('rows',[]); print(d.get('error'), len(r), r[-2:])"
+          echo "== rt otc"; curl -s -m 40 -H "$O" "$W/tw/rt?c=6488,7742" | head -c 600; echo
