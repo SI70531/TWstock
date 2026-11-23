@@ -318,6 +318,8 @@
     $("#dpOverview").innerHTML = `
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}"><h3><span class="ixn">${i.name}</span><span class="ixsrc"></span></h3>
         <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" aria-hidden="true"><path/></svg></div>`).join("")}</div>
+      <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram。</p></div>
+        <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div></div>
       <div class="dcard mstrip"></div>
       <div class="dcard mkt">
         <div class="mbar"><input class="msearch" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
@@ -342,7 +344,9 @@
       if (st) { toggleWatch(st.dataset.code); return; }
       const tr = e.target.closest("tr[data-code]");
       if (tr) openStock(tr.dataset.code, tr);
+      if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
     });
+    pmLoad();
   }
   function rowsNow() {
     const q = VIEW.q.toLowerCase();
@@ -548,10 +552,11 @@
         <div class="dcard snews"><h3>新聞與公告</h3><div class="newslist"><p class="sub">載入中…</p></div></div>
       </div>
       <div class="dcard sai">
-        <div class="aihead"><div><h3>AI 分析團隊</h3><p class="sub">技術面、基本面、籌碼面、時事與國際、風險控管五位分析師各自表態，再給出情境與進場條件。</p></div>
+        <div class="aihead"><div><h3>AI 分析團隊</h3><p class="sub">技術面、基本面、籌碼面、時事與國際、風險控管五位分析師，連同技術情境、時光機一萬次模擬、四種策略回測與你的持股紀錄一起判讀，再給出情境與進場條件。</p></div>
           <button type="button" class="aigo">開始分析</button></div>
         <p class="sub aimsg"></p><div class="aiout"></div>
         <p class="sub ainote">AI 依公開數據與新聞標題整理，可能出錯，也沒有人能保證股價走向。這是研究用的參考，不是投資建議，下單前請自行判斷。</p>
+        <details class="slab"><summary>研究工具：持股、交易日誌、事件日曆、回測、時光機…（這些數字會自動交給 AI 團隊）</summary><div id="dpLab" class="on"></div></details>
       </div>`;
     const box = $("#dpStock"), inp = $(".ssearch", box), sug = $(".ssug", box);
     inp.addEventListener("input", () => {
@@ -562,6 +567,7 @@
     });
     inp.addEventListener("keydown", e => { if (e.key === "Enter") { const b = $("button", sug); if (b) b.click(); } });
     box.addEventListener("click", e => {
+      if (e.target.closest("#dpLab")) return;                 /* the research tools handle their own clicks */
       const s = e.target.closest(".ssug button"); if (s) { inp.value = ""; sug.hidden = true; setStock(s.dataset.code, true); return; }
       if (e.target.closest(".sstar")) { toggleWatch(CODE); starHead(); return; }
       const sp = e.target.closest("[data-span]"); if (sp) { SPAN = +sp.dataset.span; store.set("twmain-span", SPAN); drawChart(true); return; }
@@ -709,11 +715,46 @@
     }
   }
 
+
+  /* ---------------- AI pre-market note (written by the Worker at 05:30, or on request) ---------------- */
+  function pmPaint(j, animate) {
+    const el = $("#dpOverview .pmout"); if (!el) return;
+    const n = j && j.note;
+    if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有盤前分析。每個交易日 05:30 會自動產生，也可以按「現在分析一次」。</p>`; return; }
+    const a = n.analysis, ch = a.chances || {}, li = arr => (Array.isArray(arr) ? arr : []).map(x => `<li>${esc(x)}</li>`).join(""), tn = /高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : "";
+    const at = new Date(n.at).toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    el.innerHTML = `
+      <div class="aisum lrise"><div class="aiverdict"><span class="aitag ${tn}">${esc(a.call)}</span><span class="sub">${esc(a.gap || "")}・信心 ${esc(a.confidence || "—")}・${at} 產生${n.day !== new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10) ? "（不是今天的）" : ""}</span></div>
+        <p class="ailead">${esc(a.headline || "")}</p>
+        <div class="pmchance">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc(ch[k] || "—")}</b></div>`).join("")}</div></div>
+      <div class="aicols"><div class="lrise"><h4>夜盤</h4><p>${esc(a.night || "—")}</p></div><div class="lrise"><h4>美股與國際</h4><p>${esc(a.us || "—")}</p></div></div>
+      <div class="pmfac">${(Array.isArray(a.factors) ? a.factors : []).map(f => `<div class="pmf lrise"><span class="aitag ${f.effect === "利多" ? "up" : f.effect === "利空" ? "down" : ""}">${esc(f.effect || "")}</span><b>${esc(f.name)}</b><span class="sub">${esc(f.note)}</span></div>`).join("")}</div>
+      <details class="pmmore"><summary>族群、關鍵點位、風險與開盤後要盯的事</summary>
+        <div class="aicols"><div><h4>可能領漲／落後</h4><ul>${li(a.sectors)}</ul><h4>關鍵點位</h4><p>${esc(a.levels || "—")}</p></div><div><h4>風險</h4><ul>${li(a.risks)}</ul><h4>09:00–09:30 要盯</h4><ul>${li(a.watch)}</ul></div></div>
+        ${n.news && n.news.length ? `<h4>參考的新聞</h4><div class="newslist">${newsHTML(n.news, null)}</div>` : ""}</details>
+      <p class="sub">AI 依夜盤、美股收盤與新聞標題整理，可能出錯，沒有人能保證開盤方向。研究參考，不是投資建議。</p>`;
+    if (animate) rise($$(".lrise", el), 70);
+  }
+  async function pmLoad() { try { pmPaint(await J(`${WORKER}/tw/premarket`), true); } catch (e) { const el = $("#dpOverview .pmout"); if (el) el.innerHTML = `<p class="sub">盤前分析需要部署新版 Worker。</p>`; } }
+  async function pmRun(b) {
+    let tk = null; try { tk = window.TWAccount && TWAccount.token ? await TWAccount.token() : null; } catch (e) {}
+    const el = $("#dpOverview .pmout");
+    if (!tk) { el.insertAdjacentHTML("afterbegin", `<p class="sub warn">要先登入帳號才能手動分析。</p>`); return; }
+    b.disabled = true; b.textContent = "分析中…（約 30 秒）";
+    try {
+      const r = await fetch(WORKER + "/tw/premarket/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk }) });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.analysis) throw new Error(r.status === 429 ? "AI 用量暫時到上限，請稍後再試。" : "AI 暫時寫不出分析，請稍後再試。");
+      pmPaint({ note: j }, true);
+    } catch (e) { el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${esc(e.message)}</p>`); }
+    b.disabled = false; b.textContent = "現在分析一次";
+  }
+
   /* ---------------- the AI analyst team ---------------- */
   const AI = new Map();                            /* code → { at, data } for this visit */
   const stanceTone = s => (/多/.test(s || "") ? "up" : /空/.test(s || "") ? "down" : "");
   function paintAI() {
-    const box = $("#dpStock"), out = $(".aiout", box), msg = $(".aimsg", box), go = $(".aigo", box); if (!out) return;
+    const box = $("#dpStock"), out = $(".aiout", box), msg = $(".aimsg", box), go = $(".aihead .aigo", box); if (!out) return;
     const hit = AI.get(CODE);
     go.disabled = false; go.textContent = hit ? "重新分析" : "開始分析";
     if (!hit) { out.innerHTML = ""; msg.textContent = ""; return; }
@@ -732,7 +773,7 @@
       ${hit.data.world && hit.data.world.length ? `<div class="dcard"><h4>這次參考的大盤與國際新聞</h4><div class="newslist">${newsHTML(hit.data.world, null)}</div></div>` : ""}`;
   }
   async function analyze() {
-    const box = $("#dpStock"), msg = $(".aimsg", box), go = $(".aigo", box), code = CODE, s = DB.by.get(code);
+    const box = $("#dpStock"), msg = $(".aimsg", box), go = $(".aihead .aigo", box), code = CODE, s = DB.by.get(code);
     const cs = barsOf(code);
     if (!s || !cs || cs.length < 30) { msg.textContent = "這檔的歷史資料還不夠，無法分析。"; return; }
     if (!DB.live) { msg.textContent = "目前是示意資料，連上證交所後才能分析。"; return; }
@@ -743,7 +784,11 @@
     $(".aiout", box).innerHTML = `<div class="aiwait"><i></i><i></i><i></i><i></i><i></i></div>`;
     try {
       await Promise.all([loadFund(), loadChip()]);
-      const r = await fetch(WORKER + "/tw/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk, code, name: s.name, facts: facts(cs) }) });
+      let lab = null;
+      try { lab = window.TWLab ? await TWLab.research(code, (i, n) => { if (code === CODE) msg.textContent = `整理研究資料（讀日線 ${i}/${n} 個月）…`; }) : null; } catch (e) { lab = null; }
+      if (code === CODE) msg.textContent = "五位分析師正在讀數據、研究資料與新聞，大約需要 20 到 40 秒。";
+      const F = facts(cs); if (lab) F.research = lab;
+      const r = await fetch(WORKER + "/tw/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk, code, name: s.name, facts: F }) });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) {
         const st = r.status;

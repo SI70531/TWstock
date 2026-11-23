@@ -680,7 +680,7 @@
     TOOL = k; set(K.tool, k);
     const t = TOOLS.find(x => x[0] === k);
     box().innerHTML = `<div class="ltop"><button type="button" class="btn" data-act="back">← 研究室</button><h2>${t[1]}</h2></div>${VIEWS[k][0]()}<div class="lback"><button type="button" class="btn" data-act="back">← 回到研究室</button></div>`;
-    VIEWS[k][1](); A.rise($$(".lrise"), 40); watchIn(box()); box().scrollIntoView({ block: "start" });
+    VIEWS[k][1](); A.rise($$(".lrise"), 40); watchIn(box()); box().scrollIntoView({ block: "nearest" });
   }
   function readCSV(input, done) { const f = input.files && input.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => done(parseCSV(String(r.result).replace(/^﻿/, ""))); r.readAsText(f); }
   function bind() {
@@ -740,13 +740,54 @@
   }
   function alertMsg(t) { let m = $(".lalert"); if (!m) { m = document.createElement("p"); m.className = "sub warn lalert"; m.setAttribute("role", "status"); const f = $(".dcard"); f && f.appendChild(m); } m.textContent = t; }
 
+  /* ---------------- research pack for the AI team: every tool's numbers for one stock, no UI ---------------- */
+  async function research(code, onStep) {
+    const out = { note: "computed in the browser from TWSE daily bars and the user's own records; not predictions" };
+    const cs = await bars(code, 14, onStep);
+    if (cs.length < 60) return out;
+    const n = cs.length, i = n - 1, c = cs[i][4], I = A.calc(cs), w = weekly(cs), r2v = v => (ok(v) ? Math.round(v * 100) / 100 : null);
+    /* technical scenarios */
+    const reg = regress(cs.slice(-60).map(x => x[4])), wma10 = w.length >= 10 ? mean(w.slice(-10).map(x => x[4])) : NaN, wma10p = w.length > 10 ? mean(w.slice(-11, -1).map(x => x[4])) : NaN;
+    const hi = m => Math.max(...cs.slice(-m).map(x => x[2])), lo = m => Math.min(...cs.slice(-m).map(x => x[3]));
+    const lv = [["MA20", I.ma20[i]], ["MA60", I.ma60[i]], ["20日低", lo(20)], ["60日低", lo(60)], ["20日高", hi(20)], ["60日高", hi(60)], ["週10MA", wma10], ["通道下緣", reg.at(59) - 2 * reg.sd], ["通道上緣", reg.at(59) + 2 * reg.sd], ["52週高", w.length >= 52 ? Math.max(...w.slice(-52).map(x => x[2])) : NaN], ["52週低", w.length >= 52 ? Math.min(...w.slice(-52).map(x => x[3])) : NaN]].filter(x => ok(x[1]));
+    out.technicalScenarios = {
+      supports: lv.filter(x => x[1] < c).sort((a, b) => b[1] - a[1]).slice(0, 3).map(x => x[0] + " " + r2v(x[1])),
+      resistances: lv.filter(x => x[1] > c).sort((a, b) => a[1] - b[1]).slice(0, 3).map(x => x[0] + " " + r2v(x[1])),
+      trend60dSlopePctPerDay: r2v(reg.b / c * 100), trend60dR2: r2v(reg.r2), weeklyMA10: r2v(wma10), weeklyMA10Rising: ok(wma10p) ? wma10 > wma10p : null,
+      weeklyRsi: w.length > 15 ? r2v(A.calc(w).rsi[w.length - 1]) : null,
+    };
+    /* time machine: 10,000 bootstrap replays of the last 60 days, the user's saved target / stop */
+    const mp = Object.assign({ tp: 8, sl: 5, days: 20, look: 60 }, get(K.mc, {})), sim = simulate(cs, Math.min(mp.look, n - 1), c, mp.tp / 100, mp.sl / 100, mp.days, 10000, 19);
+    out.timeMachine = { method: `bootstrap of the last ${sim.n} daily bars, 10000 replays, up to ${mp.days} trading days from ${r2v(c)}`, targetPct: mp.tp, stopPct: mp.sl,
+      targetFirstPct: r2v(sim.nT / 100), stopFirstPct: r2v(sim.nS / 100), neitherPct: r2v(sim.nN / 100), endPriceP10: r2v(sim.q10), endPriceP50: r2v(sim.q50), endPriceP90: r2v(sim.q90) };
+    /* backtests of the four built-in strategies with default settings and Taiwan costs, 70/30 split */
+    const P = prefs(), cost = { fee: P.fee / 100 * P.disc, tax: taxOf(code) / 100, slip: P.slip / 100, stop: 0 }, cut = Math.floor(n * 0.7);
+    out.backtests = Object.entries(STRATS).map(([k, v]) => {
+      const prm = {}; v.p.forEach(([pk, , d]) => { prm[pk] = d; });
+      const { trades, eq } = backtest(cs, k, prm, cost), a = stats(trades, eq, 0, n), o = stats(trades, eq, cut, n);
+      return { strategy: v.name, params: prm, trades: a.n, winPct: r2v(a.win), profitFactor: ok(a.pf) ? r2v(a.pf) : null, maxDrawdownPct: r2v(a.mdd), totalPct: r2v(a.tot), outOfSampleTotalPct: r2v(o.tot) };
+    });
+    out.buyAndHoldPct = r2v((cs[i][4] / cs[0][1] - 1) * 100); out.backtestPeriod = iso(cs[0][0]) + " to " + iso(cs[i][0]);
+    /* the user's own position, trades and events for this stock (kept only in this browser) */
+    const H = holdRows(), mine = H.rows.find(r => r.code === code);
+    if (mine) out.myPosition = { shares: mine.shares, cost: Math.round(mine.cost), returnPct: r2v(mine.ret), weightPct: r2v(mine.w), portfolioHoldings: H.rows.length, largestWeightPct: r2v(Math.max(...H.rows.map(r => r.w).filter(ok))) };
+    const T = get(K.trades, []).map(tradeCalc).filter(t => t.code === code);
+    if (T.length) { const C = T.filter(t => t.closed); out.myTrades = { closed: C.length, open: T.length - C.length, winPct: C.length ? r2v(C.filter(t => t.pnl > 0).length / C.length * 100) : null, netPnl: Math.round(C.reduce((a, t) => a + t.pnl, 0)), withoutStop: T.filter(t => !ok(t.stop)).length }; }
+    const t0 = today(), ev = get(K.events, []).filter(e => (!e.code || e.code === code) && (!e.date || e.date >= t0)).slice(0, 6);
+    if (ev.length) out.myEvents = ev.map(e => ({ date: e.date || "TBD", type: e.type, title: e.title, hypothesis: e.hyp || "" }));
+    const d = get(K.dcf, null);
+    if (d && d.code === code && d.cases) { const v = dcfVal(Object.assign({}, DCF0, d), d.cases["基準"].g, d.cases["基準"].m, d.r, d.gT); if (v && ok(v.ps)) out.myValuation = { baseCaseValuePerShare: r2v(v.ps), discountRatePct: d.r, growthPct: d.cases["基準"].g }; }
+    return out;
+  }
+  window.TWLab = { research: (code, onStep) => (A ? research(code, onStep) : Promise.resolve(null)) };
+
   /* ---------------- start (twmain dispatches twdash:ready once its helpers exist) ---------------- */
   document.addEventListener("twdash:ready", () => {
     A = window.TWDash && window.TWDash.api; if (!A || !box()) return;
     bind();
     const t = get(K.tool, ""); t ? openTool(t) : menu();
-    const tab = document.querySelector('.dtabs [data-p="dpLab"]');
-    if (tab) new MutationObserver(() => { if (tab.getAttribute("aria-selected") === "true") { requestAnimationFrame(() => drawIn(box())); if (TOOL === "hold") paintHold(); } }).observe(tab, { attributes: true, attributeFilter: ["aria-selected"] });
+    const det = box().closest("details");
+    if (det) det.addEventListener("toggle", () => { if (det.open) { requestAnimationFrame(() => drawIn(box())); if (TOOL === "hold") paintHold(); } });
   });
   document.addEventListener("twdash:list", () => { if (TOOL === "hold") paintHold(); });
 })();

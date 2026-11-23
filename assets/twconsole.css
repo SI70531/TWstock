@@ -658,3 +658,17 @@ a.nrow:hover .ntext { text-decoration: underline; text-decoration-color: var(--c
 .mcrow em { grid-column: 1 / -1; font-style: normal; }
 .mcverdict { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: var(--color-paper-3); display: grid; gap: 4px; }
 .mcverdict b { font-size: 1.2em; }
+
+.slab { margin-top: var(--space-sm); border-top: 1px solid var(--color-rule); padding-top: var(--space-sm); }
+.slab > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+.slab #dpLab { margin-top: var(--space-sm); }
+
+.dcard.pm { margin-bottom: var(--space-sm); }
+.pmchance { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-xs); margin-top: var(--space-xs); }
+.pmchance div { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--color-paper-3); }
+.pmchance b { font-size: 1.2em; }
+.pmfac { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-xs); margin: var(--space-sm) 0; }
+@media (max-width: 700px) { .pmfac { grid-template-columns: 1fr; } }
+.pmf { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--color-paper-3); }
+.pmf .sub { grid-column: 1 / -1; }
+.pmmore > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
