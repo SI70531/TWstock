@@ -33,7 +33,7 @@ new_sqlite_classes = ["Guard", "ErrLog"]
 
 # The daily pre-market note (05:30 Taipei, Monday to Friday mornings = 21:30 UTC Sunday to Thursday) and where it is kept.
 [triggers]
-crons = ["30 21 * * SUN-THU", "*/5 * * * *"]   # 05:30 pre-market note; every 5 minutes: alerts during trading hours
+crons = ["30 21 * * SUN-THU", "* * * * *"]   # 05:30 pre-market note; every minute: alerts during trading hours
 
 [[durable_objects.bindings]]
 name = "DAILY"

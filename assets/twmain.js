@@ -48,6 +48,7 @@
     const g = t => (p.find(x => x.type === t) || {}).value || "";
     return { wd: g("weekday"), mins: +g("hour") % 24 * 60 + +g("minute"), ymd: g("year") + g("month") + g("day") };
   }
+  const nightOpen = () => { const t = taipei(); return (!/Sat|Sun/.test(t.wd) && t.mins >= 900) || (!/Sun|Mon/.test(t.wd) && t.mins < 300); };   /* futures night session 15:00–05:00 */
   const marketOpen = () => { const t = taipei(); return !/Sat|Sun/.test(t.wd) && t.mins >= 525 && t.mins <= 825; };   /* 08:45–13:45 */
 
   /* ---------------- state ---------------- */
@@ -299,7 +300,7 @@
   }
   function rtLoop() {
     clearTimeout(rtTimer);
-    rtPoll().then(() => { rtTimer = setTimeout(rtLoop, marketOpen() ? 10000 : 120000); });
+    rtPoll().then(() => { rtTimer = setTimeout(rtLoop, marketOpen() || nightOpen() ? 5000 : 120000); });
   }
 
   /* ---------------- banner ---------------- */
@@ -307,7 +308,7 @@
     const el = $(".dash-note"); if (!el) return;
     if (!DB.list.length) { el.innerHTML = `<b>載入中</b>正在讀取證交所公開資料…`; return; }
     if (!DB.live) { el.innerHTML = `<b>示意資料</b>目前連不到證交所，以下數字是示意，不代表真實行情。`; return; }
-    if (DB.rt) el.innerHTML = `<b class="live">盤中報價</b>${esc(DB.rtAt)} 更新，${DB.rtSrc === "yahoo" ? "來源 Yahoo 財經（證交所即時系統沒回應），可能延遲數分鐘" : "約延遲數秒"}；${marketOpen() ? "每 10 秒更新畫面上的股票" : "目前非交易時段，顯示最後成交"}。`;
+    if (DB.rt) el.innerHTML = `<b class="live">盤中報價</b>${esc(DB.rtAt)} 更新，${DB.rtSrc === "yahoo" ? "來源 Yahoo 財經（證交所即時系統沒回應），可能延遲數分鐘" : "約延遲數秒"}；${marketOpen() ? "每 5 秒更新畫面上的股票" : nightOpen() ? "股票已收盤；台指期夜盤每 5 秒更新" : "目前非交易時段，顯示最後成交"}。`;
     else el.innerHTML = `<b>收盤資料</b>證交所公開資料 ${slash(DB.date)}。${DB.rt === false ? "盤中即時報價需要部署新版 Worker，部署後會自動切換。" : ""}`;
   }
 
@@ -731,7 +732,7 @@
       try {
         const r = await fetch(WORKER + "/tw/alerts/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk, watch: WATCH, hold }) });
         const j = await r.json().catch(() => ({}));
-        if (el) el.textContent = j.ok ? `盤中警示：監控加權指數、台指期夜盤與 ${j.n} 檔自選股／持股（指數 ±1.5%、個股 ±5%、漲跌停，另外每 15 分鐘由 AI 看新聞與重大訊息），傳到 Telegram。`
+        if (el) el.textContent = j.ok ? `盤中警示：監控加權指數、台指期夜盤與 ${j.n} 檔自選股／持股（每分鐘檢查：指數 ±1.5%、個股 ±5%、漲跌停，另外每 15 分鐘由 AI 看新聞與重大訊息），傳到 Telegram。`
           : j.owner === false ? "盤中警示的清單由網站擁有者的帳號管理，這個帳號的自選股不會被監控。" : "盤中警示：暫時無法同步清單。";
       } catch (e) { if (el) el.textContent = "盤中警示：暫時無法同步清單。"; }
     }, 1500);

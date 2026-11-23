@@ -20,7 +20,7 @@ let ENV = null;   /* the current request's bindings, so the data fetchers can re
 export default {
   async scheduled(event, env, ctx) {
     ENV = env;
-    if (event.cron === "*/5 * * * *") ctx.waitUntil(watchTick(env, new Date(event.scheduledTime)).catch(() => {}));
+    if (event.cron === "* * * * *") ctx.waitUntil(watchTick(env, new Date(event.scheduledTime)).catch(() => {}));
     else ctx.waitUntil(premarket(env, true));
   },
   async fetch(req, env) {
@@ -184,7 +184,7 @@ async function twRt(url, json) {
   if (codes.length) jobs.push(twCached("q:" + codes.join(","), 4000, () => twMis(codes.map(c => "tse_" + c + ".tw"))).then(v => { out.q = v; }));
   if (url.searchParams.get("idx") === "1") {
     jobs.push(twCached("idx", 4000, () => twMis(["tse_t00.tw", "tse_t13.tw", "tse_t17.tw"])).then(v => { out.idx = v; }));
-    jobs.push(twCached("fut", 8000, twFut).then(v => { out.fut = v; }));
+    jobs.push(twCached("fut", 4000, twFut).then(v => { out.fut = v; }));
   }
   await Promise.all(jobs.map(p => p.catch(e => { out.err = twClip(e && e.message, 80); })));
   /* TWSE's MIS often refuses or answers empty to cloud servers outside Taiwan (this Worker runs in the US):
@@ -564,7 +564,7 @@ async function pmTelegram(env, a, day) {
   catch (e) { return "telegram failed"; }
 }
 
-/* ---------- alerts during trading hours (day 09:00–13:30, night 15:00–05:00), cron every 5 minutes ---------- */
+/* ---------- alerts during trading hours (day 09:00–13:30, night 15:00–05:00), cron every minute ---------- */
 async function tgSend(env, text) {
   if (!env.TG_TOKEN) return "no TG_TOKEN";
   const api = m => "https://api.telegram.org/bot" + env.TG_TOKEN + "/" + m;
