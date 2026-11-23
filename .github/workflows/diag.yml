@@ -1,0 +1,15 @@
+# temporary: checks which futures sources answer from a cloud server
+name: Diag
+on: workflow_dispatch
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36"
+          echo "== worker /tw/rt"; curl -s -m 20 -H "Origin: https://si70531.github.io" "https://twstock-ai.ta77199ta.workers.dev/tw/rt?c=2330&idx=1" | head -c 1500; echo
+          echo "== taifex mis night"; curl -s -m 20 -A "$UA" -H "Content-Type: application/json" -H "Referer: https://mis.taifex.com.tw/futures/" -d '{"MarketType":"1","SymbolType":"F","KindID":"1","CID":"TXF","ExpireMonth":"","RowSize":"全部","PageNo":"","SortColumn":"","AscDesc":"A"}' -w "\nHTTP %{http_code}\n" https://mis.taifex.com.tw/futures/api/getQuoteList | head -c 800; echo
+          echo "== yahoo tw WTX&"; curl -s -m 20 -A "$UA" -w "\nHTTP %{http_code}\n" "https://tw.stock.yahoo.com/_td-stock/api/resource/StockServices.stockList;fields=avgPrice%2Corderbook;symbols=WTX%26%2CWTXP%26" | head -c 1500; echo
+          echo "== yahoo tw quote page"; curl -s -m 20 -A "$UA" -w "\nHTTP %{http_code}\n" "https://tw.stock.yahoo.com/future/WTX%26" | grep -o '"regularMarketPrice":[^,]*\|"price":"[^"]*"\|HTTP [0-9]*' | head -5
+          echo "== yahoo chart WTX&"; curl -s -m 20 -A "$UA" -w "\nHTTP %{http_code}\n" "https://query1.finance.yahoo.com/v8/finance/chart/WTX%26.TW?range=1d&interval=5m" | head -c 600; echo
+          echo "== cnyes"; curl -s -m 20 -A "$UA" -w "\nHTTP %{http_code}\n" "https://ws.api.cnyes.com/ws/api/v1/quote/quotes/TWF:TXF:FUTURES?column=I" | head -c 800; echo
