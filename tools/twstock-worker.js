@@ -199,7 +199,8 @@ async function twRt(url, json) {
       let y = await twCached("ytw:" + miss.join(","), 5000, () => twYahooTW(miss)).catch(() => []);
       const got = new Set(y.map(x => x.c)), rest = miss.filter(c => !got.has(c));
       if (rest.length) y = y.concat(await twCached("yq:" + rest.join(","), 15000, () => twYahoo(rest)).catch(() => []));
-      out.q = out.q.filter(x => x.z > 0).concat(y); if (y.length) out.src = "yahoo";
+      const fromMis = out.q.filter(x => x.z > 0);
+      out.q = fromMis.concat(y); if (y.length && !fromMis.length) out.src = "yahoo";   /* the banner only says "Yahoo" when TWSE gave nothing */
     }
     catch (e) { out.err = (out.err ? out.err + "; " : "") + twClip(e && e.message, 60); }
   }
@@ -763,7 +764,7 @@ async function twYahooTW(codes) {
         if (!(z > 0) || !(y > 0)) return;
         const at = Date.parse(x.regularMarketTime || ""), t = at ? new Date(at + 8 * 3600e3).toISOString() : "";
         out.push({ c: String(x.symbol || "").replace(/\.TWO?$/, ""), n: String(x.symbolName || ""), z, y, o: raw("regularMarketOpen"), h: raw("regularMarketDayHigh"), l: raw("regularMarketDayLow"),
-          v: twNum(x.volume), tm: t.slice(11, 19), d: t.slice(0, 10).replace(/-/g, ""), src: "yahoo-tw" });
+          v: ex === "TWO" && twNum(x.volume) >= 100000 ? Math.round(twNum(x.volume) / 1000) : twNum(x.volume), tm: t.slice(11, 19), d: t.slice(0, 10).replace(/-/g, ""), src: "yahoo-tw" });
       });
     }
   };
