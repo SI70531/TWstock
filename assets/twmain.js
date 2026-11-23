@@ -318,7 +318,7 @@
     $("#dpOverview").innerHTML = `
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}"><h3><span class="ixn">${i.name}</span><span class="ixsrc"></span></h3>
         <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" aria-hidden="true"><path/></svg></div>`).join("")}</div>
-      <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram。</p></div>
+      <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram（手動分析也會傳）。</p></div>
         <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div></div>
       <div class="dcard mstrip"></div>
       <div class="dcard mkt">
@@ -746,6 +746,8 @@
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) throw new Error(r.status === 429 ? "AI 用量暫時到上限，請稍後再試。" : "AI 暫時寫不出分析，請稍後再試。");
       pmPaint({ note: j }, true);
+      const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
+      if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
     } catch (e) { el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${esc(e.message)}</p>`); }
     b.disabled = false; b.textContent = "現在分析一次";
   }

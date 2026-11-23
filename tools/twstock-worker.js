@@ -59,7 +59,7 @@ export default {
     if (url.pathname === "/tw/premarket/run" && req.method === "POST") {
       const q = await guard(env, "pin:" + who, "ai");
       if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached for this sign-in; try again later", { "Retry-After": String(q.aiWait || 60) });
-      const r = await premarket(env, false);
+      const r = await premarket(env, true);   /* a manual run is also sent to Telegram (useful as a test) */
       return r.error ? fail(502, "AI_FAILED", r.error) : json(r);
     }
     return fail(404, "NOT_FOUND", "Unknown path");
