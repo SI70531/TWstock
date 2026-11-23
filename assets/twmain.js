@@ -269,7 +269,7 @@
   function rtCodes() {
     if (cur === "dpWatch") return WATCH.slice(0, 80);
     if (cur === "dpStock") return [CODE];
-    return $$("#dpOverview .mtbl tbody tr[data-code]").slice(0, 70).map(r => r.dataset.code);
+    return $$("#dpList .mtbl tbody tr[data-code]").slice(0, 70).map(r => r.dataset.code);
   }
   async function rtPoll() {
     if (rtBusy || !DB.live || document.hidden) return;
@@ -320,9 +320,9 @@
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}</span><span class="ixsrc"></span></h3>
         <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
-      <div class="ovbento"><div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram（手動分析也會傳）。</p></div>
+      <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram（手動分析也會傳）。</p></div>
         <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert"></p></div>
-      <div class="dcard mstrip"></div></div>
+      <div class="dcard mstrip"></div>
       <div class="dcard mkt">
         <div class="mbar"><input class="msearch" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
           <div class="chips">${PRESETS.map(([k, t]) => `<button type="button" class="chip" data-preset="${k}" aria-pressed="${k === VIEW.preset}">${t}</button>`).join("")}</div>
@@ -332,7 +332,8 @@
       </div>`;
     const box = $("#dpOverview");
     $(".msearch", box).addEventListener("input", e => { VIEW.q = e.target.value.trim(); VIEW.shown = 50; paintTable(true); });
-    box.addEventListener("click", e => {
+    root.addEventListener("click", e => {
+      if (!e.target.closest("#dpOverview, #dpPre, #dpList")) return;
       const p = e.target.closest("[data-preset]");
       if (p) {
         VIEW.preset = p.dataset.preset; VIEW.shown = 50;
@@ -351,6 +352,8 @@
       const xr = e.target.closest("[data-ixr]"); if (xr) { IXV.r = xr.dataset.ixr; ixPaint(true); return; }
       if (e.target.closest(".ixclose")) { ixOpen(IXV.k); return; }
     });
+    /* the pre-market note and the stock list each have their own tab */
+    $("#dpPre").appendChild($(".pm", box)); $("#dpList").appendChild($(".mkt", box));
     pmLoad(); setTimeout(alertSync, 2500); loadCharts(true);
     box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
   }
@@ -371,7 +374,7 @@
       <td class="vol">${fmt(s.vol)}</td><td><button type="button" class="starbtn" data-code="${esc(s.code)}" aria-pressed="${WATCH.includes(s.code)}" aria-label="自選 ${esc(s.name)}">★</button></td></tr>`;
   };
   function paintTable(animate) {
-    const box = $("#dpOverview"); if (!$(".mtbl", box)) return;
+    const box = $("#dpList"); if (!$(".mtbl", box)) return;
     const rows = rowsNow(), show = rows.slice(0, VIEW.shown);
     $(".mtbl tbody", box).innerHTML = show.map(rowHTML).join("") ||
       `<tr><td class="mempty" colspan="6">${VIEW.preset === "watch" && !VIEW.q ? "還沒有自選股，點任何一檔右邊的 ★ 加入。" : DB.list.length ? "找不到符合的股票。" : "載入中…"}</td></tr>`;
@@ -726,7 +729,7 @@
   function alertSync() {
     clearTimeout(alertTimer);
     alertTimer = setTimeout(async () => {
-      const el = $("#dpOverview .pmalert");
+      const el = $("#dpPre .pmalert");
       let tk = null; try { tk = window.TWAccount && TWAccount.token ? await TWAccount.token() : null; } catch (e) {}
       if (!tk) { if (el) el.textContent = "盤中警示：登入後才會把自選股與持股交給 Worker 監控（目前只監控加權指數與台指期）。"; return; }
       const hold = (store.get("twlab-hold", []) || []).map(h => h.code);
@@ -848,7 +851,7 @@
 
   /* ---------------- AI pre-market note (written by the Worker at 05:30, or on request) ---------------- */
   function pmPaint(j, animate) {
-    const el = $("#dpOverview .pmout"); if (!el) return;
+    const el = $("#dpPre .pmout"); if (!el) return;
     const n = j && j.note;
     if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有盤前分析。每個交易日 05:30 會自動產生，也可以按「現在分析一次」。</p>`; return; }
     const a = n.analysis, ch = a.chances || {}, li = arr => (Array.isArray(arr) ? arr : []).map(x => `<li>${esc(x)}</li>`).join(""), tn = /高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : "";
@@ -865,10 +868,10 @@
       <p class="sub">AI 依夜盤、美股收盤與新聞標題整理，可能出錯，沒有人能保證開盤方向。研究參考，不是投資建議。</p>`;
     if (animate) rise($$(".lrise", el), 70);
   }
-  async function pmLoad() { try { pmPaint(await J(`${WORKER}/tw/premarket`), true); } catch (e) { const el = $("#dpOverview .pmout"); if (el) el.innerHTML = `<p class="sub">盤前分析需要部署新版 Worker。</p>`; } }
+  async function pmLoad() { try { pmPaint(await J(`${WORKER}/tw/premarket`), true); } catch (e) { const el = $("#dpPre .pmout"); if (el) el.innerHTML = `<p class="sub">盤前分析需要部署新版 Worker。</p>`; } }
   async function pmRun(b) {
     let tk = null; try { tk = window.TWAccount && TWAccount.token ? await TWAccount.token() : null; } catch (e) {}
-    const el = $("#dpOverview .pmout");
+    const el = $("#dpPre .pmout");
     if (!tk) { el.insertAdjacentHTML("afterbegin", `<p class="sub warn">要先登入帳號才能手動分析。</p>`); return; }
     b.disabled = true; b.textContent = "分析中…（約 30 秒）";
     try {
@@ -940,8 +943,8 @@
   /* ---------------- live repaint ---------------- */
   function paintLive() {
     paintIdx(); paintStrip();
-    if (cur === "dpOverview") {
-      $$("#dpOverview .mtbl tbody tr[data-code]").forEach(tr => {
+    if (cur === "dpList") {
+      $$("#dpList .mtbl tbody tr[data-code]").forEach(tr => {
         const s = DB.by.get(tr.dataset.code); if (!s || !s.rt) return;
         const tmp = document.createElement("tbody"); tmp.innerHTML = rowHTML(s);
         const fresh = tmp.firstElementChild;
@@ -975,7 +978,8 @@
     if (!quiet) {
       /* panel content rises in one block after another; then the figures inside draw themselves */
       rise(Array.from(panel.children), 80);
-      if (cur === "dpOverview") { rise($$(".ixcard", panel), 70); rise($$(".mtbl tbody tr", panel).slice(0, 24), 18, 200); drawSpark(); }
+      if (cur === "dpOverview") { rise($$(".ixcard", panel), 70); drawSpark(); }
+      if (cur === "dpList") rise($$(".mtbl tbody tr", panel).slice(0, 24), 18, 200);
       if (cur === "dpWatch") { paintWatch(false); rise($$(".wcard", panel), 60, 80); }
       if (cur === "dpStock" && !same) { if (HIST.get(CODE)) drawChart(true); else setStock(CODE, true); }
     }
