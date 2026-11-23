@@ -603,7 +603,7 @@
     inp.addEventListener("keydown", e => { if (e.key === "Enter") { const b = $("button", sug); if (b) b.click(); } });
     box.addEventListener("click", e => {
       if (e.target.closest("#dpLab")) return;                 /* the research tools handle their own clicks */
-      const s = e.target.closest(".ssug button"); if (s) { inp.value = ""; sug.hidden = true; setStock(s.dataset.code, true); return; }
+      const s = e.target.closest(".ssug button"); if (s) { inp.value = ""; sug.hidden = true; setStock(s.dataset.code, true); navPush(); return; }
       if (e.target.closest(".sstar")) { toggleWatch(CODE); starHead(); return; }
       const sp = e.target.closest("[data-span]"); if (sp) { SPAN = +sp.dataset.span; store.set("twmain-span", SPAN); drawChart(true); return; }
       const ind = e.target.closest("[data-ind]"); if (ind) { IND[ind.dataset.ind] = !IND[ind.dataset.ind]; store.set("twmain-ind", IND); drawChart(true); return; }
@@ -736,10 +736,28 @@
     drawChart(animate !== false);
   }
   /* opening a stock from a row or a card: the header grows out of the thing that was tapped */
+  /* browser back / forward: every tab and every stock opened is a history entry (#dpList, #stock/2454) */
+  let navLock = false;
+  const navHash = () => (cur === "dpStock" ? "#stock/" + CODE : "#" + (cur || "dpOverview"));
+  function navPush() {
+    if (navLock || !cur) return;
+    const h = navHash(); if (location.hash === h) return;
+    try { history[history.state && history.state.tw ? "pushState" : "replaceState"]({ tw: 1, p: cur, code: CODE }, "", h); } catch (e) {}
+  }
+  function navGo(h) {
+    const m = /^#stock\/([0-9A-Z]{4,6})$/.exec(h || ""), p = m ? "dpStock" : (h || "").slice(1);
+    navLock = true;
+    try {
+      if (m) { if (CODE !== m[1] || !HIST.get(m[1])) setStock(m[1], true); open("dpStock", true); }
+      else if (tabs.some(t => t.dataset.p === p)) open(p, true);
+      else open("dpOverview", true);
+    } finally { navLock = false; }
+  }
+  addEventListener("popstate", () => navGo(location.hash));
   function openStock(code, from) {
     const a = from && from.getBoundingClientRect();
-    open("dpStock", true, true);
-    setStock(code, true);
+    navLock = true; open("dpStock", true, true); navLock = false;
+    setStock(code, true); navPush();
     const head = $("#dpStock .shead");
     scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
     if (a && head) {
@@ -1045,6 +1063,7 @@
     $$(".dpanel").forEach(p => p.classList.toggle("on", p === panel));
     cur = b.dataset.p;
     try { sessionStorage.setItem("twdash-tab", cur); } catch (e) {}
+    navPush();
     if (!quiet) {
       /* panel content rises in one block after another; then the figures inside draw themselves */
       rise(Array.from(panel.children), 80);
@@ -1086,7 +1105,10 @@
   buildOverview(); buildWatch(); buildStock();
   note(); paintIdx(); paintStrip(); paintTable(false); paintWatch(false); paintHead();
   let saved = null; try { saved = sessionStorage.getItem("twdash-tab"); } catch (e) {}
-  requestAnimationFrame(() => open(saved || "dpOverview", false));
+  requestAnimationFrame(() => {
+    if (/^#(stock\/[0-9A-Z]{4,6}|dp\w+)$/.test(location.hash)) { navGo(location.hash); try { history.replaceState({ tw: 1, p: cur, code: CODE }, "", navHash()); } catch (e) {} }
+    else { navLock = true; open(saved || "dpOverview", false); navLock = false; try { history.replaceState({ tw: 1, p: cur, code: CODE }, "", navHash()); } catch (e) {} }
+  });
   window.TWDash = { replay: () => open(cur, false),
     /* shared with the 研究室 tab (assets/twlab.js) */
     api: { DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
