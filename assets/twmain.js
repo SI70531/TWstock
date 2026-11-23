@@ -307,8 +307,8 @@
     const el = $(".dash-note"); if (!el) return;
     if (!DB.list.length) { el.innerHTML = `<b>載入中</b>正在讀取證交所公開資料…`; return; }
     if (!DB.live) { el.innerHTML = `<b>示意資料</b>目前連不到證交所，以下數字是示意，不代表真實行情。`; return; }
-    if (DB.rt) el.innerHTML = `<b class="live">盤中報價</b>${esc(DB.rtAt)} 更新，${DB.rtSrc === "yahoo" ? "來源 Yahoo 財經（證交所即時系統沒回應），可能延遲數分鐘" : "約延遲數秒"}；${marketOpen() ? "每 5 秒更新畫面上的股票" : nightOpen() ? "股票已收盤；台指期夜盤每 5 秒更新" : "目前非交易時段，顯示最後成交"}。`;
-    else el.innerHTML = `<b>收盤資料</b>證交所公開資料 ${slash(DB.date)}。${DB.rt === false ? "盤中即時報價需要部署新版 Worker，部署後會自動切換。" : ""}`;
+    if (DB.rt) el.innerHTML = `<b class="live">即時</b>${esc(DB.rtAt)} 更新${DB.rtSrc === "yahoo" ? "・來源 Yahoo，可能延遲" : ""}${marketOpen() ? "・每 5 秒更新" : nightOpen() ? "・股票已收盤，台指期夜盤更新中" : "・非交易時段"}`;
+    else el.innerHTML = `<b>收盤</b>${slash(DB.date)} 收盤資料${DB.rt === false ? "（即時報價暫時連不上）" : ""}`;
   }
 
   /* ---------------- 總覽 ---------------- */
@@ -319,15 +319,15 @@
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}</span><span class="ixsrc"></span></h3>
         <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
-      <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram（手動分析也會傳）。</p></div>
+      <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每天 05:30 自動分析，並傳到 Telegram。</p></div>
         <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert"></p></div>
       <div class="dcard mstrip"></div>
       <div class="board">
         <div class="dcard bd-dist"><div class="bd-h"><h3>漲跌分布</h3><span class="sub bd-n"></span></div><div class="bd-bars"></div></div>
-        <div class="dcard bd-up"><div class="bd-h"><h3>漲幅排行</h3><span class="sub">量 500 張以上</span></div><div class="bd-list"></div></div>
-        <div class="dcard bd-down"><div class="bd-h"><h3>跌幅排行</h3><span class="sub">量 500 張以上</span></div><div class="bd-list"></div></div>
+        <div class="dcard bd-up"><div class="bd-h"><h3>漲幅排行</h3></div><div class="bd-list"></div></div>
+        <div class="dcard bd-down"><div class="bd-h"><h3>跌幅排行</h3></div><div class="bd-list"></div></div>
         <div class="dcard bd-vol"><div class="bd-h"><h3>成交量排行</h3><span class="sub">張</span></div><div class="bd-list"></div></div>
-        <div class="dcard bd-heat"><div class="bd-h"><h3>自選股熱力圖</h3><span class="sub">顏色深淺＝漲跌幅</span></div><div class="bd-tiles"></div></div>
+        <div class="dcard bd-heat"><div class="bd-h"><h3>自選股熱力圖</h3></div><div class="bd-tiles"></div></div>
         <div class="dcard bd-pm"><div class="bd-h"><h3>盤前分析</h3><button type="button" class="btn bd-go" data-goto="dpPre">看完整分析 →</button></div><div class="bd-pmout"><p class="sub">載入中…</p></div></div>
       </div>
       <div class="dcard mkt">
@@ -570,11 +570,11 @@
         <div class="dcard snews"><h3>新聞與公告</h3><div class="newslist"><p class="sub">載入中…</p></div></div>
       </div>
       <div class="dcard sai">
-        <div class="aihead"><div><h3>AI 分析團隊</h3><p class="sub">技術面、基本面、籌碼面、時事與國際、風險控管五位分析師，連同技術情境、時光機一萬次模擬、四種策略回測與你的持股紀錄一起判讀，再給出情境與進場條件。</p></div>
+        <div class="aihead"><div><h3>AI 分析團隊</h3><p class="sub">五位分析師＋研究工具一起判讀。</p></div>
           <button type="button" class="aigo">開始分析</button></div>
         <p class="sub aimsg"></p><div class="aiout"></div>
-        <p class="sub ainote">AI 依公開數據與新聞標題整理，可能出錯，也沒有人能保證股價走向。這是研究用的參考，不是投資建議，下單前請自行判斷。</p>
-        <details class="slab"><summary>研究工具：持股、交易日誌、事件日曆、回測、時光機…（這些數字會自動交給 AI 團隊）</summary><div id="dpLab" class="on"></div></details>
+        <p class="sub ainote">AI 參考，非投資建議。</p>
+        <details class="slab"><summary>研究工具（自動交給 AI）</summary><div id="dpLab" class="on"></div></details>
       </div>`;
     const box = $("#dpStock"), inp = $(".ssearch", box), sug = $(".ssug", box);
     inp.addEventListener("input", () => {
@@ -742,14 +742,14 @@
     alertTimer = setTimeout(async () => {
       const el = $("#dpPre .pmalert");
       let tk = null; try { tk = window.TWAccount && TWAccount.token ? await TWAccount.token() : null; } catch (e) {}
-      if (!tk) { if (el) el.textContent = "盤中警示：登入後才會把自選股與持股交給 Worker 監控（目前只監控加權指數與台指期）。"; return; }
+      if (!tk) { if (el) el.textContent = "盤中警示：登入後才會監控你的股票。"; return; }
       const hold = (store.get("twlab-hold", []) || []).map(h => h.code);
       try {
         const r = await fetch(WORKER + "/tw/alerts/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk, watch: WATCH, hold }) });
         const j = await r.json().catch(() => ({}));
-        if (el) el.textContent = j.ok ? `盤中警示：監控加權指數、台指期夜盤與 ${j.n} 檔自選股／持股（每分鐘檢查：指數 ±1.5%、個股 ±5%、漲跌停，另外每 15 分鐘由 AI 看新聞與重大訊息），傳到 Telegram。`
-          : j.owner === false ? "盤中警示的清單由網站擁有者的帳號管理，這個帳號的自選股不會被監控。" : "盤中警示：暫時無法同步清單。";
-      } catch (e) { if (el) el.textContent = "盤中警示：暫時無法同步清單。"; }
+        if (el) el.textContent = j.ok ? `盤中警示：監控大盤、台指期與 ${j.n} 檔股票，有大漲跌或重大消息會傳 Telegram。`
+          : j.owner === false ? "盤中警示只監控擁有者帳號的股票。" : "盤中警示：同步失敗。";
+      } catch (e) { if (el) el.textContent = "盤中警示：同步失敗。"; }
     }, 1500);
   }
   document.addEventListener("twlab:hold", alertSync);
@@ -778,7 +778,7 @@
     $(".bd-tiles", box).innerHTML = W.length ? W.map(s => { const a = Math.min(1, Math.abs(s.pct || 0) / 6); return `<button type="button" class="bd-tile ${tone(s.chg)}" data-code="${esc(s.code)}" style="--a:${(0.12 + a * 0.75).toFixed(2)}"><b>${esc(s.name)}</b><span>${pct(s.pct)}</span><i>${fmt(s.price, dig(s.price))}</i></button>`; }).join("") : `<p class="sub">還沒有自選股，在「股票」清單點 ★ 加入。</p>`;
     const a = PMN && PMN.analysis;
     $(".bd-pmout", box).innerHTML = a ? `<div class="bd-call"><span class="aitag ${/高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : ""}">${esc(a.call)}</span><span class="sub">預測 ${esc(String(PMN.day).slice(5).replace("-", "/"))} 開盤・${esc(a.gap || "")}</span></div><p class="bd-head">${esc(a.headline || "")}</p>
-      ${Array.isArray(a.picks) && a.picks.length ? `<div class="bd-picks">${a.picks.slice(0, 8).map(x => `<button type="button" class="bd-row" data-code="${esc(x.code)}"><span class="bd-nm"><b>${esc(x.name)}</b><i>${esc(x.code)}</i></span><span class="bd-px">${esc(x.tag || "")}</span><span class="bd-v ${/買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""}">${esc(x.action || "")}</span></button>`).join("")}</div>` : ""}<div class="bd-ch">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc((a.chances || {})[k] || "—")}</b></div>`).join("")}</div>` : `<p class="sub">還沒有盤前分析，每個交易日 05:30 自動產生。</p>`;
+      ${Array.isArray(a.picks) && a.picks.length ? `<div class="bd-picks">${a.picks.slice(0, 8).map(x => `<button type="button" class="bd-row" data-code="${esc(x.code)}"><span class="bd-nm"><b>${esc(x.name)}</b><i>${esc(x.code)}</i></span><span class="bd-px">${esc(x.tag || "")}</span><span class="bd-v ${/買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""}">${esc(x.action || "")}</span></button>`).join("")}</div>` : ""}<div class="bd-ch">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc((a.chances || {})[k] || "—")}</b></div>`).join("")}</div>` : `<p class="sub">05:30 自動產生。</p>`;
     if (first || cur === "dpOverview") boardIn(box, first);
   }
   /* bars grow from the baseline, list rows slide in one after another, tiles pop in */
@@ -900,7 +900,7 @@
     if (j && j.note) { PMN = j.note; boardSig = boardSig ? "x" : ""; try { paintBoard(); } catch (e) {} }
     const el = $("#dpPre .pmout"); if (!el) return;
     const n = j && j.note;
-    if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有盤前分析。每個交易日 05:30 會自動產生，也可以按「現在分析一次」。</p>`; return; }
+    if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有分析，05:30 會自動產生。</p>`; return; }
     const a = n.analysis, ch = a.chances || {}, li = arr => (Array.isArray(arr) ? arr : []).map(x => `<li>${esc(x)}</li>`).join(""), tn = /高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : "";
     const at = new Date(n.at).toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
     el.innerHTML = `
@@ -916,7 +916,7 @@
       <details class="pmmore"><summary>族群、關鍵點位、風險與開盤後要盯的事</summary>
         <div class="aicols"><div><h4>可能領漲／落後</h4><ul>${li(a.sectors)}</ul><h4>關鍵點位</h4><p>${esc(a.levels || "—")}</p></div><div><h4>風險</h4><ul>${li(a.risks)}</ul><h4>09:00–09:30 要盯</h4><ul>${li(a.watch)}</ul></div></div>
         ${n.news && n.news.length ? `<h4>參考的新聞</h4><div class="newslist">${newsHTML(n.news, null)}</div>` : ""}</details>
-      <p class="sub">AI 依夜盤、美股收盤與新聞標題整理，可能出錯，沒有人能保證開盤方向。研究參考，不是投資建議。</p>`;
+      <p class="sub">AI 參考，非投資建議。</p>`;
     if (animate) rise($$(".lrise", el), 70);
   }
   async function pmLoad() { try { pmPaint(await J(`${WORKER}/tw/premarket`), true); } catch (e) { const el = $("#dpPre .pmout"); if (el) el.innerHTML = `<p class="sub">盤前分析需要部署新版 Worker。</p>`; } }
@@ -924,7 +924,7 @@
     let tk = null; try { tk = window.TWAccount && TWAccount.token ? await TWAccount.token() : null; } catch (e) {}
     const el = $("#dpPre .pmout");
     if (!tk) { el.insertAdjacentHTML("afterbegin", `<p class="sub warn">要先登入帳號才能手動分析。</p>`); return; }
-    b.disabled = true; b.textContent = "分析中…（約 30 秒）";
+    b.disabled = true; b.textContent = "分析中…";
     try {
       const r = await fetch(WORKER + "/tw/premarket/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk }) });
       const j = await r.json().catch(() => null);
@@ -932,7 +932,12 @@
       pmPaint({ note: j }, true);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
-    } catch (e) { el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${esc(e.message)}</p>`); }
+    } catch (e) {
+      /* a long run can outlast the connection even though the note was written: look for it before saying it failed */
+      await new Promise(r => setTimeout(r, 4000));
+      try { const j = await J(`${WORKER}/tw/premarket`); if (j.note && Date.now() - j.note.at < 180000) { pmPaint(j, true); b.disabled = false; b.textContent = "現在分析一次"; return; } } catch (e2) {}
+      el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連線中斷，請稍後重新整理。"}</p>`);
+    }
     b.disabled = false; b.textContent = "現在分析一次";
   }
 
