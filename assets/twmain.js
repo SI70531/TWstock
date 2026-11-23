@@ -380,7 +380,7 @@
     const q = VIEW.q.toLowerCase();
     let rows = DB.list;
     const L = /^w[1-5]$/.test(VIEW.preset) ? LISTS[listIdx()] : null;
-    if (L) rows = rows.filter(s => L.includes(s.code));
+    if (L && !q) rows = rows.filter(s => L.includes(s.code));   /* a search looks through every stock */
     if (VIEW.preset === "strong" || VIEW.preset === "weak") rows = rows.filter(s => s.vol >= 500);   /* thin stocks are left out, as broker apps do */
     if (q) rows = rows.filter(s => s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
     const k = VIEW.key, d = VIEW.dir;
