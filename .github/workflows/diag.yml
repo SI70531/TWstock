@@ -6,7 +6,7 @@ jobs:
     steps:
       - run: |
           W="https://twstock-ai.ta77199ta.workers.dev"; O="Origin: https://si70531.github.io"
-          echo "== otc raw"; curl -s -m 40 -w "\nHTTP %{http_code} %{time_total}\n" -H "$O" "$W/tw/otc" | tail -c 400; echo "== otc"; curl -s -m 40 -H "$O" "$W/tw/otc" | python3 -c "import json,sys; d=json.load(sys.stdin); l=d.get('list',[]); print(d.get('error'), d.get('date'), len(l), sum(1 for x in l if x[8]=='esb'), [x for x in l if x[0] in ('7742','6488','8069')])"
-          echo "== hist 7742"; curl -s -m 40 -H "$O" "$W/tw/hist?c=7742" | python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('rows',[]); print(d.get('error'), len(r), r[-3:])"
-          echo "== hist 6488"; curl -s -m 40 -H "$O" "$W/tw/hist?c=6488" | python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('rows',[]); print(d.get('error'), len(r), r[-2:])"
-          echo "== rt otc"; curl -s -m 40 -H "$O" "$W/tw/rt?c=6488,7742" | head -c 600; echo
+          echo "== otc raw"; curl -s -m 60 -w "\nHTTP %{http_code} %{time_total}\n" -H "$O" "$W/tw/otc" | tail -c 400; echo "== otc"; curl -s -m 60 -H "$O" "$W/tw/otc" | python3 -c "import json,sys; d=json.load(sys.stdin); l=d.get('list',[]); print(d.get('error'), d.get('date'), len(l), sum(1 for x in l if x[8]=='esb'), [x for x in l if x[0] in ('7742','6488','8069')])"
+          echo "== hist 7742"; curl -s -m 60 -H "$O" "$W/tw/hist?c=7742" | python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('rows',[]); print(d.get('error'), len(r), r[-3:])"
+          echo "== hist 6488"; curl -s -m 60 -H "$O" "$W/tw/hist?c=6488" | python3 -c "import json,sys; d=json.load(sys.stdin); r=d.get('rows',[]); print(d.get('error'), len(r), r[-2:])"
+          echo "== rt otc"; curl -s -m 60 -H "$O" "$W/tw/rt?c=6488,7742" | head -c 600; echo

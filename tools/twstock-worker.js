@@ -692,7 +692,17 @@ async function twChart(url, json, fail) {
 /* ---------- 上櫃 and 興櫃 lists (TPEx open data does not allow pages on other sites to read it, so the Worker does) ---------- */
 async function twOtc(json, fail) {
   const out = await twCached("otc", 120000, async () => {
-    const get = async u => { const r = await fetch(u, { headers: { "User-Agent": TW_UA, Accept: "application/json" } }); if (!r.ok) throw new Error("TPEx " + r.status); return r.json(); };
+    /* TPEx is slow or silent towards Cloudflare: try the Asia relay, then directly, each with a time limit */
+    const get = async u => {
+      for (const via of ["relay", "direct"]) {
+        try {
+          const init = { headers: { "User-Agent": TW_UA, Accept: "application/json" }, signal: AbortSignal.timeout(9000) };
+          const r = via === "relay" ? await Promise.race([twFetch(u, { headers: init.headers }), new Promise((_, no) => setTimeout(() => no(new Error("timeout")), 9000))]) : await fetch(u, init);
+          if (r.ok) return await r.json();
+        } catch (e) {}
+      }
+      throw new Error("TPEx did not answer");
+    };
     const [main, esb] = await Promise.all([get("https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes").catch(() => []), get("https://www.tpex.org.tw/openapi/v1/tpex_esb_latest_statistics").catch(() => [])]);
     const keep = c => /^(\d{4}|00\d{3,4}[A-Z]?)$/.test(c);
     const n = v => twNum(String(v == null ? "" : v).replace(/^\+/, ""));
