@@ -13,7 +13,7 @@ const ALLOWED = ["https://si70531.github.io"];
 const SUPABASE_URL = "https://jyfmolrqxypufwjqexan.supabase.co";
 const SUPABASE_KEY = "sb_publishable_YJbE5DyYa6UKsAbfsxjnWg_4VW4HVnr";
 const MAX_BODY = 60000;
-const MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-3-flash-preview", "gemini-flash-latest", "gemini-flash-lite-latest"];
+const MODELS = ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"];   /* the free tier has no 2.5 quota any more: its 429 "PerDay, limit 0" looked like the daily cap was used up */
 const AI_HOUR = 600, AI_DAY = 3000;
 
 let ENV = null;   /* the current request's bindings, so the data fetchers can reach the Asia relay */
