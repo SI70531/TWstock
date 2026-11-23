@@ -35,8 +35,7 @@
     side.className = "side"; side.setAttribute("aria-label", "側欄");
     side.innerHTML = `<div class="sb-clock"><div class="s"><span class="statuschip" data-s="closed"><i></i><span class="ss">—</span></span><span class="sd"></span></div><div class="t">--:--:--</div>
         <div class="sb-ix" data-k="t00"><span>加權</span><b>—</b></div><div class="sb-ix" data-k="fut"><span>台指期</span><b>—</b></div></div>
-      <nav aria-label="主要導覽"><i class="sb-hl"></i>${tabs.map(t => `<button type="button" data-p="${t.dataset.p}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t.dataset.p] || '<circle cx="12" cy="12" r="3"/>'}</svg>${t.textContent.trim()}</button>`).join("")}</nav>
-      <div class="sb-h">自選股</div><div class="sb-watch"><p class="sb-empty">載入中…</p></div>`;
+      <nav aria-label="主要導覽"><i class="sb-hl"></i>${tabs.map(t => `<button type="button" data-p="${t.dataset.p}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t.dataset.p] || '<circle cx="12" cy="12" r="3"/>'}</svg>${t.textContent.trim()}</button>`).join("")}</nav>`;
     document.body.appendChild(side);
     side.addEventListener("click", e => {
       const b = e.target.closest("nav button"); if (b) { const t = tabs.find(x => x.dataset.p === b.dataset.p); t && t.click(); return; }
@@ -90,8 +89,7 @@
       el.className = p > 0 ? "up" : p < 0 ? "down" : "";
     });
     const W = (A.watch ? A.watch() : A.store.get("twtrade-watch", []) || []).slice(0, 12), box = $(".sb-watch", side);
-    if (!A.DB.list.length) return;
-    box.innerHTML = W.length ? W.map(c => {
+    if (box && A.DB.list.length) box.innerHTML = W.length ? W.map(c => {
       const s = A.DB.by.get(c); if (!s) return "";
       const t = s.chg > 0 ? "up" : s.chg < 0 ? "down" : "";
       return `<button type="button" class="sb-row" data-code="${A.esc(c)}"><b>${A.esc(s.name)}</b><span class="p ${t}">${fmt(s.price, s.price < 50 ? 2 : s.price < 1000 ? 1 : 0)}</span><span>${A.esc(c)}</span><span class="p ${t}">${(s.pct > 0 ? "+" : "") + (s.pct || 0).toFixed(2)}%</span></button>`;

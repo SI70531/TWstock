@@ -69,7 +69,7 @@
   const listIdx = () => (/^w[1-5]$/.test(VIEW.preset) ? +VIEW.preset[1] - 1 : 0);
   const IND = Object.assign({ ma: true, boll: false, vol: true, kd: true, macd: false, rsi: false }, store.get("twmain-ind", {}));
   let SPAN = store.get("twmain-span", 60);
-  const VIEW = { q: "", preset: "all", key: "vol", dir: -1, shown: 50 };
+  const VIEW = { q: "", preset: "w1", key: "ord", dir: 1, shown: 50 };
   let CODE = store.get("twmain-code", "2330");
 
   /* ---------------- loaders: closing data from TWSE open data ---------------- */
@@ -322,7 +322,7 @@
   }
 
   /* ---------------- 總覽 ---------------- */
-  const PRESETS = [["all", "全部"], ["w1", "自選1"], ["w2", "自選2"], ["w3", "自選3"], ["w4", "自選4"], ["w5", "自選5"], ["strong", "強勢股"], ["weak", "弱勢股"], ["volume", "成交量"]];
+  const PRESETS = [["w1", "自選1"], ["w2", "自選2"], ["w3", "自選3"], ["w4", "自選4"], ["w5", "自選5"], ["strong", "強勢股"], ["weak", "弱勢股"], ["volume", "成交量"]];
   const COLS = [["price", "成交價"], ["chg", "漲跌"], ["pct", "漲跌幅"], ["vol", "成交量"]];
   function buildOverview() {
     $("#dpOverview").innerHTML = `
@@ -438,26 +438,27 @@
 
   /* ---------------- 自選股 ---------------- */
   function buildWatch() {
-    $("#dpWatch").innerHTML = `<div class="dcard wsum" hidden></div><div class="wgrid"></div>`;
+    $("#dpWatch").innerHTML = `<div class="dcard wsum" hidden></div><div class="dcard mkt wlist"><div class="mwrap"><table class="mtbl ttbl mktab wtbl"><thead><tr><th class="l">商品</th><th>成交價</th><th>漲跌</th><th>漲跌幅</th><th>開盤</th><th>最高</th><th>最低</th><th class="wrngh">日內區間</th><th>成交量</th><th aria-label="自選"></th></tr></thead><tbody class="wgrid"></tbody></table></div></div>`;
     $("#dpWatch").addEventListener("click", e => {
       const st = e.target.closest(".starbtn"); if (st) { toggleWatch(st.dataset.code); return; }
-      const c = e.target.closest(".wcard[data-code], .wpick[data-code]"); if (c) openStock(c.dataset.code, c);
+      const c = e.target.closest("tr[data-code], .wpick[data-code]"); if (c) openStock(c.dataset.code, c);
     });
   }
   function paintWatch(animate) {
     const g = $("#dpWatch .wgrid"); if (!g) return;
     const cards = WATCH.map(code => {
       const s = DB.by.get(code);
-      if (!s) return `<div class="dcard wcard"><h3>${esc(code)}<button type="button" class="starbtn" data-code="${esc(code)}" aria-pressed="true" aria-label="移除自選">★</button></h3><p class="sub">${DB.list.length ? "不在上市股清單中" : "載入中…"}</p></div>`;
+      const star = `<td><button type="button" class="starbtn" data-code="${esc(code)}" aria-pressed="true" aria-label="移除自選">★</button></td>`;
+      if (!s) return `<tr class="wrow"><td class="l nm"><b>${esc(code)}</b><span>${DB.list.length ? "不在清單中" : "載入中…"}</span></td><td colspan="8"></td>${star}</tr>`;
       const d = dig(s.price), t = tone(s.chg), pos = s.high > s.low ? clamp((s.price - s.low) / (s.high - s.low) * 100, 0, 100) : 50;
-      return `<div class="dcard wcard" data-code="${esc(code)}" tabindex="0" role="button"><h3><span>${esc(s.name)} <span class="sub">${esc(code)}</span></span><button type="button" class="starbtn" data-code="${esc(code)}" aria-pressed="true" aria-label="移除自選">★</button></h3>
-        <div class="big ${t}">${fmt(s.price, d)}</div><div class="sub ${t}">${arrow(s.chg)} ${fmt(Math.abs(s.chg), d)}（${pct(s.pct)}）</div>
-        <div class="rng"><div class="rngbar"><i class="rngdot" style="left:${pos.toFixed(1)}%"></i></div><div class="rngtxt sub"><span>低 ${fmt(s.low, d)}</span><span>高 ${fmt(s.high, d)}</span></div></div>
-        <div class="sub">開 ${fmt(s.open, d)} · 量 ${fmt(s.vol)} 張</div></div>`;
+      return `<tr class="wrow" data-code="${esc(code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}</b><span>${esc(code)}</span></td>
+        <td><span class="pxpill ${t}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
+        <td>${fmt(s.open, d)}</td><td>${fmt(s.high, d)}</td><td>${fmt(s.low, d)}</td>
+        <td class="wrng"><div class="rngbar"><i class="rngdot" style="left:${pos.toFixed(1)}%"></i></div></td><td class="vol">${fmt(s.vol)}</td>${star}</tr>`;
     });
-    g.innerHTML = cards.join("") || `<p class="mempty">還沒有自選股。到「總覽」的清單點 ★ 加入。</p>`;
+    g.innerHTML = cards.join("") || `<tr><td class="mempty" colspan="10">還沒有自選股。</td></tr>`;
     paintWatchSum();
-    if (animate && $("#dpWatch").classList.contains("on")) rise($$(".wcard", g), 60);
+    if (animate && $("#dpWatch").classList.contains("on")) rise($$("tr", g).slice(0, 30), 25);
   }
   /* the watchlist in one line: the average move, how many rose and fell, who leads and who lags */
   function paintWatchSum() {

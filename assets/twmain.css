@@ -175,3 +175,10 @@ a.nrow:hover .ntext { text-decoration: underline; }
 @keyframes aiwait { 0%, 100% { transform: translateY(0); opacity: .4; } 50% { transform: translateY(-9px); opacity: 1; } }
 
 :root table.mtbl :is(th, td) { border: 0; border-bottom: 1px solid var(--glass-line, var(--c2)); background: transparent; }
+
+/* 自選股 as rows */
+.wlist .wtbl { width: 100%; }
+.wtbl .wrng { min-width: 120px; width: 18%; }
+.wtbl .wrng .rngbar { margin: 0 4px; }
+.wtbl tr[data-code] { cursor: pointer; }
+@media (max-width: 760px) { .wtbl th:nth-child(5), .wtbl td:nth-child(5), .wtbl .wrngh, .wtbl .wrng { display: none; } }
