@@ -355,6 +355,7 @@
       const tr = e.target.closest("tr[data-code]");
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
+      const pk = e.target.closest("[data-pick]"); if (pk) { openStock(pk.dataset.pick, pk); return; }
       const gt = e.target.closest("[data-goto]"); if (gt) { open(gt.dataset.goto, true); return; }
       const bd = e.target.closest(".bd-row, .bd-tile"); if (bd) { openStock(bd.dataset.code, bd); return; }
       const xc = e.target.closest(".ixcard"); if (xc) { ixOpen(xc.dataset.k); return; }
@@ -777,7 +778,7 @@
     $(".bd-tiles", box).innerHTML = W.length ? W.map(s => { const a = Math.min(1, Math.abs(s.pct || 0) / 6); return `<button type="button" class="bd-tile ${tone(s.chg)}" data-code="${esc(s.code)}" style="--a:${(0.12 + a * 0.75).toFixed(2)}"><b>${esc(s.name)}</b><span>${pct(s.pct)}</span><i>${fmt(s.price, dig(s.price))}</i></button>`; }).join("") : `<p class="sub">還沒有自選股，在「股票」清單點 ★ 加入。</p>`;
     const a = PMN && PMN.analysis;
     $(".bd-pmout", box).innerHTML = a ? `<div class="bd-call"><span class="aitag ${/高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : ""}">${esc(a.call)}</span><span class="sub">預測 ${esc(String(PMN.day).slice(5).replace("-", "/"))} 開盤・${esc(a.gap || "")}</span></div><p class="bd-head">${esc(a.headline || "")}</p>
-      <div class="bd-ch">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc((a.chances || {})[k] || "—")}</b></div>`).join("")}</div>` : `<p class="sub">還沒有盤前分析，每個交易日 05:30 自動產生。</p>`;
+      ${Array.isArray(a.picks) && a.picks.length ? `<div class="bd-picks">${a.picks.slice(0, 4).map(x => `<button type="button" class="bd-row" data-code="${esc(x.code)}"><span class="bd-nm"><b>${esc(x.name)}</b><i>${esc(x.code)}</i></span><span class="bd-px">${esc(x.tag || "")}</span><span class="bd-v ${/買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""}">${esc(x.action || "")}</span></button>`).join("")}</div>` : ""}<div class="bd-ch">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc((a.chances || {})[k] || "—")}</b></div>`).join("")}</div>` : `<p class="sub">還沒有盤前分析，每個交易日 05:30 自動產生。</p>`;
     if (first || cur === "dpOverview") boardIn(box, first);
   }
   /* bars grow from the baseline, list rows slide in one after another, tiles pop in */
@@ -907,6 +908,10 @@
         <p class="ailead">${esc(a.headline || "")}</p>
         <div class="pmchance">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc(ch[k] || "—")}</b></div>`).join("")}</div></div>
       <div class="aicols"><div class="lrise"><h4>夜盤</h4><p>${esc(a.night || "—")}</p></div><div class="lrise"><h4>美股與國際</h4><p>${esc(a.us || "—")}</p></div></div>
+      ${Array.isArray(a.picks) && a.picks.length ? `<div class="pmpicks"><div class="pmph"><h4>潛力股與下單建議</h4><span class="sub">${esc(a.picks_note || "")}</span></div><div class="pmpgrid">${a.picks.map(x => { const t = /買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""; return `<button type="button" class="aiorder pmpick ${t ? "o-" + t : ""} lrise" data-pick="${esc(x.code)}">
+        <div class="aiohead"><span class="ntag">${esc(x.tag || "")}</span><b class="pmpn">${esc(x.name || "")} <i>${esc(x.code)}</i></b><b class="${t}">${esc(x.action || "")}</b>${x.rr ? `<span class="sub">風險報酬 ${esc(x.rr)}</span>` : ""}</div>
+        <p class="pmpw">${esc(x.why || "")}</p>
+        <div class="aikv"><div><span>怎麼下</span><b>${esc(x.how || "—")}</b></div><div><span>分批</span><b>${esc(x.split || "—")}</b></div><div><span>停損</span><b>${esc(x.stop || "—")}</b></div><div><span>目標</span><b>${esc((Array.isArray(x.targets) ? x.targets : []).join("；") || "—")}</b></div></div></button>`; }).join("")}</div></div>` : ""}
       <div class="pmfac">${(Array.isArray(a.factors) ? a.factors : []).map(f => `<div class="pmf lrise"><span class="aitag ${f.effect === "利多" ? "up" : f.effect === "利空" ? "down" : ""}">${esc(f.effect || "")}</span><b>${esc(f.name)}</b><span class="sub">${esc(f.note)}</span></div>`).join("")}</div>
       <details class="pmmore"><summary>族群、關鍵點位、風險與開盤後要盯的事</summary>
         <div class="aicols"><div><h4>可能領漲／落後</h4><ul>${li(a.sectors)}</ul><h4>關鍵點位</h4><p>${esc(a.levels || "—")}</p></div><div><h4>風險</h4><ul>${li(a.risks)}</ul><h4>09:00–09:30 要盯</h4><ul>${li(a.watch)}</ul></div></div>

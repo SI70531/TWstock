@@ -505,7 +505,7 @@ async function pmInst() {
   } catch (e) {}
   return null;
 }
-function pmPrompt(day, madeAt, night, world, inst, news) {
+function pmPrompt(day, madeAt, night, world, inst, news, cands) {
   const list = (a, f) => (a && a.length ? a.map(f).join("\n") : "(none found)");
   return [
 "You are the pre-market desk of a Taiwan equity research team, writing for one private investor. It is now " + madeAt + " Taipei time. You are calling the open of the NEXT Taiwan trading session: 09:00 on " + day + " (" + WD[new Date(day + "T00:00:00Z").getUTCDay()] + ").",
@@ -517,16 +517,19 @@ function pmPrompt(day, madeAt, night, world, inst, news) {
 "Rules:",
 "- Use ONLY the numbers in DATA and the headlines given. Never invent a price, a figure or an event; if something important is missing say so.",
 "- TSMC ADR: one ADR is 5 shares; if you compare it with the Taiwan price, say that you need the exchange rate and use the one in DATA.",
+"- 'picks': from DATA.candidates ONLY, choose up to 5 stocks worth acting on at this open (potential stocks), best first. tag says why it is a candidate (持股 = the user holds it, 自選 = on the user's watchlist, 強勢 = strong mover yesterday with volume). For each give one concrete order like a trader would: action is exactly one of 買進, 分批買進, 觀望, 續抱, 減碼, 賣出 (for a 持股 choose among 續抱, 分批買進 as adding, 減碼, 賣出); how = order type and price (限價 or after a close above a named level), split = how to split the order, stop = the stop price and which level it is, targets = one or two target prices with the level they come from, rr = risk-reward like 1 : 2.0, why = one or two sentences tying the stock to tonight's factors. Every price must come from that candidate's numbers (ma5/ma20/ma60, bollinger, 20/60-day highs and lows, last close) or be a round number near them, and say which. If no candidate is worth buying today, say so in picks_note and give the best 觀望 ones. Also judge every 持股 in picks or picks_note.",
 "- Nobody can know the open for sure. Give the more likely direction for today's open, a rough gap range in TAIEX points, and chances that add up to about 100%. Say what would prove the call wrong in the first 30 minutes.",
 "",
 "Return ONE JSON object and nothing else, in exactly this shape:",
 '{"call":"開高|平盤附近|開低","confidence":"低|中|高","gap":"例如 +80 到 +150 點","chances":{"開高":"約 55%","平盤":"約 25%","開低":"約 20%"},"headline":"one sentence for a phone notification",',
 '"night":"what the night session did and what it implies","us":"the US close and what matters for Taiwan","factors":[{"name":"factor","effect":"利多|利空|中性","note":"one or two sentences"}],',
-'"sectors":["sectors or big names likely to lead or lag, with the reason"],"levels":"TAIEX levels to watch, only from DATA","risks":["..."],"watch":["what to check between 09:00 and 09:30, and events later today"]}',
+'"sectors":["sectors or big names likely to lead or lag, with the reason"],"levels":"TAIEX levels to watch, only from DATA","risks":["..."],"watch":["what to check between 09:00 and 09:30, and events later today"],',
+'"picks":[{"code":"2454","name":"聯發科","tag":"強勢|自選|持股","action":"分批買進","how":"...","split":"...","stop":"...","targets":["..."],"rr":"1 : 2.0","why":"..."}],"picks_note":"one sentence on the candidates overall"}',
 "",
 "DATA.night (TAIEX futures, TAIFEX): " + JSON.stringify(night),
 "DATA.world (Yahoo Finance, last price and % change from the previous close, time in Taipei): " + JSON.stringify(world),
 "DATA.institutions (TWSE, NT$ 100 million, previous trading day): " + JSON.stringify(inst),
+"DATA.candidates (computed here from Yahoo Taiwan daily bars up to the last close; prices NT$, volume in lots): " + JSON.stringify(cands || []),
 "",
 "HEADLINES (last 24 hours, newest first):",
 list(news, x => "- " + (x.at ? new Date(x.at + 8 * 3600e3).toISOString().slice(5, 16).replace("T", " ") : "") + " " + x.t + (x.src ? "（" + x.src + "）" : "")),
@@ -539,21 +542,59 @@ function nextOpenDay(now) {
   if (!(t.getUTCDay() >= 1 && t.getUTCDay() <= 5 && t.getUTCHours() < 9)) { t = new Date(t.getTime() + 864e5); while (t.getUTCDay() === 0 || t.getUTCDay() === 6) t = new Date(t.getTime() + 864e5); }
   return t.toISOString().slice(0, 10);
 }
+/* candidates for the pre-market picks: the owner's holdings and watchlist, plus yesterday's strongest movers with volume;
+   each with a few numbers from about a year of Yahoo Taiwan daily bars */
+async function pmCandidates(env) {
+  const wl = await pmStore(env, "wl").catch(() => ({})), hold = (wl.hold || []).slice(0, 6), watch = (wl.watch || []).filter(c => !hold.includes(c)).slice(0, 6);
+  const mkt = new Map(), strong = [];
+  try {
+    const a = await (await twFetch("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
+    (Array.isArray(a) ? a : []).forEach(x => { const c = String(x.Code || "").trim(), z = twNum(x.ClosingPrice), ch = twNum(x.Change), v = Math.round((twNum(x.TradeVolume) || 0) / 1000), val = twNum(x.TradeValue) || 0;
+      if (!/^\d{4}$/.test(c) || !(z > 0)) return; mkt.set(c, "TW"); const p = ch != null ? ch / (z - ch) * 100 : 0; if (p >= 3 && v >= 2000 && z >= 10) strong.push({ c, val, n: String(x.Name || "").trim() }); });
+  } catch (e) {}
+  try {
+    const o = await (await fetch("https://raw.githubusercontent.com/SI70531/TWstock/data/otc.json", { headers: { "User-Agent": TW_UA } })).json();
+    (o.list || []).forEach(x => { if (!mkt.has(x[0])) mkt.set(x[0], "TWO"); const p = x[2] > 0 && x[3] != null ? x[3] / (x[2] - x[3]) * 100 : 0; if (x[8] === "otc" && /^\d{4}$/.test(x[0]) && p >= 3 && x[7] >= 2000 && x[2] >= 10) strong.push({ c: x[0], val: x[2] * x[7] * 1000, n: x[1] }); });
+  } catch (e) {}
+  const pick = strong.sort((a, b) => b.val - a.val).map(x => x.c).filter(c => !hold.includes(c) && !watch.includes(c)).slice(0, Math.max(0, 12 - hold.length - watch.length));
+  const list = [...hold.map(c => [c, "持股"]), ...watch.map(c => [c, "自選"]), ...pick.map(c => [c, "強勢"])].slice(0, 12);
+  const r2 = v => (Number.isFinite(v) ? Math.round(v * 100) / 100 : null);
+  const out = await Promise.all(list.map(async ([code, tag]) => {
+    try {
+      const ex = mkt.get(code) || "TW";
+      const u = "https://tw.stock.yahoo.com/_td-stock/api/resource/FinanceChartService.ApacLibraCharts;symbols=" + encodeURIComponent(JSON.stringify([code + "." + ex])) + ";type=day;period=d";
+      const j = await (await fetch(u, { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
+      const c = (j[0] || {}).chart || {}, q = (c.indicators && c.indicators.quote && c.indicators.quote[0]) || {}, m = c.meta || {};
+      const rows = (c.timestamp || []).map((t, i) => [q.close && q.close[i], q.high && q.high[i], q.low && q.low[i], q.volume && q.volume[i]]).filter(r => r[0] > 0);
+      if (rows.length < 30) return null;
+      const cl = rows.map(r => r[0]), n = cl.length, last = cl[n - 1];
+      const ma = k => (n >= k ? cl.slice(-k).reduce((a, b) => a + b, 0) / k : null), sd20 = (() => { const m20 = ma(20); return Math.sqrt(cl.slice(-20).reduce((a, b) => a + (b - m20) ** 2, 0) / 20); })();
+      let g = 0, l = 0; for (let i = n - 14; i < n; i++) { const d = cl[i] - cl[i - 1]; if (d > 0) g += d; else l -= d; }
+      const hi = k => Math.max(...rows.slice(-k).map(r => r[1])), lo = k => Math.min(...rows.slice(-k).map(r => r[2])), vols = rows.map(r => r[3] || 0), v20 = vols.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
+      return { code, name: m.name || code, tag, market: ex === "TW" ? "上市" : "上櫃/興櫃", close: r2(last), changePct: r2((last / cl[n - 2] - 1) * 100), ma5: r2(ma(5)), ma20: r2(ma(20)), ma60: r2(ma(60)),
+        bollUpper: r2(ma(20) + 2 * sd20), bollLower: r2(ma(20) - 2 * sd20), rsi14: r2(l ? 100 - 100 / (1 + g / l) : 100), high20: r2(hi(20)), low20: r2(lo(20)), high60: r2(hi(Math.min(60, n))), low60: r2(lo(Math.min(60, n))),
+        volumeVs20d: v20 ? r2(vols[n - 1] / v20) : null, return5dPct: r2((last / cl[n - 6] - 1) * 100), return20dPct: n > 20 ? r2((last / cl[n - 21] - 1) * 100) : null };
+    } catch (e) { return null; }
+  }));
+  return out.filter(Boolean);
+}
 async function premarket(env, notify) {
   if (!env.GEMINI_KEY) return { error: "no GEMINI_KEY" };
   const day = nextOpenDay(new Date()), madeAt = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
-  const [night, world, inst, n1, n2, n3] = await Promise.all([
+  const [night, world, inst, n1, n2, n3, cands] = await Promise.all([
     pmNight().catch(() => null), pmWorld().catch(() => []), pmInst().catch(() => null),
     twHeadlines("台股 OR 台指期 OR 夜盤 when:1d", 10).catch(() => []),
     twHeadlines("美股 OR 聯準會 OR 費半 OR 台積電ADR when:1d", 10).catch(() => []),
     twHeadlines("關稅 OR 出口管制 OR 地緣政治 OR 匯率 OR 輝達 when:1d", 8).catch(() => []),
+    pmCandidates(env).catch(() => []),
   ]);
   const seen = new Set(), news = [...n1, ...n2, ...n3].filter(x => !seen.has(x.t) && seen.add(x.t)).sort((a, b) => b.at - a.at).slice(0, 24);
-  const g = await geminiJson(env, pmPrompt(day, madeAt, night, world, inst, news), 0.3, 0);
+  const g = await geminiJson(env, pmPrompt(day, madeAt, night, world, inst, news, cands), 0.3, 0);
   if (g.error) return { error: "Gemini " + g.error.status };
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
   if (!a || !a.call) return { error: "unexpected AI reply" };
-  const note = { at: Date.now(), day, madeAt, analysis: a, data: { night, world, inst }, news: news.slice(0, 12).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
+  if (Array.isArray(a.picks)) a.picks = a.picks.filter(x => x && cands.some(c => c.code === String(x.code))).slice(0, 5);
+  const note = { at: Date.now(), day, madeAt, analysis: a, data: { night, world, inst, candidates: cands.map(c => ({ code: c.code, name: c.name, tag: c.tag })) }, news: news.slice(0, 12).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
   await pmStore(env, "put", { note });
   if (notify) note.sent = await pmTelegram(env, a, day);
   return note;
@@ -576,6 +617,7 @@ async function pmTelegram(env, a, day) {
     `<b>夜盤</b> ${esc(a.night || "—")}`, `<b>美股</b> ${esc(a.us || "—")}`, "",
     ...f.map(x => `${x.effect === "利多" ? "🔺" : x.effect === "利空" ? "🔻" : "▪️"} ${esc(x.name)}：${esc(x.note)}`), "",
     `<b>開盤後盯</b> ${esc((a.watch || []).slice(0, 3).join("；"))}`,
+    ...(Array.isArray(a.picks) && a.picks.length ? ["", "<b>潛力股與下單建議</b>", ...a.picks.slice(0, 4).map(x => `${/賣|減/.test(x.action) ? "🔻" : /觀望|續抱/.test(x.action) ? "▪️" : "🔺"} <b>${esc(x.name)}（${esc(x.code)}）${esc(x.action)}</b>　${esc(x.how || "")}\n　停損 ${esc(x.stop || "—")}｜目標 ${esc((x.targets || []).join("、") || "—")}｜${esc(x.rr || "")}`)] : []),
     `<a href="https://si70531.github.io/TWstock/">完整分析</a>｜AI 研究參考，不保證漲跌`,
   ].join("\n").slice(0, 4000);
   try { const r = await fetch(api("sendMessage"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) }); return r.ok ? "sent" : "telegram " + r.status; }

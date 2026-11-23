@@ -3,6 +3,9 @@
 
 /* ---------- 1. tokens: dark (default) and light ---------- */
 :root {
+  /* the same type as EZexams: Source Serif 4 for Latin, LXGW WenKai TC for Chinese; figures stay in the monospaced face */
+  --font-display: "EZapos", "Source Serif 4", "LXGW WenKai TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", serif;
+  --font-body: var(--font-display);
   --glass: color-mix(in oklch, oklch(22% 0.012 255) 52%, transparent);
   --glass-2: color-mix(in oklch, oklch(26% 0.014 255) 46%, transparent);
   --glass-strong: color-mix(in oklch, oklch(19% 0.012 255) 78%, transparent);
@@ -41,6 +44,9 @@
   --bg-1: oklch(91% 0.02 255);
   --aur-o: .38;
 }
+
+@font-face { font-family: "EZapos"; src: local("Arial"), local("Helvetica Neue"), local("Helvetica"), local("Segoe UI"); unicode-range: U+2018-2019; }
+body, button, input, select, textarea { font-family: var(--font-body); }
 
 /* ---------- 2. backdrop: gradient + drifting aurora that leans red or green with the market ---------- */
 html, body { background: var(--bg-0); }
@@ -337,3 +343,15 @@ p.skel, div.skel.block { min-height: 64px; }
 /* long news lists scroll inside their card */
 .snews .newslist { max-height: 460px; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; margin-right: -6px; padding-right: 6px;
   -webkit-mask: linear-gradient(#000 calc(100% - 28px), transparent); mask: linear-gradient(#000 calc(100% - 28px), transparent); }
+
+/* pre-market picks */
+.pmpicks { margin: 12px 0; }
+.pmph { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+.pmph h4 { margin: 0; font-size: var(--text-lg); }
+.pmpgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 12px; }
+.pmpick { display: block; width: 100%; text-align: left; color: var(--color-ink); cursor: pointer; font: inherit; }
+.pmpick .aiohead b.up, .pmpick .aiohead b.down, .pmpick .aiohead > b:not(.pmpn) { font-size: 1.35em; }
+.pmpn { font-size: 1.15em !important; } .pmpn i { font-style: normal; font-size: .75em; color: var(--color-muted); }
+.pmpw { margin: 6px 0 10px; line-height: 1.6; }
+.pmpick .aikv { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bd-picks { display: grid; gap: 2px; }
