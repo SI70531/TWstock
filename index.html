@@ -11,7 +11,7 @@
       try { m = localStorage.getItem("twstock-theme"); } catch (e) {}
       if (m !== "light" && m !== "dark") m = null;
       var q = matchMedia("(prefers-color-scheme: light)");
-      function eff() { return "dark"; }
+      function eff() { return m || (q.matches ? "light" : "dark"); }
       r.dataset.theme = eff(); r.classList.add("js");
       window.__twTheme = {
         get mode() { return m || "system"; },
@@ -30,8 +30,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500&family=Atkinson+Hyperlegible+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./assets/twconsole.css">
+  <link rel="stylesheet" href="./assets/twui.css">
 </head>
 <body>
+<div class="aurora" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
 
 <!-- light / dark -->
 <div class="theme" id="theme">
@@ -144,6 +146,7 @@
 <script src="./assets/twlab.js"></script>
 <script src="./assets/twmain.js"></script>
 <script src="./assets/twapp.js"></script>
+<script src="./assets/twui.js"></script>
 <script>
 (function () {
   const A = window.TWAccount;

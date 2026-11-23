@@ -320,9 +320,9 @@
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}</span><span class="ixsrc"></span></h3>
         <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
-      <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram（手動分析也會傳）。</p></div>
+      <div class="ovbento"><div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram（手動分析也會傳）。</p></div>
         <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert"></p></div>
-      <div class="dcard mstrip"></div>
+      <div class="dcard mstrip"></div></div>
       <div class="dcard mkt">
         <div class="mbar"><input class="msearch" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
           <div class="chips">${PRESETS.map(([k, t]) => `<button type="button" class="chip" data-preset="${k}" aria-pressed="${k === VIEW.preset}">${t}</button>`).join("")}</div>
@@ -1007,7 +1007,7 @@
   window.TWDash = { replay: () => open(cur, false),
     /* shared with the 研究室 tab (assets/twlab.js) */
     api: { DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
-      store, openStock: code => openStock(code), code: () => CODE, J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
+      store, openStock: code => openStock(code), code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
   document.dispatchEvent(new Event("twdash:ready"));
 
   (async () => {

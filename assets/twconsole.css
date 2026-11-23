@@ -683,7 +683,6 @@ a.nrow:hover .ntext { text-decoration: underline; text-decoration-color: var(--c
 
 /* index cards: clickable, sparkline on every card, detail chart */
 .ixcard { cursor: pointer; transition: border-color .2s, transform .2s; }
-.ixcard:hover { transform: translateY(-2px); }
 .ixcard[aria-expanded="true"] { border-color: var(--color-accent, #f5b942); }
 .ixcard svg.spark path { fill: none; stroke-width: 1.6; }
 .ixcard svg.spark.up path { stroke: var(--color-up); } .ixcard svg.spark.down path { stroke: var(--color-down); }
