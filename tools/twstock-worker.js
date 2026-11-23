@@ -517,7 +517,7 @@ function pmPrompt(day, madeAt, night, world, inst, news, cands) {
 "Rules:",
 "- Use ONLY the numbers in DATA and the headlines given. Never invent a price, a figure or an event; if something important is missing say so.",
 "- TSMC ADR: one ADR is 5 shares; if you compare it with the Taiwan price, say that you need the exchange rate and use the one in DATA.",
-"- 'picks': from DATA.candidates ONLY, choose up to 5 stocks worth acting on at this open (potential stocks), best first. tag says why it is a candidate (持股 = the user holds it, 自選 = on the user's watchlist, 強勢 = strong mover yesterday with volume). For each give one concrete order like a trader would: action is exactly one of 買進, 分批買進, 觀望, 續抱, 減碼, 賣出 (for a 持股 choose among 續抱, 分批買進 as adding, 減碼, 賣出); how = order type and price (限價 or after a close above a named level), split = how to split the order, stop = the stop price and which level it is, targets = one or two target prices with the level they come from, rr = risk-reward like 1 : 2.0, why = one or two sentences tying the stock to tonight's factors. Every price must come from that candidate's numbers (ma5/ma20/ma60, bollinger, 20/60-day highs and lows, last close) or be a round number near them, and say which. If no candidate is worth buying today, say so in picks_note and give the best 觀望 ones. Also judge every 持股 in picks or picks_note.",
+"- 'picks': one entry for EVERY stock in DATA.candidates, none left out: all 持股 first, then all 自選, then the 強勢 ones (the strongest movers, potential stocks), best first within each group. tag says why it is a candidate (持股 = the user holds it, 自選 = on the user's watchlist, 強勢 = strong mover yesterday with volume). For each give one concrete order like a trader would: action is exactly one of 買進, 分批買進, 觀望, 續抱, 減碼, 賣出 (for a 持股 choose among 續抱, 分批買進 as adding, 減碼, 賣出); how = order type and price (限價 or after a close above a named level), split = how to split the order, stop = the stop price and which level it is, targets = one or two target prices with the level they come from, rr = risk-reward like 1 : 2.0, why = one or two sentences tying the stock to tonight's factors. Every price must come from that candidate's numbers (ma5/ma20/ma60, bollinger, 20/60-day highs and lows, last close) or be a round number near them, and say which. If a stock is not worth buying today its action is 觀望 (or 續抱 / 減碼 / 賣出 for a 持股) and why says what would change that; say in picks_note how many are worth acting on.",
 "- Nobody can know the open for sure. Give the more likely direction for today's open, a rough gap range in TAIEX points, and chances that add up to about 100%. Say what would prove the call wrong in the first 30 minutes.",
 "",
 "Return ONE JSON object and nothing else, in exactly this shape:",
@@ -545,7 +545,8 @@ function nextOpenDay(now) {
 /* candidates for the pre-market picks: the owner's holdings and watchlist, plus yesterday's strongest movers with volume;
    each with a few numbers from about a year of Yahoo Taiwan daily bars */
 async function pmCandidates(env) {
-  const wl = await pmStore(env, "wl").catch(() => ({})), hold = (wl.hold || []).slice(0, 6), watch = (wl.watch || []).filter(c => !hold.includes(c)).slice(0, 6);
+  /* every holding and every watchlist stock, plus the 5 strongest movers (capped at 35 in all to stay within the Worker's request limit) */
+  const wl = await pmStore(env, "wl").catch(() => ({})), hold = (wl.hold || []).slice(0, 30), watch = (wl.watch || []).filter(c => !hold.includes(c)).slice(0, Math.max(0, 30 - hold.length));
   const mkt = new Map(), strong = [];
   try {
     const a = await (await twFetch("https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
@@ -556,8 +557,8 @@ async function pmCandidates(env) {
     const o = await (await fetch("https://raw.githubusercontent.com/SI70531/TWstock/data/otc.json", { headers: { "User-Agent": TW_UA } })).json();
     (o.list || []).forEach(x => { if (!mkt.has(x[0])) mkt.set(x[0], "TWO"); const p = x[2] > 0 && x[3] != null ? x[3] / (x[2] - x[3]) * 100 : 0; if (x[8] === "otc" && /^\d{4}$/.test(x[0]) && p >= 3 && x[7] >= 2000 && x[2] >= 10) strong.push({ c: x[0], val: x[2] * x[7] * 1000, n: x[1] }); });
   } catch (e) {}
-  const pick = strong.sort((a, b) => b.val - a.val).map(x => x.c).filter(c => !hold.includes(c) && !watch.includes(c)).slice(0, Math.max(0, 12 - hold.length - watch.length));
-  const list = [...hold.map(c => [c, "持股"]), ...watch.map(c => [c, "自選"]), ...pick.map(c => [c, "強勢"])].slice(0, 12);
+  const pick = strong.sort((a, b) => b.val - a.val).map(x => x.c).filter(c => !hold.includes(c) && !watch.includes(c)).slice(0, 5);
+  const list = [...hold.map(c => [c, "持股"]), ...watch.map(c => [c, "自選"]), ...pick.map(c => [c, "強勢"])];
   const r2 = v => (Number.isFinite(v) ? Math.round(v * 100) / 100 : null);
   const out = await Promise.all(list.map(async ([code, tag]) => {
     try {
@@ -593,7 +594,11 @@ async function premarket(env, notify) {
   if (g.error) return { error: "Gemini " + g.error.status };
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
   if (!a || !a.call) return { error: "unexpected AI reply" };
-  if (Array.isArray(a.picks)) a.picks = a.picks.filter(x => x && cands.some(c => c.code === String(x.code))).slice(0, 5);
+  if (Array.isArray(a.picks)) {
+    const ord = { 持股: 0, 自選: 1, 強勢: 2 }, tagOf = c => (cands.find(x => x.code === c) || {}).tag;
+    a.picks = a.picks.filter(x => x && cands.some(c => c.code === String(x.code))).map(x => Object.assign(x, { tag: tagOf(String(x.code)) || x.tag }))
+      .sort((x, y) => (ord[x.tag] ?? 3) - (ord[y.tag] ?? 3));
+  }
   const note = { at: Date.now(), day, madeAt, analysis: a, data: { night, world, inst, candidates: cands.map(c => ({ code: c.code, name: c.name, tag: c.tag })) }, news: news.slice(0, 12).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
   await pmStore(env, "put", { note });
   if (notify) note.sent = await pmTelegram(env, a, day);
@@ -617,7 +622,7 @@ async function pmTelegram(env, a, day) {
     `<b>夜盤</b> ${esc(a.night || "—")}`, `<b>美股</b> ${esc(a.us || "—")}`, "",
     ...f.map(x => `${x.effect === "利多" ? "🔺" : x.effect === "利空" ? "🔻" : "▪️"} ${esc(x.name)}：${esc(x.note)}`), "",
     `<b>開盤後盯</b> ${esc((a.watch || []).slice(0, 3).join("；"))}`,
-    ...(Array.isArray(a.picks) && a.picks.length ? ["", "<b>潛力股與下單建議</b>", ...a.picks.slice(0, 4).map(x => `${/賣|減/.test(x.action) ? "🔻" : /觀望|續抱/.test(x.action) ? "▪️" : "🔺"} <b>${esc(x.name)}（${esc(x.code)}）${esc(x.action)}</b>　${esc(x.how || "")}\n　停損 ${esc(x.stop || "—")}｜目標 ${esc((x.targets || []).join("、") || "—")}｜${esc(x.rr || "")}`)] : []),
+    ...(Array.isArray(a.picks) && a.picks.length ? ["", "<b>潛力股與下單建議</b>", ...a.picks.map(x => `${/賣|減/.test(x.action) ? "🔻" : /觀望|續抱/.test(x.action) ? "▪️" : "🔺"} <b>${esc(x.name)}（${esc(x.code)}）${esc(x.action)}</b>　${esc(x.how || "")}\n　停損 ${esc(x.stop || "—")}｜目標 ${esc((x.targets || []).join("、") || "—")}｜${esc(x.rr || "")}`)] : []),
     `<a href="https://si70531.github.io/TWstock/">完整分析</a>｜AI 研究參考，不保證漲跌`,
   ].join("\n").slice(0, 4000);
   try { const r = await fetch(api("sendMessage"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) }); return r.ok ? "sent" : "telegram " + r.status; }
