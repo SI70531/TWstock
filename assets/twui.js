@@ -164,12 +164,70 @@
   }
   function untilt(el) { el.classList.remove("tilting"); el.style.setProperty("--rx", "0deg"); el.style.setProperty("--ry", "0deg"); }
 
+
+  /* ---------- hot cards: a brighter ring and glow for big moves, a pulse at limit up / down ---------- */
+  function scanHot() {
+    $$(".ixcard, .wcard, .bd-tile").forEach(el => {
+      const m = el.textContent.replace(/,/g, "").match(/([+-−]?\d+(?:\.\d+)?)%/); if (!m) return;
+      const p = parseFloat(m[1].replace("−", "-")), idx = el.classList.contains("ixcard"), th = idx ? 1.5 : 4;
+      const dn = /▼/.test(el.textContent) || p < 0, v = dn ? -Math.abs(p) : p;
+      el.classList.toggle("hot-up", v >= th); el.classList.toggle("hot-down", v <= -th);
+      el.classList.toggle("limit", !idx && Math.abs(v) >= 9.4);
+      el.style.color = ""; if (!idx && Math.abs(v) >= 9.4) el.style.setProperty("color", v > 0 ? "var(--color-up)" : "var(--color-down)");
+    });
+  }
+
+  /* ---------- backdrop: drifting glowing particles and occasional light streaks shaped like a price line ---------- */
+  function backdrop() {
+    const cv = document.createElement("canvas"); cv.className = "bgfx"; cv.setAttribute("aria-hidden", "true");
+    document.body.insertBefore(cv, document.body.firstChild.nextSibling);
+    const ctx = cv.getContext("2d"); let W = 0, H = 0, dpr = 1;
+    const size = () => { dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+    size(); addEventListener("resize", size);
+    const rnd = (a, b) => a + Math.random() * (b - a), COLORS = () => { const cs = getComputedStyle(root); return ["--ring-a", "--ring-b", "--ring-c", "--color-up", "--color-down"].map(k => cs.getPropertyValue(k).trim()); };
+    let pal = COLORS(); new MutationObserver(() => { pal = COLORS(); }).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    const N = Math.round(Math.min(90, (innerWidth * innerHeight) / 16000));
+    const P = Array.from({ length: N }, () => ({ x: rnd(0, W), y: rnd(0, H), r: rnd(0.6, 2.4), vx: rnd(-0.15, 0.15), vy: rnd(-0.35, -0.05), c: Math.floor(rnd(0, 3)), tw: rnd(0, 6.28) }));
+    const S = [];   /* streaks: a jagged line that draws itself across the screen and fades */
+    const streak = () => {
+      const up = root.dataset.mood === "down" ? Math.random() < 0.35 : Math.random() < 0.65, pts = [], y0 = rnd(H * 0.25, H * 0.8);
+      let y = y0; for (let x = -40; x <= W + 40; x += rnd(18, 40)) { y += rnd(-22, 22) + (up ? -4 : 4); pts.push([x, y]); }
+      S.push({ pts, t: 0, c: up ? 3 : 4 });
+    };
+    let last = 0, next = 1500;
+    const frame = now => {
+      requestAnimationFrame(frame);
+      if (document.hidden) return;
+      const dt = Math.min(50, now - last); last = now;
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalCompositeOperation = root.dataset.theme === "light" ? "source-over" : "lighter";
+      P.forEach(p => {
+        p.x += p.vx * dt / 16; p.y += p.vy * dt / 16; p.tw += dt / 600;
+        if (p.y < -10) { p.y = H + 10; p.x = rnd(0, W); } if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10;
+        const a = 0.35 + 0.35 * Math.sin(p.tw), g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 6);
+        g.addColorStop(0, pal[p.c]); g.addColorStop(1, "transparent");
+        ctx.globalAlpha = a; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 6, 0, 6.283); ctx.fill();
+      });
+      next -= dt; if (next <= 0 && S.length < 3) { streak(); next = rnd(2500, 6000); }
+      for (let i = S.length - 1; i >= 0; i--) {
+        const s = S[i]; s.t += dt / 2600; if (s.t >= 1.6) { S.splice(i, 1); continue; }
+        const n = Math.max(2, Math.floor(s.pts.length * Math.min(1, s.t))), fade = s.t > 1 ? 1 - (s.t - 1) / 0.6 : 1;
+        ctx.globalAlpha = 0.55 * fade; ctx.lineWidth = 2; ctx.strokeStyle = pal[s.c]; ctx.shadowColor = pal[s.c]; ctx.shadowBlur = 14;
+        ctx.beginPath(); s.pts.slice(0, n).forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+        const [hx, hy] = s.pts[n - 1]; ctx.globalAlpha = fade; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(hx, hy, 2.6, 0, 6.283); ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      ctx.globalAlpha = 1;
+    };
+    requestAnimationFrame(frame);
+  }
+
   /* ---------- start ---------- */
   let pending = false;
-  const schedule = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; scanNumbers(); scanSkeletons(); }); };
+  const schedule = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; scanNumbers(); scanSkeletons(); scanHot(); }); };
   function start() {
     A = window.TWDash && window.TWDash.api;
-    buildShell(); tickClock(); paintSide(); scanSkeletons();
+    buildShell(); tickClock(); paintSide(); scanSkeletons(); scanHot(); backdrop();
     setInterval(tickClock, 1000);
     setInterval(paintSide, 3000);
     document.addEventListener("twdash:list", paintSide);

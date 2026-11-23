@@ -278,3 +278,55 @@ p.skel, div.skel.block { min-height: 64px; }
 /* the pre-market and watch pages no longer leave a half-empty screen */
 #dpPre.on { align-content: start; }
 .wgrid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important; }
+
+/* ---------- 8. full-on effects: flowing borders, rainbow titles, neon figures (the backdrop particles are a canvas from twui.js) ---------- */
+@property --ang { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@property --hue { syntax: "<number>"; initial-value: 0; inherits: true; }
+:root { --ring-a: oklch(80% 0.16 75); --ring-b: oklch(72% 0.2 330); --ring-c: oklch(78% 0.15 220); --ring-w: 1.5px; }
+:root[data-theme="light"] { --ring-a: oklch(72% 0.17 70); --ring-b: oklch(62% 0.22 330); --ring-c: oklch(62% 0.17 230); }
+/* the lit top edge moves into the background so ::before can draw the ring */
+.dcard { background: linear-gradient(160deg, var(--glass-hi), transparent 38%), var(--glass); }
+.dcard::before {
+  inset: 0; z-index: 0; padding: var(--ring-w);
+  background: conic-gradient(from var(--ang), transparent 0deg, var(--ring-a) 40deg, var(--ring-b) 95deg, transparent 150deg, transparent 200deg, var(--ring-c) 250deg, transparent 320deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: ring 7s linear infinite; opacity: .75;
+}
+.dcard .dcard::before, .snap::before { display: none; }
+.dcard > * { position: relative; z-index: 1; }
+.dcard:nth-child(2n)::before { animation-duration: 9s; animation-direction: reverse; }
+.dcard:nth-child(3n)::before { animation-duration: 11s; }
+@keyframes ring { to { --ang: 360deg; } }
+/* hot cards (big moves, limit up / down) get a brighter, faster ring in the market colour and a glow */
+.hot-up::before { --ring-a: var(--color-up); --ring-b: oklch(85% 0.17 60); --ring-c: var(--color-up); animation-duration: 3s !important; opacity: 1; --ring-w: 2px; }
+.hot-down::before { --ring-a: var(--color-down); --ring-b: oklch(85% 0.14 190); --ring-c: var(--color-down); animation-duration: 3s !important; opacity: 1; --ring-w: 2px; }
+.hot-up { box-shadow: var(--glass-shadow), 0 0 36px -8px color-mix(in oklch, var(--color-up) 70%, transparent); }
+.hot-down { box-shadow: var(--glass-shadow), 0 0 36px -8px color-mix(in oklch, var(--color-down) 70%, transparent); }
+.limit { animation: limitpulse 1.6s ease-in-out infinite; }
+@keyframes limitpulse { 50% { box-shadow: var(--glass-shadow), 0 0 60px -4px color-mix(in oklch, currentColor 60%, transparent); } }
+
+/* rainbow titles: card headings, page title, brand */
+.dcard h3, .dcard h4 > :first-child:not(.aitag), .topbar .tb-title h2, .side .sb-brand > div, .bd-h h3, .aihead h3 {
+  background: linear-gradient(90deg, var(--ring-a), var(--ring-b), var(--ring-c), var(--ring-a)); background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: rainbow 8s linear infinite;
+}
+.topbar .tb-title h2 { font-size: var(--text-xl); font-weight: 700; }
+@keyframes rainbow { to { background-position: 300% 0; } }
+.mk { animation: mkglow 4s ease-in-out infinite; }
+@keyframes mkglow { 50% { box-shadow: 0 0 26px -2px var(--color-accent), 0 0 4px var(--ring-b); } }
+
+/* neon figures: the big numbers glow in their market colour */
+.big, .sb-clock .t, .mcell b, .bd-tile span { text-shadow: 0 0 18px color-mix(in oklch, currentColor 45%, transparent), 0 0 2px color-mix(in oklch, currentColor 60%, transparent); }
+.big.up, .ixchg.up, .sb-ix b.up { text-shadow: 0 0 16px color-mix(in oklch, var(--color-up) 75%, transparent), 0 0 3px var(--color-up); }
+.big.down, .ixchg.down, .sb-ix b.down { text-shadow: 0 0 16px color-mix(in oklch, var(--color-down) 75%, transparent), 0 0 3px var(--color-down); }
+:root[data-theme="light"] .big, :root[data-theme="light"] .mcell b { text-shadow: 0 0 14px color-mix(in oklch, currentColor 25%, transparent); }
+.sb-clock .t { background: linear-gradient(90deg, var(--color-ink), var(--ring-c), var(--color-ink)); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: rainbow 6s linear infinite; }
+
+/* buttons and chips shimmer */
+.aigo, .chip[aria-pressed="true"], .side nav .sb-hl { background-size: 200% 100%; animation: shimmer 4s linear infinite; }
+.chip[aria-pressed="true"] { background-image: linear-gradient(90deg, color-mix(in oklch, var(--color-accent) 25%, transparent), color-mix(in oklch, var(--ring-b) 22%, transparent), color-mix(in oklch, var(--color-accent) 25%, transparent)); }
+.side nav .sb-hl { background-image: linear-gradient(90deg, color-mix(in oklch, var(--color-accent) 24%, transparent), color-mix(in oklch, var(--ring-b) 20%, transparent), color-mix(in oklch, var(--ring-c) 20%, transparent), color-mix(in oklch, var(--color-accent) 24%, transparent)); box-shadow: 0 0 22px -6px var(--color-accent); }
+@keyframes shimmer { to { background-position: 200% 0; } }
+
+/* backdrop canvas (particles and light streaks) */
+.bgfx { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
