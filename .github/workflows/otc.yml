@@ -11,6 +11,7 @@ permissions:
 concurrency: otc-list
 jobs:
   list:
+    continue-on-error: true   # a TPEx hiccup just leaves the previous list in place, no failure e-mail
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
