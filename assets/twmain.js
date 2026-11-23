@@ -317,8 +317,9 @@
   const COLS = [["price", "成交價"], ["chg", "漲跌"], ["pct", "漲跌幅"], ["vol", "成交量"]];
   function buildOverview() {
     $("#dpOverview").innerHTML = `
-      <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}"><h3><span class="ixn">${i.name}</span><span class="ixsrc"></span></h3>
-        <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" aria-hidden="true"><path/></svg></div>`).join("")}</div>
+      <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}</span><span class="ixsrc"></span></h3>
+        <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
+      <div class="dcard ixdetail" hidden></div>
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram（手動分析也會傳）。</p></div>
         <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert"></p></div>
       <div class="dcard mstrip"></div>
@@ -346,8 +347,12 @@
       const tr = e.target.closest("tr[data-code]");
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
+      const xc = e.target.closest(".ixcard"); if (xc) { ixOpen(xc.dataset.k); return; }
+      const xr = e.target.closest("[data-ixr]"); if (xr) { IXV.r = xr.dataset.ixr; ixPaint(true); return; }
+      if (e.target.closest(".ixclose")) { ixOpen(IXV.k); return; }
     });
-    pmLoad(); setTimeout(alertSync, 2500);
+    pmLoad(); setTimeout(alertSync, 2500); loadCharts(true);
+    box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
   }
   function rowsNow() {
     const q = VIEW.q.toLowerCase();
@@ -388,11 +393,7 @@
       $(".ixchg", c).className = "sub ixchg " + t;
       $(".ixhl", c).textContent = i.h > 0 && i.l > 0 ? `高 ${fmt(i.h, 2)}　低 ${fmt(i.l, 2)}` : "";
     });
-    const sp = $('.ixcard[data-k="t00"] .spark path');
-    if (sp && MKT.rows) {
-      const ys = MKT.rows.slice(-60).map(r => r[4]), lo = Math.min(...ys), span = Math.max(...ys) - lo || 1, n = ys.length - 1;
-      sp.setAttribute("d", ys.map((y, k) => `${k ? "L" : "M"}${(k / n * 76).toFixed(1)},${(26 - (y - lo) / span * 24).toFixed(1)}`).join(""));
-    }
+    paintSparks();
   }
   function paintStrip() {
     const el = $("#dpOverview .mstrip"); if (!el) return;
@@ -739,6 +740,112 @@
   }
   document.addEventListener("twlab:hold", alertSync);
 
+
+  /* ---------------- index cards: intraday sparklines and a detail chart (Yahoo Taiwan through the Worker) ---------------- */
+  const CH = {};                                   /* "k:r" → chart data */
+  const IXV = { k: null, r: "tick" };
+  const sessOpen = k => (k === "fut" ? marketOpen() || nightOpen() : marketOpen());
+  async function loadChart(k, r) {
+    const j = await J(`${WORKER}/tw/chart?k=${k}&r=${r}`);
+    if (j && Array.isArray(j.pts)) CH[k + ":" + r] = j;
+    return CH[k + ":" + r];
+  }
+  async function loadCharts(first) {
+    await Promise.all(IDX.map(i => (first || sessOpen(i.k) || !CH[i.k + ":tick"] ? loadChart(i.k, "tick").catch(() => null) : null)));
+    paintSparks(); if (first && cur === "dpOverview") drawSpark();
+    if (IXV.k && IXV.r === "tick" && sessOpen(IXV.k)) ixPaint(false);
+    setTimeout(() => loadCharts(false), marketOpen() || nightOpen() ? 60000 : 600000);
+  }
+  function paintSparks() {
+    IDX.forEach(i => {
+      const svg = $(`.ixcard[data-k="${i.k}"] .spark`), d = CH[i.k + ":tick"]; if (!svg || !d || d.pts.length < 2) return;
+      const ys = d.pts.map(p => p[1]), base = ok(d.prev) ? d.prev : ys[0], lo = Math.min(base, ...ys), hi = Math.max(base, ...ys), span = hi - lo || 1, n = ys.length - 1;
+      const Y = v => (26 - (v - lo) / span * 24).toFixed(1);
+      $("path", svg).setAttribute("d", ys.map((y, k) => `${k ? "L" : "M"}${(k / n * 76).toFixed(1)},${Y(y)}`).join(""));
+      const b = $(".spbase", svg); b.setAttribute("y1", Y(base)); b.setAttribute("y2", Y(base));
+      svg.setAttribute("class", "spark " + (ys[n] >= base ? "up" : "down"));
+    });
+  }
+  function ixOpen(k) {
+    const panel = $("#dpOverview .ixdetail");
+    $$(".ixcard").forEach(c => c.setAttribute("aria-expanded", "false"));
+    if (IXV.k === k && !panel.hidden) { panel.hidden = true; IXV.k = null; return; }
+    IXV.k = k; IXV.r = "tick"; panel.hidden = false;
+    $(`.ixcard[data-k="${k}"]`).setAttribute("aria-expanded", "true");
+    ixPaint(true);
+    panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }
+  async function ixPaint(animate) {
+    const panel = $("#dpOverview .ixdetail"), k = IXV.k, r = IXV.r; if (!k || panel.hidden) return;
+    const it = IDX.find(i => i.k === k), key = k + ":" + (r === "tick" ? "tick" : "day");
+    if (!CH[key] || (r !== "tick" && !CH[key].pts.length)) { panel.innerHTML = `<p class="sub">載入走勢…</p>`; try { await loadChart(k, r === "tick" ? "tick" : "day"); } catch (e) { panel.innerHTML = `<p class="sub">走勢暫時讀不到，請稍後再試。</p>`; return; } }
+    if (IXV.k !== k || IXV.r !== r) return;
+    const d = CH[key], pts = r === "tick" ? d.pts : d.pts.slice(r === "3mo" ? -66 : -250);
+    const z = ok(it.z) ? it.z : d.last, y = ok(it.y) ? it.y : d.prev, ch = z - y, t = tone(ch), dg = 2;
+    const sessName = k === "fut" ? (nightOpen() || (taipei().mins < 525) ? "夜盤（15:00 起）" : "日盤（08:45 起）") : "當日（09:00–13:30）";
+    const vol = k === "fut" ? (ok(it.v) || ok(d.volume) ? fmt(ok(d.volume) ? d.volume : it.v) + " 口" : "—") : ok(d.volume) ? fmt(d.volume / 1e8, 1) + " 億股" : "—";
+    const kv = (a, b, c) => `<div class="snap ixkv"><span>${a}</span><b class="${c || ""}">${b}</b></div>`;
+    panel.innerHTML = `
+      <div class="ixdhead"><div><h3>${esc(it.name)}${it.label ? "（" + esc(it.label.replace(/^臺指期\s*/, "")) + "）" : ""}</h3>
+          <div class="ixdnow"><b class="big ${t}">${ok(z) ? fmt(z, dg) : "—"}</b><span class="${t}">${ok(ch) ? `${arrow(ch)} ${fmt(Math.abs(ch), dg)}（${pct(ch / y * 100)}）` : ""}</span><span class="sub">${esc(it.src || "")} ${esc((it.tm || "").slice(0, 5))}</span></div></div>
+        <div class="chips">${[["tick", sessName.replace(/（.*/, "") + "走勢"], ["3mo", "日線 3 個月"], ["1y", "日線 1 年"]].map(([v, l]) => `<button type="button" class="chip" data-ixr="${v}" aria-pressed="${v === r}">${l}</button>`).join("")}
+          <button type="button" class="btn ixclose" aria-label="關閉">×</button></div></div>
+      <div class="ixdbody"><div class="ixdchart">${ixSVG(pts, r === "tick" ? y : null, r, k)}<p class="sub ixread">${r === "tick" ? sessName + "，每分鐘一點；虛線是昨收（參考價）。" : "每日收盤。"}移到圖上看各點數值。</p></div>
+        <div class="ixdstats">${kv("開盤", ok(d.open) ? fmt(d.open, dg) : "—")}${kv("最高", ok(it.h) ? fmt(it.h, dg) : ok(d.high) ? fmt(d.high, dg) : "—", "up")}${kv("最低", ok(it.l) ? fmt(it.l, dg) : ok(d.low) ? fmt(d.low, dg) : "—", "down")}
+          ${kv(k === "fut" ? "參考價" : "昨收", ok(y) ? fmt(y, dg) : "—")}${kv("振幅", ok(d.high) && ok(d.low) && ok(y) ? pct((d.high - d.low) / y * 100).replace("+", "") : "—")}${kv("成交量", vol)}
+          ${k === "fut" && ok(d.limitUp) ? kv("漲停／跌停", `${fmt(d.limitUp, 0)}／${fmt(d.limitDown, 0)}`) : ""}${r !== "tick" && pts.length > 1 ? kv("區間漲跌", pct((pts[pts.length - 1][1] / pts[0][1] - 1) * 100), tone(pts[pts.length - 1][1] - pts[0][1])) + kv("區間最高", fmt(Math.max(...pts.map(p => p[1])), 0), "up") + kv("區間最低", fmt(Math.min(...pts.map(p => p[1])), 0), "down") : ""}</div></div>`;
+    ixHover(panel, pts, r);
+    if (animate) ixAnimate(panel);
+  }
+  function ixSVG(pts, base, r, k) {
+    const W = 760, H = 300, PL = 62, PR = 12, PT = 12, PB = 26;
+    if (pts.length < 2) return `<p class="mempty">${r === "tick" ? "這個時段還沒有成交。" : "沒有資料。"}</p>`;
+    const ys = pts.map(p => p[1]), lo0 = Math.min(...ys, ok(base) ? base : Infinity), hi0 = Math.max(...ys, ok(base) ? base : -Infinity), pad = (hi0 - lo0) * 0.08 || 1, lo = lo0 - pad, hi = hi0 + pad;
+    /* the session's own time span for the intraday chart, so a morning line only fills part of the width */
+    let x0 = pts[0][0], x1 = pts[pts.length - 1][0];
+    if (r === "tick") { const d0 = new Date((pts[0][0] + 8 * 3600) * 1000), mid = Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), d0.getUTCDate()) / 1000 - 8 * 3600, h = d0.getUTCHours();
+      if (k === "fut" && h >= 15) { x0 = mid + 15 * 3600; x1 = mid + 29 * 3600; } else if (k === "fut") { x0 = mid + 8.75 * 3600; x1 = mid + 13.75 * 3600; } else { x0 = mid + 9 * 3600; x1 = mid + 13.5 * 3600; } }
+    const X = (p, i) => PL + (r === "tick" ? (p[0] - x0) / (x1 - x0) : i / (pts.length - 1)) * (W - PL - PR), Y = v => PT + (hi - v) / (hi - lo) * (H - PT - PB);
+    const ticks = [0, 1, 2, 3].map(j => lo + pad + (hi0 - lo0) * j / 3);
+    const xl = r === "tick" ? [0, 0.25, 0.5, 0.75, 1].map(f => { const ts = x0 + (x1 - x0) * f, d = new Date((ts + 8 * 3600) * 1000); return [PL + f * (W - PL - PR), String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0")]; })
+      : [0, 0.33, 0.66, 1].map(f => { const p = pts[Math.round(f * (pts.length - 1))], d = new Date((p[0] + 8 * 3600) * 1000); return [PL + f * (W - PL - PR), (d.getUTCMonth() + 1) + "/" + d.getUTCDate()]; });
+    const line = pts.map((p, i) => `${i ? "L" : "M"}${X(p, i).toFixed(1)} ${Y(p[1]).toFixed(1)}`).join(""), last = pts[pts.length - 1];
+    const up = ok(base) ? last[1] >= base : last[1] >= pts[0][1];
+    const area = line + `L${X(last, pts.length - 1).toFixed(1)} ${H - PB}L${X(pts[0], 0).toFixed(1)} ${H - PB}Z`;
+    return `<svg class="ixfig ${up ? "up" : "down"}" viewBox="0 0 ${W} ${H}" role="img" aria-label="走勢圖">
+      <g class="ixbk">${ticks.map(v => `<line class="gridl" x1="${PL}" x2="${W - PR}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="${PL - 6}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end">${fmt(v, 0)}</text>`).join("")}
+        ${xl.map(([x, l]) => `<text x="${x.toFixed(1)}" y="${H - 6}" text-anchor="middle">${l}</text>`).join("")}
+        ${ok(base) ? `<line class="ixbase" x1="${PL}" x2="${W - PR}" y1="${Y(base).toFixed(1)}" y2="${Y(base).toFixed(1)}"/>` : ""}</g>
+      <path class="ixarea" d="${area}"/><path class="ixline" d="${line}"/>
+      <g class="ixcur" style="display:none"><line class="ixvl" y1="${PT}" y2="${H - PB}"/><circle r="4"/></g>
+      <rect class="ixhit" x="${PL}" y="${PT}" width="${W - PL - PR}" height="${H - PT - PB}" fill="transparent"/></svg>`;
+  }
+  function ixHover(panel, pts, r) {
+    const svg = $(".ixfig", panel), read = $(".ixread", panel); if (!svg) return;
+    const g = $(".ixcur", svg), vl = $(".ixvl", svg), dot = $("circle", svg), line = $(".ixline", svg), txt = read.textContent;
+    const segs = line.getAttribute("d").match(/[ML][^ML]+/g).map(s => s.slice(1).trim().split(" ").map(Number));
+    const move = e => {
+      const b = svg.getBoundingClientRect(), x = (e.clientX - b.left) / b.width * 760;
+      let i = 0, best = Infinity; segs.forEach((s, j) => { const dd = Math.abs(s[0] - x); if (dd < best) { best = dd; i = j; } });
+      const p = pts[i], d = new Date((p[0] + 8 * 3600) * 1000);
+      g.style.display = ""; vl.setAttribute("x1", segs[i][0]); vl.setAttribute("x2", segs[i][0]); dot.setAttribute("cx", segs[i][0]); dot.setAttribute("cy", segs[i][1]);
+      read.textContent = (r === "tick" ? String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0") : `${d.getUTCFullYear()}/${d.getUTCMonth() + 1}/${d.getUTCDate()}`) + `　${fmt(p[1], 2)}` + (p[2] ? `　量 ${fmt(p[2])}` : "");
+    };
+    svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move);
+    svg.addEventListener("pointerleave", () => { g.style.display = "none"; read.textContent = txt; });
+  }
+  /* backdrop (grid, axis, reference line) first, then the line draws from left to right, then the shaded area and the figures */
+  function ixAnimate(panel) {
+    const svg = $(".ixfig", panel);
+    if (svg) {
+      $$(".ixbk > *", svg).forEach((el, i) => el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: i * 25, fill: "backwards" }));
+      const ln = $(".ixline", svg), L = ln.getTotalLength(), t0 = 350;
+      ln.style.strokeDasharray = L; ln.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 1100, delay: t0, easing: "ease-out", fill: "backwards" });
+      $(".ixarea", svg).animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, delay: t0 + 1000, fill: "backwards" });
+    }
+    rise($$(".ixkv", panel), 50, 300);
+  }
+
   /* ---------------- AI pre-market note (written by the Worker at 05:30, or on request) ---------------- */
   function pmPaint(j, animate) {
     const el = $("#dpOverview .pmout"); if (!el) return;
@@ -875,10 +982,14 @@
     rtPoll();
   }
   function drawSpark() {
-    const p = $('.ixcard[data-k="t00"] .spark path'); if (!p || !p.getAttribute("d")) return;
-    const L = p.getTotalLength(); p.style.strokeDasharray = L;
-    p.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 900, delay: 250, easing: "ease-out", fill: "backwards" });
+    $$(".ixcard .spark").forEach((svg, i) => {
+      const b = $(".spbase", svg), p = $("path", svg); if (!p || !p.getAttribute("d")) return;
+      if (b) b.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 150 + i * 80, fill: "backwards" });
+      const L = p.getTotalLength(); p.style.strokeDasharray = L;
+      p.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 900, delay: 400 + i * 80, easing: "ease-out", fill: "backwards" });
+    });
   }
+
   tabs.forEach(b => b.addEventListener("click", () => open(b.dataset.p, true)));
   $(".dtabs").addEventListener("keydown", e => {
     const i = tabs.indexOf(document.activeElement); if (i < 0 || !/Arrow(Left|Right|Up|Down)/.test(e.key)) return;

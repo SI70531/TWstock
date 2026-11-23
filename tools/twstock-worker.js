@@ -47,6 +47,7 @@ export default {
     /* public market data */
     if (url.pathname === "/tw/rt" && req.method === "GET") return twRt(url, json);
     if (url.pathname === "/tw/news" && req.method === "GET") return twNewsRoute(url, json, fail);
+    if (url.pathname === "/tw/chart" && req.method === "GET") return twChart(url, json, fail);
     if (url.pathname === "/tw/premarket" && req.method === "GET") return json(await pmStore(env, "get"), 200, { "Cache-Control": "no-store" });
 
     /* everything below needs a Supabase sign-in */
@@ -666,5 +667,23 @@ async function watchNews(env, codes, S) {
   if (g.error) return [];
   let r = null; try { r = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch (e2) { r = null; } }
   return (r && Array.isArray(r.alerts) ? r.alerts : []).slice(0, 5).map(x => ({ title: twClip(x.title, 80), impact: x.impact, why: twClip(x.why, 200), link: (fresh[(+x.n || 0) - 1] || {}).u || "" }));
+}
+
+/* ---------- index and futures charts (Yahoo Taiwan): 1-minute bars of the session, or daily bars for about a year ---------- */
+const CHART_SYM = { t00: "^TWII", fut: "WTX&", t13: "^TELI", t17: "^TFNI" };
+async function twChart(url, json, fail) {
+  const k = url.searchParams.get("k"), r = url.searchParams.get("r") === "day" ? "day" : "tick", sym = CHART_SYM[k];
+  if (!sym) return fail(400, "BAD_CODE", "Unknown chart");
+  const out = await twCached("ch:" + k + ":" + r, r === "tick" ? 20000 : 3600000, async () => {
+    const u = "https://tw.stock.yahoo.com/_td-stock/api/resource/FinanceChartService.ApacLibraCharts;symbols=" + encodeURIComponent(JSON.stringify([sym])) + ";type=" + r + (r === "day" ? ";period=d" : "");
+    const res = await fetch(u, { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
+    if (!res.ok) throw new Error("Yahoo " + res.status);
+    const c = ((await res.json())[0] || {}).chart || {}, q = (c.indicators && c.indicators.quote && c.indicators.quote[0]) || {}, m = c.meta || {}, qq = c.quote || {};
+    const t = c.timestamp || [], pts = [];
+    t.forEach((ts, i) => { const v = q.close && q.close[i]; if (v > 0) pts.push([ts, Math.round(v * 100) / 100, q.volume ? q.volume[i] || 0 : 0, q.high ? q.high[i] : null, q.low ? q.low[i] : null, q.open ? q.open[i] : null]); });
+    return { k, r, name: m.name || "", prev: twNum(m.previousClose) || twNum(qq.previousClose), last: twNum(m.regularMarketPrice) || twNum(qq.price), open: twNum(qq.openPrice), high: twNum(qq.dayHighPrice), low: twNum(qq.dayLowPrice),
+      volume: twNum(qq.volume), limitUp: twNum(m.limitUpPrice), limitDown: twNum(m.limitDownPrice), at: (m.regularMarketTime || 0) * 1000, pts };
+  }).catch(e => ({ error: String(e.message || e) }));
+  return out.error ? fail(502, "SOURCE", out.error) : json(out, 200, { "Cache-Control": "no-store" });
 }
 
