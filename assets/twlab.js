@@ -27,7 +27,7 @@
   const dayNum = s => Date.parse(String(s).replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3") + "T00:00:00Z") / 864e5;
   const iso = ds => ds.slice(0, 4) + "-" + ds.slice(4, 6) + "-" + ds.slice(6);
   const K = { hold: "twlab-hold", cash: "twlab-cash", pref: "twlab-pref", trades: "twlab-trades", events: "twlab-events", tool: "twlab-tool", dcf: "twlab-dcf", bt: "twlab-bt", peers: "twlab-peers", mc: "twlab-mc", check: "twlab-check" };
-  const get = (k, d) => A.store.get(k, d), set = (k, v) => A.store.set(k, v);
+  const get = (k, d) => A.store.get(k, d), set = (k, v) => { A.store.set(k, v); if (k === K.hold) document.dispatchEvent(new Event("twlab:hold")); };
 
   const TOOLS = [
     ["hold", "持股風險", "集中度、相關性、β、市場下跌 20% 壓力測試與再平衡比較", "#5"],

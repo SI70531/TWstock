@@ -319,7 +319,7 @@
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}"><h3><span class="ixn">${i.name}</span><span class="ixsrc"></span></h3>
         <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" aria-hidden="true"><path/></svg></div>`).join("")}</div>
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram（手動分析也會傳）。</p></div>
-        <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div></div>
+        <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert"></p></div>
       <div class="dcard mstrip"></div>
       <div class="dcard mkt">
         <div class="mbar"><input class="msearch" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
@@ -346,7 +346,7 @@
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
     });
-    pmLoad();
+    pmLoad(); setTimeout(alertSync, 2500);
   }
   function rowsNow() {
     const q = VIEW.q.toLowerCase();
@@ -433,6 +433,7 @@
     WATCH = WATCH.includes(code) ? WATCH.filter(c => c !== code) : WATCH.concat(code);
     store.set("twtrade-watch", WATCH);
     try { window.TWAccount && TWAccount.saveWatchlist(WATCH).catch(() => {}); } catch (e) {}
+    alertSync();
     $$(".starbtn").forEach(b => b.setAttribute("aria-pressed", String(WATCH.includes(b.dataset.code))));
     paintWatch(false);
     if (VIEW.preset === "watch") paintTable(false);
@@ -442,6 +443,7 @@
       if (!window.TWAccount || !TWAccount.account()) return;
       const sym = await TWAccount.loadWatchlist();
       if (sym && sym.length && JSON.stringify(sym) !== JSON.stringify(WATCH)) { WATCH = sym; store.set("twtrade-watch", WATCH); paintWatch(false); paintTable(false); starHead(); }
+      alertSync();
     } catch (e) {}
   }
 
@@ -715,6 +717,26 @@
     }
   }
 
+
+
+  /* the watchlist and the held codes (codes only, never shares or costs) go to the Worker, which watches them during trading hours */
+  let alertTimer = 0;
+  function alertSync() {
+    clearTimeout(alertTimer);
+    alertTimer = setTimeout(async () => {
+      const el = $("#dpOverview .pmalert");
+      let tk = null; try { tk = window.TWAccount && TWAccount.token ? await TWAccount.token() : null; } catch (e) {}
+      if (!tk) { if (el) el.textContent = "盤中警示：登入後才會把自選股與持股交給 Worker 監控（目前只監控加權指數與台指期）。"; return; }
+      const hold = (store.get("twlab-hold", []) || []).map(h => h.code);
+      try {
+        const r = await fetch(WORKER + "/tw/alerts/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk, watch: WATCH, hold }) });
+        const j = await r.json().catch(() => ({}));
+        if (el) el.textContent = j.ok ? `盤中警示：監控加權指數、台指期夜盤與 ${j.n} 檔自選股／持股（指數 ±1.5%、個股 ±5%、漲跌停，另外每 15 分鐘由 AI 看新聞與重大訊息），傳到 Telegram。`
+          : j.owner === false ? "盤中警示的清單由網站擁有者的帳號管理，這個帳號的自選股不會被監控。" : "盤中警示：暫時無法同步清單。";
+      } catch (e) { if (el) el.textContent = "盤中警示：暫時無法同步清單。"; }
+    }, 1500);
+  }
+  document.addEventListener("twlab:hold", alertSync);
 
   /* ---------------- AI pre-market note (written by the Worker at 05:30, or on request) ---------------- */
   function pmPaint(j, animate) {

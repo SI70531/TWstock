@@ -18,7 +18,11 @@ const AI_HOUR = 600, AI_DAY = 3000;
 
 let ENV = null;   /* the current request's bindings, so the data fetchers can reach the Asia relay */
 export default {
-  async scheduled(event, env, ctx) { ENV = env; ctx.waitUntil(premarket(env, true)); },
+  async scheduled(event, env, ctx) {
+    ENV = env;
+    if (event.cron === "*/5 * * * *") ctx.waitUntil(watchTick(env, new Date(event.scheduledTime)).catch(() => {}));
+    else ctx.waitUntil(premarket(env, true));
+  },
   async fetch(req, env) {
     ENV = env;
     const origin = req.headers.get("Origin") || "";
@@ -58,6 +62,11 @@ export default {
     const who = "u" + acct.id.replace(/-/g, "");
 
     if (url.pathname === "/tw/analyze" && req.method === "POST") return twAnalyze(env, who, bodyText, json, fail);
+    if (url.pathname === "/tw/alerts/sync" && req.method === "POST") {
+      let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
+      const clean = a => [...new Set((Array.isArray(a) ? a : []).map(v => String(v).trim()).filter(v => /^[0-9A-Z]{4,6}$/.test(v)))].slice(0, 60);
+      return json(await pmStore(env, "watch", { who, watch: clean(b.watch), hold: clean(b.hold) }));
+    }
     if (url.pathname === "/tw/premarket/run" && req.method === "POST") {
       const q = await guard(env, "pin:" + who, "ai");
       if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached for this sign-in; try again later", { "Retry-After": String(q.aiWait || 60) });
@@ -412,6 +421,15 @@ export class Daily {
     if (op === "put") { const h = (await st.get("hist")) || []; h.unshift(b.note); h.length = Math.min(h.length, 14); await st.put("hist", h); return Response.json({ ok: true }); }
     if (op === "chat") { if (b.set) await st.put("chat", b.set); return Response.json({ chat: (await st.get("chat")) || null, offset: (await st.get("off")) || 0 }); }
     if (op === "off") { await st.put("off", b.off || 0); return Response.json({ ok: true }); }
+    /* the alert list belongs to the first account that sent one (the site owner); other accounts are ignored */
+    if (op === "watch") {
+      const owner = await st.get("owner");
+      if (owner && owner !== b.who) return Response.json({ ok: false, owner: false });
+      await st.put("owner", b.who); await st.put("wl", { watch: b.watch, hold: b.hold, at: Date.now() });
+      return Response.json({ ok: true, owner: true, n: new Set([...b.watch, ...b.hold]).size });
+    }
+    if (op === "wl") return Response.json((await st.get("wl")) || { watch: [], hold: [] });
+    if (op === "state") { if (b.set) await st.put("al", b.set); return Response.json((await st.get("al")) || {}); }
     const h = (await st.get("hist")) || [];
     return Response.json({ note: h[0] || null, history: h.slice(1, 7).map(x => ({ at: x.at, day: x.day, call: x.analysis && x.analysis.call })) });
   }
@@ -531,3 +549,100 @@ async function pmTelegram(env, a, day) {
   try { const r = await fetch(api("sendMessage"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) }); return r.ok ? "sent" : "telegram " + r.status; }
   catch (e) { return "telegram failed"; }
 }
+
+/* ---------- alerts during trading hours (day 09:00–13:30, night 15:00–05:00), cron every 5 minutes ---------- */
+async function tgSend(env, text) {
+  if (!env.TG_TOKEN) return "no TG_TOKEN";
+  const api = m => "https://api.telegram.org/bot" + env.TG_TOKEN + "/" + m;
+  let { chat } = await pmStore(env, "chat");
+  if (!chat) {
+    try { const u = await (await fetch(api("getUpdates"))).json(); const m = (u.result || []).map(x => x.message || x.channel_post).find(x => x && x.chat); if (m) { chat = m.chat.id; await pmStore(env, "chat", { set: chat }); } } catch (e) {}
+  }
+  if (!chat) return "no chat";
+  try { const r = await fetch(api("sendMessage"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chat, text: text.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true }) }); return r.ok ? "sent" : "telegram " + r.status; }
+  catch (e) { return "telegram failed"; }
+}
+const hesc = v => String(v == null ? "" : v).replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]);
+const IDX_STEP = 1.5, STK_STEP = 5;
+/* which session is open now (Taipei); weekends: no day session, night session runs Monday–Friday evenings into the next morning */
+function twSession(d) {
+  const t = new Date(d.getTime() + 8 * 3600e3), wd = t.getUTCDay(), m = t.getUTCHours() * 60 + t.getUTCMinutes();
+  if (wd >= 1 && wd <= 5 && m >= 9 * 60 && m <= 13 * 60 + 30) return { s: "day", day: t.toISOString().slice(0, 10), m };
+  if ((wd >= 1 && wd <= 5 && m >= 15 * 60) || (wd >= 2 && wd <= 6 && m < 5 * 60)) {
+    const start = m < 5 * 60 ? new Date(t.getTime() - 864e5) : t;
+    return { s: "night", day: start.toISOString().slice(0, 10) + "N", m };
+  }
+  return null;
+}
+async function watchTick(env, now) {
+  const ses = twSession(now); if (!ses || !env.DAILY) return;
+  const st = await pmStore(env, "state"), S = st.day === ses.day ? st : { day: ses.day, lv: {}, seen: st.seen || [], newsAt: 0 };
+  /* a level fires once per session: ±1.5%, ±3%, ±4.5% … for the index; a reversal through zero to the other side fires again */
+  const msgs = [], fire = (key, pct, step, line) => {
+    const lv = Math.trunc(pct / step), prev = S.lv[key] || 0;
+    if (lv && (Math.abs(lv) > Math.abs(prev) || Math.sign(lv) !== Math.sign(prev || lv))) { S.lv[key] = lv; msgs.push(line); }
+  };
+  const sg = v => (v > 0 ? "+" : "") + v.toFixed(2) + "%", arrow = v => (v > 0 ? "🔺" : "🔻");
+  const wl = await pmStore(env, "wl"), codes = [...new Set([...(wl.hold || []), ...(wl.watch || [])])];
+  if (ses.s === "day") {
+    const idx = await twMis(["tse_t00.tw"]).catch(() => []), x = idx.find(r => r.c === "t00");
+    let z = x && x.z, y = x && x.y;
+    if (!(z > 0 && y > 0)) { const yq = await twYahoo(["^TWII"]).catch(() => []); if (yq[0]) { z = yq[0].z; y = yq[0].y; } }
+    if (z > 0 && y > 0) { const p = (z / y - 1) * 100; fire("TAIEX", p, IDX_STEP, `${arrow(p)} <b>加權指數 ${sg(p)}</b>　${z.toFixed(2)}（${p > 0 ? "+" : ""}${(z - y).toFixed(0)} 點）`); }
+    if (codes.length) {
+      let q = await twMis(codes.map(c => "tse_" + c + ".tw")).catch(() => []);
+      const have = new Set(q.filter(r => r.z > 0).map(r => r.c)), miss = codes.filter(c => !have.has(c));
+      if (miss.length) q = q.filter(r => r.z > 0).concat(await twYahoo(miss).catch(() => []));
+      q.forEach(r => {
+        if (!(r.z > 0 && r.y > 0)) return;
+        const p = (r.z / r.y - 1) * 100, tag = (wl.hold || []).includes(r.c) ? "持股" : "自選", nm = r.n || r.c;
+        if (p >= 9.4) fire(r.c + ":lim", 1, 1, `🚀 <b>${hesc(nm)}（${r.c}）漲停</b> ${r.z}　[${tag}]`);
+        else if (p <= -9.4) fire(r.c + ":lim", -1, 1, `🧊 <b>${hesc(nm)}（${r.c}）跌停</b> ${r.z}　[${tag}]`);
+        fire(r.c, p, STK_STEP, `${arrow(p)} <b>${hesc(nm)}（${r.c}）${sg(p)}</b>　${r.z}　[${tag}]`);
+      });
+    }
+  } else {
+    const f = await twFut().catch(() => null);
+    if (f && f.src === "night" && f.z > 0 && f.y > 0) { const p = (f.z / f.y - 1) * 100; fire("TXN", p, IDX_STEP, `${arrow(p)} <b>台指期夜盤 ${sg(p)}</b>　${f.z}（${p > 0 ? "+" : ""}${(f.z - f.y).toFixed(0)} 點）`); }
+  }
+  /* news and the watched companies' material announcements, judged by the AI every 15 minutes */
+  if (now.getTime() - (S.newsAt || 0) >= 14 * 60000) {
+    S.newsAt = now.getTime();
+    const ev = await watchNews(env, codes, S).catch(() => []);
+    ev.forEach(e => msgs.push(`${e.impact === "利多" ? "🟥" : e.impact === "利空" ? "🟩" : "⚠️"} <b>${hesc(e.title)}</b>\n${hesc(e.why)}${e.link ? `\n<a href="${hesc(e.link)}">來源</a>` : ""}`));
+  }
+  await pmStore(env, "state", { set: S });
+  if (msgs.length) await tgSend(env, `<b>${ses.s === "day" ? "台股盤中" : "夜盤"}警示</b>\n\n` + msgs.join("\n\n") + "\n\n<i>AI 與自動監控，研究參考</i>");
+}
+async function watchNews(env, codes, S) {
+  const seen = new Set(S.seen || []), fresh = [], cut = Date.now() - 90 * 60000;
+  const [a, b] = await Promise.all([
+    twHeadlines("台股 OR 台指期 OR 台積電 OR 美股 OR 聯準會 when:1h", 12).catch(() => []),
+    twHeadlines("關稅 OR 出口管制 OR 地緣政治 OR 輝達 OR 半導體 when:1h", 10).catch(() => []),
+  ]);
+  [...a, ...b].forEach(x => { if (x.at >= cut && !seen.has(x.t)) { seen.add(x.t); fresh.push({ k: "news", t: x.t, src: x.src, u: x.u }); } });
+  if (codes.length) {
+    const all = await twCached("ann", 600000, async () => { const r = await twFetch("https://openapi.twse.com.tw/v1/opendata/t187ap04_L", { headers: { "User-Agent": TW_UA, Accept: "application/json" } }); return r.ok ? await r.json() : []; }).catch(() => []);
+    const pick = (o, sub) => { const k = Object.keys(o).find(x => x.includes(sub)); return k ? o[k] : ""; };
+    (Array.isArray(all) ? all : []).filter(x => codes.includes(String(pick(x, "公司代號")).trim())).forEach(x => {
+      const t = String(pick(x, "公司代號")).trim() + " " + twClip(pick(x, "公司名稱"), 12) + "：" + twClip(pick(x, "主旨"), 160);
+      if (!seen.has(t)) { seen.add(t); fresh.push({ k: "ann", t, body: twClip(pick(x, "說明"), 300) }); }
+    });
+  }
+  S.seen = [...seen].slice(-400);
+  if (!fresh.length || !env.GEMINI_KEY) return [];
+  const prompt = [
+    "You watch the Taiwan stock market for one private investor. Below are NEW headlines and company announcements from the last hour.",
+    "The investor holds or watches these TWSE codes: " + (codes.join(", ") || "(none)") + ".",
+    "Pick ONLY the items that are likely to move the Taiwan market as a whole, or one of those stocks, meaningfully today (for example a surprise Fed or tariff decision, export controls, a war or disaster, a big earnings surprise, a major customer order, a trading halt, a capital change). Ignore routine items, opinion pieces, repeats and small moves. Usually the answer is none.",
+    "Write in Traditional Chinese as used in Taiwan. Use only what the titles say; do not invent details.",
+    'Return ONE JSON object: {"alerts":[{"n":item number,"title":"short title","impact":"利多|利空|不確定","why":"one sentence: what it means for Taiwan stocks or which holding"}]} — an empty list when nothing matters.',
+    "",
+    fresh.map((x, i) => `${i + 1}. [${x.k === "ann" ? "公司重大訊息" : "新聞"}] ${x.t}${x.src ? "（" + x.src + "）" : ""}${x.body ? " — " + x.body : ""}`).join("\n"),
+  ].join("\n");
+  const g = await geminiJson(env, prompt, 0.2, 0);
+  if (g.error) return [];
+  let r = null; try { r = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch (e2) { r = null; } }
+  return (r && Array.isArray(r.alerts) ? r.alerts : []).slice(0, 5).map(x => ({ title: twClip(x.title, 80), impact: x.impact, why: twClip(x.why, 200), link: (fresh[(+x.n || 0) - 1] || {}).u || "" }));
+}
+
