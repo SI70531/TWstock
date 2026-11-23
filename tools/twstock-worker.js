@@ -20,7 +20,7 @@ let ENV = null;   /* the current request's bindings, so the data fetchers can re
 export default {
   async scheduled(event, env, ctx) {
     ENV = env;
-    if (event.cron === "* * * * *") ctx.waitUntil(watchTick(env, new Date(event.scheduledTime)).catch(() => {}));
+    if (event.cron === "* * * * *") ctx.waitUntil(Promise.all([watchTick(env, new Date(event.scheduledTime)).catch(() => {}), bellNotice(env, new Date(event.scheduledTime)).catch(() => {})]));
     else ctx.waitUntil(premarket(env, true));
   },
   async fetch(req, env) {
@@ -461,6 +461,7 @@ export class Daily {
       return Response.json({ ok: true, owner: true, n: new Set([...b.watch, ...b.hold]).size });
     }
     if (op === "wl") return Response.json((await st.get("wl")) || { watch: [], hold: [] });
+    if (op === "bell") { const k = "bell:" + b.kind, was = await st.get(k); if (was === b.day) return Response.json({ first: false }); await st.put(k, b.day); return Response.json({ first: true }); }
     if (op === "state") { if (b.set) await st.put("al", b.set); return Response.json((await st.get("al")) || {}); }
     const h = (await st.get("hist")) || [];
     return Response.json({ note: h[0] || null, history: h.slice(1, 7).map(x => ({ at: x.at, day: x.day, call: x.analysis && x.analysis.call })) });
@@ -821,5 +822,44 @@ async function twYahooTW(codes) {
   const got = new Set(out.map(x => x.c)), rest = codes.filter(c => !got.has(c));
   if (rest.length) await ask(rest, "TW");
   return out;
+}
+
+/* ---------- opening and closing bell: one Telegram message at 09:01 and one at 13:31 (Taipei, Monday to Friday) ---------- */
+async function bellNotice(env, now) {
+  const t = new Date(now.getTime() + 8 * 3600e3), wd = t.getUTCDay(), m = t.getUTCHours() * 60 + t.getUTCMinutes();
+  if (wd < 1 || wd > 5) return;
+  const kind = m >= 541 && m <= 545 ? "open" : m >= 811 && m <= 816 ? "close" : null; if (!kind) return;
+  const day = t.toISOString().slice(0, 10);
+  const idx = await twMis(["tse_t00.tw"]).catch(() => []), ix = idx.find(x => x.c === "t00");
+  let z = ix && ix.z, y = ix && ix.y, o = ix && ix.o, h = ix && ix.h, l = ix && ix.l;
+  if (!(z > 0 && y > 0)) { const q = (await twYahooTW(["^TWII"]).catch(() => []))[0] || (await twYahoo(["^TWII"]).catch(() => []))[0]; if (q) { z = q.z; y = q.y; o = q.o; h = q.h; l = q.l; } }
+  if (!(z > 0 && y > 0)) return;                                /* market closed today (holiday): no message */
+  if (ix && ix.d && ix.d !== day.replace(/-/g, "")) return;   /* the quote is from an earlier day: no trading today */
+  if (!(await pmStore(env, "bell", { kind, day })).first) return;   /* once per day (the Durable Object decides atomically) */
+  const sg = v => (v > 0 ? "+" : "") + v.toFixed(2) + "%", pts = v => (v > 0 ? "+" : "") + Math.round(v), arw = v => (v > 0 ? "🔺" : v < 0 ? "🔻" : "▪️");
+  const lines = [];
+  if (kind === "open") {
+    const op = o > 0 ? o : z, gap = op - y;
+    lines.push(`<b>🔔 開盤 ${day.slice(5).replace("-", "/")}</b>`, `${arw(gap)} 加權 ${op.toFixed(0)}（${pts(gap)} 點，${sg(gap / y * 100)}）`);
+    const pm = (await pmStore(env, "get")).note;
+    if (pm && pm.day === day && pm.analysis) { const c = pm.analysis.call || "", hit = /高/.test(c) ? gap > 20 : /低/.test(c) ? gap < -20 : Math.abs(gap) <= 60; lines.push(`盤前預測：${c}（${pm.analysis.gap || ""}）${hit ? "✅" : "❌"}`); }
+  } else {
+    lines.push(`<b>🔔 收盤 ${day.slice(5).replace("-", "/")}</b>`, `${arw(z - y)} 加權 ${z.toFixed(2)}（${pts(z - y)} 點，${sg((z / y - 1) * 100)}）`);
+    if (h > 0 && l > 0) lines.push(`高 ${h.toFixed(0)}・低 ${l.toFixed(0)}`);
+  }
+  const f = await twFut().catch(() => null);
+  if (f && f.z > 0 && f.y > 0) lines.push(`${arw(f.z - f.y)} 台指期 ${f.z}（${pts(f.z - f.y)}）`);
+  const wl = await pmStore(env, "wl").catch(() => ({})), codes = [...new Set([...(wl.hold || []), ...(wl.watch || [])])].slice(0, 40);
+  if (codes.length) {
+    let q = await twMis(codes.flatMap(c => ["tse_" + c + ".tw", "otc_" + c + ".tw"])).catch(() => []);
+    const have = new Set(q.filter(r => r.z > 0).map(r => r.c)), miss = codes.filter(c => !have.has(c));
+    if (miss.length) q = q.filter(r => r.z > 0).concat(await twYahooTW(miss).catch(() => []));
+    const rows = q.filter(r => r.z > 0 && r.y > 0).map(r => ({ ...r, p: ((kind === "open" && r.o > 0 ? r.o : r.z) / r.y - 1) * 100, px: kind === "open" && r.o > 0 ? r.o : r.z })).sort((a, b) => b.p - a.p);
+    if (rows.length) {
+      lines.push("", kind === "open" ? "<b>你的股票開盤</b>" : "<b>你的股票收盤</b>");
+      rows.forEach(r => lines.push(`${r.p >= 9.4 ? "🚀" : r.p <= -9.4 ? "🧊" : arw(r.p)} ${hesc(r.n || r.c)} ${r.px}（${sg(r.p)}）${(wl.hold || []).includes(r.c) ? "　持股" : ""}`));
+    }
+  }
+  await tgSend(env, lines.join("\n"));
 }
 
