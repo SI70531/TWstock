@@ -672,3 +672,10 @@ a.nrow:hover .ntext { text-decoration: underline; text-decoration-color: var(--c
 .pmf { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--color-paper-3); }
 .pmf .sub { grid-column: 1 / -1; }
 .pmmore > summary { cursor: pointer; font-weight: 600; padding: 6px 0; }
+
+.aiorder { border: 1px solid var(--color-rule-2); border-left: 4px solid var(--color-rule-2); border-radius: 14px; padding: 14px 16px; margin-bottom: var(--space-sm); background: var(--color-paper-3); }
+.aiorder.o-up { border-left-color: var(--color-up); } .aiorder.o-down { border-left-color: var(--color-down); }
+.aiohead { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.aiohead b { font-size: 1.6em; }
+.aiorder .aikv { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-xs); }
+@media (max-width: 800px) { .aiorder .aikv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

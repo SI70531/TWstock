@@ -762,7 +762,11 @@
     if (!hit) { out.innerHTML = ""; msg.textContent = ""; return; }
     const a = hit.data.analysis || {}, S = a.summary || {}, E = S.entry || {}, li = arr => (Array.isArray(arr) ? arr : []).map(x => `<li>${esc(x)}</li>`).join("");
     msg.textContent = `分析時間 ${new Date(hit.at).toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}，依當時的報價與新聞。`;
+    const O = a.order || {}, otn = /買|續抱/.test(O.action || "") ? "up" : /賣|減/.test(O.action || "") ? "down" : "";
     out.innerHTML = `
+      ${O.action ? `<div class="aiorder ${otn ? "o-" + otn : ""}"><div class="aiohead"><span class="sub">下單建議</span><b class="${otn}">${esc(O.action)}</b>${O.rr ? `<span class="sub">風險報酬 ${esc(O.rr)}</span>` : ""}</div>
+        <p class="ailead">${esc(O.why || "")}</p>
+        <div class="aikv"><div><span>怎麼下</span><b>${esc(O.how || "—")}</b></div><div><span>分批</span><b>${esc(O.split || "—")}</b></div><div><span>停損</span><b>${esc(O.stop || "—")}</b></div><div><span>目標</span><b>${esc((Array.isArray(O.targets) ? O.targets : []).join("；") || "—")}</b></div></div></div>` : ""}
       <div class="aisum"><div class="aiverdict"><span class="aitag ${stanceTone(S.stance)}">${esc(S.stance || "—")}</span><span class="sub">信心 ${esc(S.confidence || "—")}</span></div>
         <p class="ailead">${esc(S.headline || "")}</p>
         <div class="aicols"><div><h4>未來 1–2 週</h4><p>${esc(S.short_term || "—")}</p></div><div><h4>未來 1–3 個月</h4><p>${esc(S.mid_term || "—")}</p></div></div></div>
