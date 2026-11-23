@@ -355,3 +355,13 @@ p.skel, div.skel.block { min-height: 64px; }
 .pmpw { margin: 6px 0 10px; line-height: 1.6; }
 .pmpick .aikv { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .bd-picks { display: grid; gap: 2px; }
+
+/* search suggestions sit above everything else in the card, on solid frosted glass */
+.dcard > .sfind { z-index: 30; }
+.ssug { z-index: 40; background: var(--glass-strong); -webkit-backdrop-filter: blur(26px) saturate(150%); backdrop-filter: blur(26px) saturate(150%);
+  border: 1px solid var(--glass-line-2); box-shadow: 0 24px 50px -16px rgb(0 0 0 / .55); border-radius: 14px; max-height: 60vh; overflow: auto; }
+:root[data-theme="dark"] .ssug { background: oklch(19% 0.014 255); }
+:root[data-theme="light"] .ssug { background: oklch(99% 0.004 250); }
+.ssug button { min-height: 44px; }
+.ssug button:hover, .ssug button:focus-visible { background: var(--glass-2); }
+.dcard.shead { overflow: visible; z-index: 20; }
