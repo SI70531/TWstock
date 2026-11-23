@@ -322,6 +322,14 @@
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3><p class="sub">每個交易日 05:30 自動分析夜盤、美股、匯率、法人與國際新聞，判斷今天開盤方向，並傳到 Telegram（手動分析也會傳）。</p></div>
         <button type="button" class="btn pmgo">現在分析一次</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert"></p></div>
       <div class="dcard mstrip"></div>
+      <div class="board">
+        <div class="dcard bd-dist"><div class="bd-h"><h3>漲跌分布</h3><span class="sub bd-n"></span></div><div class="bd-bars"></div></div>
+        <div class="dcard bd-up"><div class="bd-h"><h3>漲幅排行</h3><span class="sub">量 500 張以上</span></div><div class="bd-list"></div></div>
+        <div class="dcard bd-down"><div class="bd-h"><h3>跌幅排行</h3><span class="sub">量 500 張以上</span></div><div class="bd-list"></div></div>
+        <div class="dcard bd-vol"><div class="bd-h"><h3>成交量排行</h3><span class="sub">張</span></div><div class="bd-list"></div></div>
+        <div class="dcard bd-heat"><div class="bd-h"><h3>自選股熱力圖</h3><span class="sub">顏色深淺＝漲跌幅</span></div><div class="bd-tiles"></div></div>
+        <div class="dcard bd-pm"><div class="bd-h"><h3>盤前分析</h3><button type="button" class="btn bd-go" data-goto="dpPre">看完整分析 →</button></div><div class="bd-pmout"><p class="sub">載入中…</p></div></div>
+      </div>
       <div class="dcard mkt">
         <div class="mbar"><input class="msearch" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
           <div class="chips">${PRESETS.map(([k, t]) => `<button type="button" class="chip" data-preset="${k}" aria-pressed="${k === VIEW.preset}">${t}</button>`).join("")}</div>
@@ -347,6 +355,8 @@
       const tr = e.target.closest("tr[data-code]");
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
+      const gt = e.target.closest("[data-goto]"); if (gt) { open(gt.dataset.goto, true); return; }
+      const bd = e.target.closest(".bd-row, .bd-tile"); if (bd) { openStock(bd.dataset.code, bd); return; }
       const xc = e.target.closest(".ixcard"); if (xc) { ixOpen(xc.dataset.k); return; }
       const xr = e.target.closest("[data-ixr]"); if (xr) { IXV.r = xr.dataset.ixr; ixPaint(true); return; }
       if (e.target.closest(".ixclose")) { ixOpen(IXV.k); return; }
@@ -398,6 +408,7 @@
     paintSparks();
   }
   function paintStrip() {
+    try { paintBoard(); } catch (e) {}
     const el = $("#dpOverview .mstrip"); if (!el) return;
     const last = MKT.rows && MKT.rows[MKT.rows.length - 1], prev = MKT.rows && MKT.rows[MKT.rows.length - 2], I = MKT.inst;
     let up = 0, down = 0, flat = 0; DB.list.forEach(s => { if (s.chg > 0) up++; else if (s.chg < 0) down++; else flat++; });
@@ -743,6 +754,41 @@
   document.addEventListener("twlab:hold", alertSync);
 
 
+
+  /* ---------------- overview board: distribution, movers, volume, watchlist heat map, pre-market summary ---------------- */
+  let PMN = null, boardSig = "";
+  function paintBoard() {
+    const box = $("#dpOverview .board"); if (!box || !DB.list.length) return;
+    const live = DB.list.filter(s => ok(s.price) && s.price > 0 && ok(s.pct)), liq = live.filter(s => s.vol >= 500 && s.mkt !== "esb");
+    const sig = live.length + ":" + live.reduce((a, s) => a + s.pct, 0).toFixed(1) + ":" + (PMN ? PMN.at : 0) + ":" + WATCH.join();
+    const first = !boardSig; if (sig === boardSig) return; boardSig = sig;
+    /* distribution: ≤-9, -9..-6, -6..-3, -3..0, 0, 0..3, 3..6, 6..9, ≥9 */
+    const B = [["跌停", p => p <= -9.4, "down"], ["-9~-6", p => p > -9.4 && p <= -6, "down"], ["-6~-3", p => p > -6 && p <= -3, "down"], ["-3~0", p => p > -3 && p < 0, "down"], ["平", p => p === 0, ""],
+      ["0~3", p => p > 0 && p < 3, "up"], ["3~6", p => p >= 3 && p < 6, "up"], ["6~9", p => p >= 6 && p < 9.4, "up"], ["漲停", p => p >= 9.4, "up"]];
+    const cnt = B.map(b => live.filter(s => b[1](s.pct)).length), mx = Math.max(1, ...cnt);
+    $(".bd-n", box).textContent = `${fmt(live.length)} 檔`;
+    $(".bd-bars", box).innerHTML = B.map((b, i) => `<div class="bd-col"><span class="bd-c">${fmt(cnt[i])}</span><i class="bd-b ${b[2]}" style="--h:${(cnt[i] / mx * 100).toFixed(1)}%"></i><span class="bd-l">${b[0]}</span></div>`).join("");
+    const row = (s, v, t) => `<button type="button" class="bd-row" data-code="${esc(s.code)}"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i></span><span class="bd-px">${fmt(s.price, dig(s.price))}</span><span class="bd-v ${t}">${v}</span></button>`;
+    const up = liq.slice().sort((a, b) => b.pct - a.pct).slice(0, 8), dn = liq.slice().sort((a, b) => a.pct - b.pct).slice(0, 8), vol = live.slice().sort((a, b) => b.vol - a.vol).slice(0, 8), vmx = vol.length ? vol[0].vol : 1;
+    $(".bd-up .bd-list", box).innerHTML = up.map(s => row(s, pct(s.pct), "up")).join("");
+    $(".bd-down .bd-list", box).innerHTML = dn.map(s => row(s, pct(s.pct), "down")).join("");
+    $(".bd-vol .bd-list", box).innerHTML = vol.map(s => `<button type="button" class="bd-row bd-vrow" data-code="${esc(s.code)}" style="--w:${(s.vol / vmx * 100).toFixed(1)}%"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i></span><span class="bd-px ${tone(s.chg)}">${pct(s.pct)}</span><span class="bd-v">${fmt(s.vol)}</span></button>`).join("");
+    const W = WATCH.map(c => DB.by.get(c)).filter(Boolean);
+    $(".bd-tiles", box).innerHTML = W.length ? W.map(s => { const a = Math.min(1, Math.abs(s.pct || 0) / 6); return `<button type="button" class="bd-tile ${tone(s.chg)}" data-code="${esc(s.code)}" style="--a:${(0.12 + a * 0.75).toFixed(2)}"><b>${esc(s.name)}</b><span>${pct(s.pct)}</span><i>${fmt(s.price, dig(s.price))}</i></button>`; }).join("") : `<p class="sub">還沒有自選股，在「股票」清單點 ★ 加入。</p>`;
+    const a = PMN && PMN.analysis;
+    $(".bd-pmout", box).innerHTML = a ? `<div class="bd-call"><span class="aitag ${/高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : ""}">${esc(a.call)}</span><span class="sub">預測 ${esc(String(PMN.day).slice(5).replace("-", "/"))} 開盤・${esc(a.gap || "")}</span></div><p class="bd-head">${esc(a.headline || "")}</p>
+      <div class="bd-ch">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc((a.chances || {})[k] || "—")}</b></div>`).join("")}</div>` : `<p class="sub">還沒有盤前分析，每個交易日 05:30 自動產生。</p>`;
+    if (first || cur === "dpOverview") boardIn(box, first);
+  }
+  /* bars grow from the baseline, list rows slide in one after another, tiles pop in */
+  function boardIn(box, full) {
+    $$(".bd-b", box).forEach((b, i) => b.animate([{ transform: "scaleY(0)" }, { transform: "scaleY(1)" }], { duration: 700, delay: full ? 150 + i * 60 : 0, easing: "cubic-bezier(.2,.9,.3,1.1)", fill: "backwards" }));
+    if (!full) return;
+    $$(".bd-row", box).forEach((r, i) => r.animate([{ opacity: 0, transform: "translateX(-8px)" }, { opacity: 1, transform: "none" }], { duration: 400, delay: 250 + (i % 8) * 45, fill: "backwards" }));
+    $$(".bd-vrow", box).forEach((r, i) => r.animate([{ backgroundSize: "0% 100%" }, { backgroundSize: "var(--w) 100%" }], { duration: 900, delay: 400 + i * 60, easing: "ease-out", fill: "backwards" }));
+    $$(".bd-tile", box).forEach((t, i) => t.animate([{ opacity: 0, transform: "scale(.85)" }, { opacity: 1, transform: "none" }], { duration: 420, delay: 300 + i * 50, easing: "cubic-bezier(.2,.9,.3,1.3)", fill: "backwards" }));
+  }
+
   /* ---------------- index cards: intraday sparklines and a detail chart (Yahoo Taiwan through the Worker) ---------------- */
   const CH = {};                                   /* "k:r" → chart data */
   const IXV = { k: null, r: "tick" };
@@ -850,6 +896,7 @@
 
   /* ---------------- AI pre-market note (written by the Worker at 05:30, or on request) ---------------- */
   function pmPaint(j, animate) {
+    if (j && j.note) { PMN = j.note; boardSig = boardSig ? "x" : ""; try { paintBoard(); } catch (e) {} }
     const el = $("#dpPre .pmout"); if (!el) return;
     const n = j && j.note;
     if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有盤前分析。每個交易日 05:30 會自動產生，也可以按「現在分析一次」。</p>`; return; }
@@ -977,7 +1024,7 @@
     if (!quiet) {
       /* panel content rises in one block after another; then the figures inside draw themselves */
       rise(Array.from(panel.children), 80);
-      if (cur === "dpOverview") { rise($$(".ixcard", panel), 70); drawSpark(); }
+      if (cur === "dpOverview") { rise($$(".ixcard", panel), 70); drawSpark(); const bx = $(".board", panel); if (bx) boardIn(bx, true); }
       if (cur === "dpList") rise($$(".mtbl tbody tr", panel).slice(0, 24), 18, 200);
       if (cur === "dpWatch") { paintWatch(false); rise($$(".wcard", panel), 60, 80); }
       if (cur === "dpStock" && !same) { if (HIST.get(CODE)) drawChart(true); else setStock(CODE, true); }
