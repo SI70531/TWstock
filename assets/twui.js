@@ -56,6 +56,13 @@
     bar.innerHTML = `<div class="tb-brand">TWstock</div><div class="tb-title"><h2>總覽</h2></div>
       <span class="statuschip tbchip" data-s="closed"><i></i><span class="ss">—</span><b class="tt"></b></span><div class="tb-right"></div>`;
     main.insertBefore(bar, main.firstChild);
+    /* phones and tablets have no sidebar: the clock and the two quotes sit in a second row of the (sticky) top bar */
+    const mc = document.createElement("div");
+    mc.className = "mclock";
+    mc.innerHTML = `<div class="mc-t"><b class="t">--:--:--</b><span class="sd"></span></div>
+      <div class="sb-ix" data-k="t00"><span>加權</span><b>—</b></div><div class="sb-ix" data-k="fut"><span>台指期</span><b>—</b></div>
+      <div class="sb-prog" hidden><div class="bar"><i></i></div><span></span></div>`;
+    bar.appendChild(mc);
     const prog = document.createElement("i"); prog.className = "tb-prog"; prog.setAttribute("aria-hidden", "true"); bar.appendChild(prog);
     let sf = 0;
     const onScroll = () => { if (sf) return; sf = requestAnimationFrame(() => {
@@ -90,27 +97,31 @@
   function tickClock() {
     const t = taipei(), [s, label] = session();
     $$(".statuschip").forEach(c => { c.dataset.s = s; const ss = $(".ss", c); if (ss) ss.textContent = label; const tt = $(".tt", c); if (tt) tt.textContent = t.hms; });
+    const mc = $(".mclock"); if (mc) { $(".t", mc).textContent = t.hms; $(".sd", mc).textContent = t.md; }
     const side = $(".side"); if (!side) return;
     $(".sb-clock .t", side).textContent = t.hms; $(".sb-clock .sd", side).textContent = t.md;
     /* how far the session has run, and how long until it ends (or opens) */
-    const pr = $(".sb-prog", side), now = new Date(Date.now() + 8 * 3600e3), sec = t.m * 60 + now.getUTCSeconds();
+    const prs = $$(".sb-prog"), now = new Date(Date.now() + 8 * 3600e3), sec = t.m * 60 + now.getUTCSeconds();
     const span = s === "day" ? [540, 810, "距收盤"] : s === "pre" ? [525, 540, "距開盤"] : s === "night" ? [900, 1740, "距夜盤收盤"] : null;
-    if (!span) { pr.hidden = true; return; }
+    if (!span) { prs.forEach(pr => { pr.hidden = true; }); return; }
     const cur = s === "night" && sec < 300 * 60 ? sec + 1440 * 60 : sec, a = span[0] * 60, b = span[1] * 60, left = Math.max(0, b - cur);
     const hh = Math.floor(left / 3600), mm = Math.floor(left % 3600 / 60), ss = left % 60, two = n => String(n).padStart(2, "0");
-    pr.hidden = false; pr.dataset.s = s;
-    $("i", pr).style.transform = `scaleX(${Math.min(1, Math.max(0, (cur - a) / (b - a))).toFixed(4)})`;
-    $("span", pr).textContent = `${span[2]} ${hh ? hh + ":" + two(mm) : mm}:${two(ss)}`;
-    pr.classList.toggle("ending", s === "day" && left <= 300);
+    prs.forEach(pr => {
+      pr.hidden = false; pr.dataset.s = s;
+      $("i", pr).style.transform = `scaleX(${Math.min(1, Math.max(0, (cur - a) / (b - a))).toFixed(4)})`;
+      $("span", pr).textContent = `${span[2]} ${hh ? hh + ":" + two(mm) : mm}:${two(ss)}`;
+      pr.classList.toggle("ending", s === "day" && left <= 300);
+    });
   }
   function paintSide() {
     const side = $(".side"); if (!side || !A) return;
     const fmt = (v, d) => (Number.isFinite(v) ? v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }) : "—");
     A.IDX.slice(0, 2).forEach(i => {
-      const el = $(`.sb-ix[data-k="${i.k}"] b`, side); if (!el) return;
       const p = Number.isFinite(i.z) && Number.isFinite(i.y) ? (i.z / i.y - 1) * 100 : NaN;
-      el.textContent = Number.isFinite(i.z) ? `${fmt(i.z, 0)}  ${Number.isFinite(p) ? (p > 0 ? "+" : "") + p.toFixed(2) + "%" : ""}` : "—";
-      el.className = p > 0 ? "up" : p < 0 ? "down" : "";
+      $$(`.sb-ix[data-k="${i.k}"] b`).forEach(el => {
+        el.textContent = Number.isFinite(i.z) ? `${fmt(i.z, 0)}  ${Number.isFinite(p) ? (p > 0 ? "+" : "") + p.toFixed(2) + "%" : ""}` : "—";
+        el.className = p > 0 ? "up" : p < 0 ? "down" : "";
+      });
     });
     const W = (A.watch ? A.watch() : A.store.get("twtrade-watch", []) || []).slice(0, 12), box = $(".sb-watch", side);
     if (box && A.DB.list.length) box.innerHTML = W.length ? W.map(c => {
