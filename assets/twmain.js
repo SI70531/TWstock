@@ -12,12 +12,22 @@
      /tw/analyze in the EZexams repo, tools/ezexams-worker.js). When the Worker does not answer, the page keeps
      working on closing data and says so.
    - If TWSE itself cannot be reached the page shows clearly labelled sample numbers.
-   The watchlist stays in this browser and syncs to the account when signed in (assets/twaccount.js). */
+   No accounts: the watchlist stays in this browser, and a random device id (twstock-device) tells the Worker which
+   device's saved analyses and alert list are which. */
 (function () {
   "use strict";
   const root = document.getElementById("dash");
   if (!root) return;
   const WORKER = "https://twstock-ai.ta77199ta.workers.dev";
+  /* this browser's random id, made once; the Worker keys today's saved analyses and the alert list by it */
+  const DEVICE = (() => {
+    let d = null; try { d = localStorage.getItem("twstock-device"); } catch (e) {}
+    if (!/^[0-9a-f]{32}$/.test(d || "")) {
+      d = [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, "0")).join("");
+      try { localStorage.setItem("twstock-device", d); } catch (e) {}
+    }
+    return d;
+  })();
   const NS = "http://www.w3.org/2000/svg";
   const $ = (s, r = root) => r.querySelector(s);
   const $$ = (s, r = root) => Array.from(r.querySelectorAll(s));
@@ -63,7 +73,6 @@
     ["2887", "0050", "0056", "00878", "00919", "00929", "006208", "00403A", "0052"]];
   let LISTS = store.get("twtrade-wl", null);
   if (!Array.isArray(LISTS) || LISTS.length !== 5) LISTS = [WATCH.slice(), [], [], [], []];
-  let WL_SEEDED = false;
   if (!store.get("twtrade-wl-seed", 0)) { LISTS[0] = WL_SEED[0].slice(); LISTS[1] = WL_SEED[1].slice(); WATCH = LISTS[0]; store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS); store.set("twtrade-wl-seed", 1); WL_SEEDED = true; }
   LISTS[0] = WATCH;
   const listIdx = () => (/^w[1-5]$/.test(VIEW.preset) ? +VIEW.preset[1] - 1 : 0);
@@ -505,10 +514,7 @@
       <div class="wlead">${pick("領漲", best)}${best !== worst ? pick("落後", worst) : ""}</div>`;
   }
   const breadthBar = (up, flat, down) => `<div class="breadth" role="img" aria-label="上漲 ${up}、平盤 ${flat}、下跌 ${down}"><i class="up" style="flex-grow:${up}"></i><i class="flat" style="flex-grow:${flat}"></i><i class="down" style="flex-grow:${down}"></i></div>`;
-  function saveLists() {
-    store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS);
-    try { window.TWAccount && TWAccount.saveWatchlist(WATCH, LISTS.slice(1)).catch(() => {}); } catch (e) {}
-  }
+  function saveLists() { store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS); }
   function toggleWatch(code, i) {
     i = i || 0;
     const L = LISTS[i];
@@ -518,18 +524,6 @@
     if (i === 0) alertSync();
     paintWatch(false);
     if (VIEW.q || /^w[1-5]$/.test(VIEW.preset)) paintTable(false);
-  }
-  async function pullWatch() {
-    try {
-      if (!window.TWAccount || !TWAccount.account()) return;
-      if (WL_SEEDED) { WL_SEEDED = false; await TWAccount.saveWatchlist(WATCH, LISTS.slice(1)); }
-      const sym = await TWAccount.loadWatchlist(), ex = TWAccount.watchExtra ? TWAccount.watchExtra() : null;
-      let ch = false;
-      if (sym && sym.length && JSON.stringify(sym) !== JSON.stringify(WATCH)) { WATCH = LISTS[0] = sym; ch = true; }
-      if (Array.isArray(ex) && ex.length === 4 && JSON.stringify(ex) !== JSON.stringify(LISTS.slice(1))) { ex.forEach((l, j) => { LISTS[j + 1] = Array.isArray(l) ? l : []; }); ch = true; }
-      if (ch) { store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS); paintWatch(false); paintTable(false); }
-      alertSync();
-    } catch (e) {}
   }
 
   /* ---------------- indicators ---------------- */
@@ -842,14 +836,12 @@
     clearTimeout(alertTimer);
     alertTimer = setTimeout(async () => {
       const el = $("#dpPre .pmalert");
-      let tk = null; try { tk = window.TWAccount && TWAccount.token ? await TWAccount.token() : null; } catch (e) {}
-      if (!tk) { if (el) el.textContent = "盤中警示：登入後才會監控你的股票。"; return; }
       const hold = (store.get("twlab-hold", []) || []).map(h => h.code);
       try {
-        const r = await fetch(WORKER + "/tw/alerts/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk, watch: WATCH, hold }) });
+        const r = await fetch(WORKER + "/tw/alerts/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ d: DEVICE, watch: WATCH, hold }) });
         const j = await r.json().catch(() => ({}));
         if (el) el.textContent = j.ok ? `盤中警示：監控大盤、台指期與 ${j.n} 檔股票，有大漲跌或重大消息會傳 Telegram。`
-          : j.owner === false ? "盤中警示只監控擁有者帳號的股票。" : "盤中警示：同步失敗。";
+          : j.owner === false ? "盤中警示只監控擁有者裝置的股票。" : "盤中警示：同步失敗。";
       } catch (e) { if (el) el.textContent = "盤中警示：同步失敗。"; }
     }, 1500);
   }
@@ -1020,14 +1012,12 @@
   }
   async function pmLoad() { try { pmPaint(await J(`${WORKER}/tw/premarket`), true); } catch (e) { const el = $("#dpPre .pmout"); if (el) el.innerHTML = `<p class="sub">盤前分析需要部署新版 Worker。</p>`; } }
   async function pmRun(b) {
-    let tk = null; try { tk = window.TWAccount && TWAccount.token ? await TWAccount.token() : null; } catch (e) {}
     const el = $("#dpPre .pmout");
-    if (!tk) { el.insertAdjacentHTML("afterbegin", `<p class="sub warn">要先登入帳號才能手動分析。</p>`); return; }
     b.disabled = true; b.textContent = "分析中…";
     try {
-      const r = await fetch(WORKER + "/tw/premarket/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk }) });
+      const r = await fetch(WORKER + "/tw/premarket/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       const j = await r.json().catch(() => null);
-      if (!r.ok || !j || !j.analysis) throw new Error(r.status === 401 ? "登入過期了，請重新登入" : aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
+      if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
       pmPaint({ note: j }, true);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
@@ -1046,7 +1036,7 @@
   const anaHTML = a => (Array.isArray(a) && a.length ? `<ul class="pana">${a.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : "");
   /* ---------------- the AI analyst team ---------------- */
   const AI = new Map();                            /* code → { at, data } for this visit */
-  /* the two limits that need their own words: the Gemini free tier's daily cap (reset at midnight US Pacific) and this account's own cap;
+  /* the two limits that need their own words: the Gemini free tier's daily cap (reset at midnight US Pacific) and the per-connection cap;
      anything else (a busy minute included) keeps the Worker's own message */
   function aiLimitMsg(j) {
     const code = j && j.error && j.error.status;
@@ -1055,7 +1045,7 @@
       const t = Date.now() + (86400 - (+p.hour * 3600 + +p.minute * 60 + +p.second)) * 1000, tw = ms => new Date(ms + 8 * 3600e3).toISOString();
       return `AI 今天的額度用完了，${tw(t).slice(0, 10) === tw(Date.now()).slice(0, 10) ? "今天" : "明天"} ${tw(t).slice(11, 16)} 重置`;
     }
-    if (code === "RESOURCE_EXHAUSTED") return "這個帳號的分析次數到上限了，晚一點再試";
+    if (code === "RESOURCE_EXHAUSTED") return "AI 分析次數到上限了，晚一點再試";
     return null;
   }
   const stanceTone = s => (/多/.test(s || "") ? "up" : /空/.test(s || "") ? "down" : "");
@@ -1087,9 +1077,6 @@
     const cs = barsOf(code);
     if (!s || !cs || cs.length < 30) { msg.textContent = "這檔的歷史資料還不夠，無法分析。"; return; }
     if (!DB.live) { msg.textContent = "目前是示意資料，連上證交所後才能分析。"; return; }
-    let tk = null;
-    try { tk = window.TWAccount && TWAccount.token ? await TWAccount.token() : null; } catch (e) { tk = null; }
-    if (!tk) { msg.textContent = "AI 分析需要先登入帳號（右上角「登入」）。"; return; }
     const fresh = AI.has(code);                    /* 重新分析 asks for a new one; 開始分析 may get today's saved one at no cost */
     go.disabled = true; go.textContent = "分析中…"; msg.textContent = "五位分析師正在讀數據與新聞，大約需要 20 到 40 秒。";
     $(".aiout", box).innerHTML = `<div class="aiwait"><i></i><i></i><i></i><i></i><i></i></div>`;
@@ -1099,11 +1086,11 @@
       try { lab = window.TWLab ? await TWLab.research(code, (i, n) => { if (code === CODE) msg.textContent = `整理研究資料（讀日線 ${i}/${n} 個月）…`; }) : null; } catch (e) { lab = null; }
       if (code === CODE) msg.textContent = "五位分析師正在讀數據、研究資料與新聞，大約需要 20 到 40 秒。";
       const F = facts(cs); if (lab) F.research = lab;
-      const r = await fetch(WORKER + "/tw/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ t: tk, code, name: s.name, facts: F, fresh }) });
+      const r = await fetch(WORKER + "/tw/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ d: DEVICE, code, name: s.name, facts: F, fresh }) });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) {
         const st = r.status;
-        throw new Error(st === 401 ? "登入過期了，請重新登入" : aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : st >= 500 ? "Google 的 AI 現在太忙，過幾分鐘再按一次" : "AI 暫時沒有回應，過幾分鐘再試"));
+        throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : st >= 500 ? "Google 的 AI 現在太忙，過幾分鐘再按一次" : "AI 暫時沒有回應，過幾分鐘再試"));
       }
       AI.set(code, { at: j.at || Date.now(), data: j });
       if (code === CODE) { paintAI(); rise(Array.from($(".aiout", box).children), 90); }
@@ -1180,7 +1167,6 @@
   /* "/" jumps to the search box from anywhere: the stock page's own box there, the list's everywhere else */
   document.addEventListener("keydown", e => {
     if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "")) return;
-    const g = document.getElementById("gate"); if (g && !g.hidden) return;
     e.preventDefault();
     if (cur !== "dpStock" && cur !== "dpList") open("dpList", true);
     const inp = cur === "dpStock" ? $("#dpStock .ssearch") : $("#dpList .msearch");
@@ -1206,7 +1192,7 @@
     note(); paintTable(true); paintStrip(); paintWatch(true); paintHead();
     if (cur === "dpStock") setStock(CODE, true);
     document.dispatchEvent(new Event("twdash:list"));
-    pullWatch();
+    alertSync();
     if (DB.live) {
       loadIdxEod().then(paintIdx, () => {}).then(paintIdx);
       loadMarket().then(() => { paintIdx(); paintStrip(); if (cur === "dpOverview") drawSpark(); }, () => {});

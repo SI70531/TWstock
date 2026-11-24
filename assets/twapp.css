@@ -46,9 +46,6 @@
   transition: transform .5s cubic-bezier(.3,1.4,.5,1), width .5s cubic-bezier(.3,1.4,.5,1);
 }
 
-/* the gate reads as an app sign-in card */
-#gate .ticket { border-radius: 24px; box-shadow: 0 30px 60px -30px rgba(0,0,0,.8); }
-#gate .brand { letter-spacing: .02em; }
 
 @media (max-width: 720px) {
   .app .dtabs { display: none; }

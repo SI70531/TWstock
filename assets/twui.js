@@ -49,14 +49,13 @@
     };
     new MutationObserver(place).observe($(".dtabs"), { subtree: true, attributes: true, attributeFilter: ["aria-selected"] });
 
-    /* top bar: page title, market status, the account buttons moved out of the old header */
+    /* top bar: page title, market status, appearance */
     const main = $(".app main"), bar = document.createElement("div");
     bar.className = "topbar";
     bar.innerHTML = `<div class="tb-brand">TWstock</div><div class="tb-title"><h2>總覽</h2></div>
       <span class="statuschip tbchip" data-s="closed"><i></i><span class="ss">—</span><b class="tt"></b></span><div class="tb-right"></div>`;
     main.insertBefore(bar, main.firstChild);
     const right = $(".tb-right", bar);
-    ["#who", "#pinBtn", "#accountBtn"].forEach(s => { const el = $(s); if (el) right.appendChild(el); });
     /* light / dark / follow the device */
     const T = window.__twTheme, seg = document.createElement("div");
     seg.className = "thseg"; seg.setAttribute("role", "radiogroup"); seg.setAttribute("aria-label", "外觀");

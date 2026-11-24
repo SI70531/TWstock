@@ -1,20 +1,21 @@
 /* TWstock Worker (Cloudflare, name "twstock-ai"): the server side of https://si70531.github.io/TWstock/.
-   Moved here from the EZexams repository; signs in with the same Supabase accounts.
-     GET  /tw/rt?c=2330,2317&idx=1   intraday quotes (TWSE market information system, Yahoo Finance when that refuses)  (no sign-in)
-     GET  /tw/news?c=2330&n=台積電    news headlines and the company's material announcements                         (no sign-in)
-     GET  /tw/premarket              the latest pre-market note                                                     (no sign-in)
-     POST /tw/analyze {t, code, name, facts}   the AI analyst team (one AI call per sign-in)
-     POST /tw/premarket/run {t}                write a pre-market note now (one AI call)
+   No accounts: the AI calls are limited per IP address, and the page sends a random device id (d) that keys
+   today's saved analyses and the alert list.
+     GET  /tw/rt?c=2330,2317&idx=1   intraday quotes (TWSE market information system, Yahoo Finance when that refuses)
+     GET  /tw/news?c=2330&n=台積電    news headlines and the company's material announcements
+     GET  /tw/premarket              the latest pre-market note
+     POST /tw/analyze {d, code, name, facts}   the AI analyst team (one AI call)
+     POST /tw/alerts/sync {d, watch, hold}     the codes the trading-hours alerts watch (the first device that syncs owns the list)
+     POST /tw/premarket/run                    write a pre-market note now (one AI call, a few per hour for the whole site)
      cron 05:30 Taipei on trading-day mornings: the pre-market note, sent to Telegram.
-     GET  /health                    does Supabase answer, does GEMINI_KEY work
+     GET  /health                    does GEMINI_KEY work
    Secrets: GEMINI_KEY, TG_TOKEN (Telegram bot). Deployed by .github/workflows/worker.yml with tools/wrangler.toml.
    Google does not offer Gemini in Hong Kong, so the Gemini call goes through the GeminiRelay Durable Object in North America. */
 const ALLOWED = ["https://si70531.github.io"];
-const SUPABASE_URL = "https://jyfmolrqxypufwjqexan.supabase.co";
-const SUPABASE_KEY = "sb_publishable_YJbE5DyYa6UKsAbfsxjnWg_4VW4HVnr";
 const MAX_BODY = 60000;
 const MODELS = ["gemini-3.8-flash", "gemini-3-flash-preview", "gemini-3.5-flash-lite", "gemini-flash-latest", "gemini-flash-lite-latest"];   /* the free tier has no 2.5 quota any more: its 429 "PerDay, limit 0" looked like the daily cap was used up */
-const AI_HOUR = 600, AI_DAY = 3000;
+const AI_HOUR = 30, AI_DAY = 200;        /* AI calls per IP address */
+const PM_HOUR = 4, PM_DAY = 12;          /* manual pre-market notes for the whole site (each one also goes to Telegram) */
 
 let ENV = null;   /* the current request's bindings, so the data fetchers can reach the Asia relay */
 export default {
@@ -30,7 +31,7 @@ export default {
     const cors = {
       "Access-Control-Allow-Origin": ok ? origin : ALLOWED[0],
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Expose-Headers": "Retry-After",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin",
@@ -52,27 +53,26 @@ export default {
     if (url.pathname === "/tw/hist" && req.method === "GET") return twHist(url, json, fail);
     if (url.pathname === "/tw/premarket" && req.method === "GET") return json(await pmStore(env, "get"), 200, { "Cache-Control": "no-store" });
 
-    /* everything below needs a Supabase sign-in */
-    let tokenIn = url.searchParams.get("t") || (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-    let bodyText = null;
+    /* everything below: no sign-in; the page's random device id (d) and the caller's IP address */
+    let bodyText = null, dev = "";
     if (req.method === "POST") {
       bodyText = await req.text();
       if (bodyText.length > MAX_BODY) return fail(413, "TOO_BIG", "Request too large");
-      try { const b = JSON.parse(bodyText); if (b && b.t) tokenIn = b.t; } catch (e) {}
+      try { const b = JSON.parse(bodyText); if (b && /^[0-9a-f]{32}$/.test(String(b.d || ""))) dev = b.d; } catch (e) {}
     }
-    const acct = await supaUser(tokenIn);
-    if (!acct) return fail(401, "NEED_LOGIN", "Sign in first");
-    const who = "u" + acct.id.replace(/-/g, "");
+    const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+    const who = dev ? "d" + dev : "ip" + ip;
 
-    if (url.pathname === "/tw/analyze" && req.method === "POST") return twAnalyze(env, who, bodyText, json, fail);
+    if (url.pathname === "/tw/analyze" && req.method === "POST") return twAnalyze(env, who, ip, bodyText, json, fail);
     if (url.pathname === "/tw/alerts/sync" && req.method === "POST") {
       let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
+      if (!dev) return fail(400, "BAD_DEVICE", "No device id");
       const clean = a => [...new Set((Array.isArray(a) ? a : []).map(v => String(v).trim()).filter(v => /^[0-9A-Z]{4,6}$/.test(v)))].slice(0, 60);
       return json(await pmStore(env, "watch", { who, watch: clean(b.watch), hold: clean(b.hold) }));
     }
     if (url.pathname === "/tw/premarket/run" && req.method === "POST") {
-      const q = await guard(env, "pin:" + who, "ai");
-      if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached for this sign-in; try again later", { "Retry-After": String(q.aiWait || 60) });
+      const q = await guard(env, "pmrun", "ai", { hr: PM_HOUR, day: PM_DAY });
+      if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached; try again later", { "Retry-After": String(q.aiWait || 60) });
       const r = await premarket(env, true);   /* a manual run is also sent to Telegram (useful as a test) */
       return r.error ? (r.daily ? fail(429, "AI_DAILY", r.error) : fail(502, "AI_FAILED", r.error)) : json(r);
     }
@@ -324,19 +324,19 @@ list(ann, x => "- " + x.d + " " + x.t + (x.body ? " — " + x.body : "")),
 list(world, x => "- " + day(x.at) + " " + x.t + (x.src ? "（" + x.src + "）" : "")),
   ].join("\n");
 }
-async function twAnalyze(env, who, bodyText, json, fail) {
+async function twAnalyze(env, who, ip, bodyText, json, fail) {
   if (!env.GEMINI_KEY) return fail(500, "INTERNAL", "The Worker has no GEMINI_KEY secret yet");
   let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
   const code = String((b && b.code) || "").trim(), name = twClip(b && b.name, 20) || code;
   if (!/^[0-9A-Z]{4,6}$/.test(code)) return fail(400, "BAD_CODE", "Bad stock code");
   let facts; try { facts = JSON.stringify(b.facts || {}); } catch (e) { facts = "{}"; }
   if (facts.length > 16000) return fail(413, "TOO_BIG", "Too much data");
-  if (!b.fresh) {   /* today's analysis of this stock by this account, unless 重新分析 asked for a new one */
-    const c = await guard(env, "pin:" + who, "aiget", { code }).catch(() => ({}));
+  if (!b.fresh) {   /* today's analysis of this stock on this device, unless 重新分析 asked for a new one */
+    const c = await guard(env, "dev:" + who, "aiget", { code }).catch(() => ({}));
     if (c && c.hit) return json({ ...c.hit, cached: true });
   }
-  const q = await guard(env, "pin:" + who, "ai");
-  if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached for this sign-in; try again later", { "Retry-After": String(q.aiWait || 60) });
+  const q = await guard(env, "ip:" + ip, "ai", { hr: AI_HOUR, day: AI_DAY });
+  if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached for this connection; try again later", { "Retry-After": String(q.aiWait || 60) });
   const [news, ann, world] = await Promise.all([
     twHeadlines(name + " " + code + " when:14d", 12).catch(() => []),
     twAnnouncements(code).catch(() => []),
@@ -347,7 +347,7 @@ async function twAnalyze(env, who, bodyText, json, fail) {
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
   if (!a || !Array.isArray(a.team) || !a.summary) return fail(502, "AI_FAILED", "AI 的回答不完整，再按一次");
   const out = { at: Date.now(), analysis: a, news: news.map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })), ann: ann.map(x => ({ d: x.d, t: x.t })), world: world.map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
-  await guard(env, "pin:" + who, "aiput", { code, data: out }).catch(() => {});
+  await guard(env, "dev:" + who, "aiput", { code, data: out }).catch(() => {});
   return json(out);
 }
 
@@ -372,33 +372,14 @@ export class GeminiRelay {
   }
 }
 
-/* ---------- Supabase accounts ---------- */
-/* who is behind a Supabase access token? Asked of Supabase itself (so a deleted or signed-out account stops working),
-   and remembered for a minute so a grading session does not ask on every call */
-const userCache = new Map();
-async function supaUser(jwt) {
-  if (!jwt || typeof jwt !== "string" || jwt.length > 4000 || jwt.split(".").length !== 3) return null;
-  const hit = userCache.get(jwt);
-  if (hit && hit.until > Date.now()) return hit.user;
-  let r; try { r = await fetch(SUPABASE_URL + "/auth/v1/user", { headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + jwt } }); } catch (e) { return null; }
-  if (!r.ok) return null;
-  const u = await r.json().catch(() => null);
-  if (!u || !/^[0-9a-f-]{36}$/.test(String(u.id || ""))) return null;
-  const user = { id: u.id, email: String(u.email || "") };
-  if (userCache.size > 500) userCache.clear();
-  userCache.set(jwt, { user, until: Date.now() + 60000 });
-  return user;
-}
-/* a device PIN is kept only as an HMAC of account + device + PIN, made with a key only this Worker has */
-
-/* AI calls per account: a running count per hour and per day (one Durable Object per account) */
+/* AI calls per key (an IP address, or the whole site for manual pre-market notes): a running count per hour and per day */
 async function guard(env, key, op, body) {
   if (!env.GUARD) return { blocked: false };
   const r = await env.GUARD.get(env.GUARD.idFromName(key)).fetch("https://guard/" + op, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body) });
   return r.json();
 }
-/* the same account's analysis of a stock is kept for the rest of the Taipei day, so opening it again costs no AI call
-   (kept per account because the page sends the user's own position and trades with it) */
+/* the same device's analysis of a stock is kept for the rest of the Taipei day, so opening it again costs no AI call
+   (kept per device because the page sends the user's own position and trades with it) */
 const twToday = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);
 export class Guard {
   constructor(state) { this.state = state; }
@@ -420,8 +401,9 @@ export class Guard {
     if (d.ai.day !== day) { d.ai.day = day; d.ai.dn = 0; }
     let blocked = false, aiWait = 0;
     if (op === "ai") {
-      if (d.ai.n >= AI_HOUR) { blocked = true; aiWait = Math.ceil(((hr + 1) * 3600000 - now) / 1000); }
-      else if (d.ai.dn >= AI_DAY) { blocked = true; aiWait = Math.ceil(((day + 1) * 86400000 - now) / 1000); }
+      const lim = await req.json().catch(() => ({})), maxHr = lim.hr || AI_HOUR, maxDay = lim.day || AI_DAY;
+      if (d.ai.n >= maxHr) { blocked = true; aiWait = Math.ceil(((hr + 1) * 3600000 - now) / 1000); }
+      else if (d.ai.dn >= maxDay) { blocked = true; aiWait = Math.ceil(((day + 1) * 86400000 - now) / 1000); }
       else { d.ai.n++; d.ai.dn++; }
     }
     await this.state.storage.put("d", d);
@@ -458,11 +440,7 @@ async function geminiJson(env, prompt, temperature, attempt) {
 }
 /* ---------- health: is each secret still good? ---------- */
 async function health(env) {
-  const out = { checkedAt: new Date().toISOString(), gemini: { ok: false }, supabase: { ok: false } };
-  try {
-    const r = await fetch(SUPABASE_URL + "/auth/v1/health", { headers: { apikey: SUPABASE_KEY } });
-    out.supabase.ok = r.ok; out.supabase.status = r.status; out.supabase.secret = !!env.SUPABASE_SECRET_KEY;   /* is the device-PIN secret set? (never its value) */
-  } catch (e) { out.supabase.error = String(e.message || e); }
+  const out = { checkedAt: new Date().toISOString(), gemini: { ok: false } };
   try {
     const target = "https://generativelanguage.googleapis.com/v1beta/models?pageSize=1";
     let r;
@@ -487,11 +465,12 @@ export class Daily {
     if (op === "put") { const h = (await st.get("hist")) || []; h.unshift(b.note); h.length = Math.min(h.length, 14); await st.put("hist", h); return Response.json({ ok: true }); }
     if (op === "chat") { if (b.set) await st.put("chat", b.set); return Response.json({ chat: (await st.get("chat")) || null, offset: (await st.get("off")) || 0 }); }
     if (op === "off") { await st.put("off", b.off || 0); return Response.json({ ok: true }); }
-    /* the alert list belongs to the first account that sent one (the site owner); other accounts are ignored */
+    /* the alert list belongs to the first device that sent one (the site owner); other devices are ignored.
+       "ownerDev", not the old "owner" (which held an account id from when the site had accounts) */
     if (op === "watch") {
-      const owner = await st.get("owner");
+      const owner = await st.get("ownerDev");
       if (owner && owner !== b.who) return Response.json({ ok: false, owner: false });
-      await st.put("owner", b.who); await st.put("wl", { watch: b.watch, hold: b.hold, at: Date.now() });
+      await st.put("ownerDev", b.who); await st.put("wl", { watch: b.watch, hold: b.hold, at: Date.now() });
       return Response.json({ ok: true, owner: true, n: new Set([...b.watch, ...b.hold]).size });
     }
     if (op === "wl") return Response.json((await st.get("wl")) || { watch: [], hold: [] });

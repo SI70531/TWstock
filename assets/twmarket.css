@@ -103,7 +103,7 @@ body::before {
     radial-gradient(480px 380px at 92% 60%, rgba(168,85,247,.22), transparent 70%),
     radial-gradient(420px 360px at 40% 100%, rgba(255,140,60,.14), transparent 70%);
 }
-.dcard, .news, .tlitem, #gate .ticket, .apppill, .dash-note, .dtabs {
+.dcard, .news, .tlitem, .apppill, .dash-note, .dtabs {
   background-color: var(--glass);
   backdrop-filter: blur(18px) saturate(140%); -webkit-backdrop-filter: blur(18px) saturate(140%);
   border-color: var(--edge);

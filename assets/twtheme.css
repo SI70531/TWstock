@@ -3,7 +3,7 @@
 :root, :root[data-theme="dark"] {
   --c0: #07303a; --c1: #0c4150; --c2: rgba(255,255,255,.12); --c3: rgba(255,255,255,.26); --c4: #a9dbe6; --c5: #f1fbfd;
   --glow: 120,220,255; --wash: 40,150,190;
-  --glass-bg: rgba(255,255,255,.15); --glass-bg-nested: rgba(255,255,255,.10); --glass-bg-gate: rgba(255,255,255,.14);
+  --glass-bg: rgba(255,255,255,.15); --glass-bg-nested: rgba(255,255,255,.10);
   --glass-bd: rgba(255,255,255,.30); --glass-sh: 0 18px 44px -18px rgba(0,25,45,.55), inset 0 1px 0 rgba(255,255,255,.28);
   --glass-th: rgba(255,255,255,.10); --glass-line: rgba(255,255,255,.16); --glass-blur: 22px;
   --blob-a: rgba(40,210,210,.45); --blob-b: rgba(70,140,255,.50); --blob-c: rgba(130,225,255,.28);

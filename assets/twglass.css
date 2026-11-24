@@ -7,7 +7,6 @@
 :root{
   --glass-bg:rgba(255,255,255,.07);
   --glass-bg-nested:rgba(255,255,255,.05);
-  --glass-bg-gate:rgba(11,43,38,.45);
   --glass-bd:rgba(255,255,255,.16);
   --glass-sh:0 10px 30px rgba(0,0,0,.28);
   --glass-th:rgba(255,255,255,.06);
@@ -20,7 +19,6 @@
 :root[data-theme="light"]{
   --glass-bg:rgba(255,255,255,.32);
   --glass-bg-nested:rgba(255,255,255,.20);
-  --glass-bg-gate:rgba(255,255,255,.32);
   --glass-bd:rgba(255,255,255,.6);
   --glass-sh:0 10px 30px rgba(0,0,0,.06);
   --glass-th:rgba(255,255,255,.2);
@@ -44,19 +42,8 @@ html::before{
 @keyframes glassdrift{to{transform:translate3d(2.5%,-2%,0) scale(1.06)}}
 @media (prefers-reduced-motion: reduce){html::before{animation:none}}
 
-/* the sign-in gate is an opaque full-screen layer, so it carries its own copy of the blobs on top of its dot grid */
-:root #gate{
-  background-image:
-    radial-gradient(circle 420px at 12% 10%, var(--blob-a), transparent 70%),
-    radial-gradient(circle 400px at 90% 30%, var(--blob-b), transparent 70%),
-    radial-gradient(circle 460px at 55% 100%, var(--blob-c), transparent 70%),
-    radial-gradient(rgba(var(--wash),.7) 1px, transparent 1.3px),
-    radial-gradient(900px 560px at 50% -10%, rgba(var(--wash),.55), transparent 70%);
-  background-size:auto,auto,auto,24px 24px,auto;
-}
-
 /* ============ 2. Glass cards ============ */
-:root :is(.dcard,.news,.dash-note,.dtabs,.stkside,#gate .ticket,.thmenu){
+:root :is(.dcard,.news,.dash-note,.dtabs,.stkside,.thmenu){
   background-color:var(--glass-bg);
   -webkit-backdrop-filter:blur(var(--glass-blur));
   backdrop-filter:blur(var(--glass-blur));
@@ -64,12 +51,11 @@ html::before{
   border-radius:16px;
   box-shadow:var(--glass-sh);
 }
-:root #gate .ticket{background-color:var(--glass-bg-gate);border-radius:24px}
 :root .dcard,:root .news{border-radius:20px}
 :root .dtabs{border-radius:14px}
 :root .thmenu{border-radius:14px}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  :root :is(.dcard,.news,.dash-note,.dtabs,.stkside,#gate .ticket,.thmenu,table){background-color:var(--glass-fallback)}
+  :root :is(.dcard,.news,.dash-note,.dtabs,.stkside,.thmenu,table){background-color:var(--glass-fallback)}
 }
 /* a stock card inside the stock layout is still a card: keep one blur only (the wrapper has none), nothing nested to strip */
 :root .chip{background-color:var(--glass-bg-nested);border-color:var(--glass-bd)}
