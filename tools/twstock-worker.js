@@ -787,7 +787,8 @@ async function watchNews(env, codes, S) {
   const prompt = [
     "You watch the Taiwan stock market for one private investor. Below are NEW headlines and company announcements from the last hour.",
     "The investor holds or watches these TWSE codes: " + (codes.join(", ") || "(none)") + ".",
-    "Pick ONLY the items that are likely to move the Taiwan market as a whole, or one of those stocks, meaningfully today (for example a surprise Fed or tariff decision, export controls, a war or disaster, a big earnings surprise, a major customer order, a trading halt, a capital change). Ignore routine items, opinion pieces, repeats and small moves. Usually the answer is none.",
+    "The investor finds frequent alerts annoying, so the bar is very high. Pick ONLY a truly major, unexpected event that is likely to move the whole Taiwan market by more than about 1%, or one of those stocks by more than about 3%, today: a surprise Fed or central-bank decision, new tariffs or export controls actually announced, a war, attack or major disaster, a trading halt, a sudden executive departure, a capital reduction or a big earnings shock in a company announcement.",
+    "Do NOT pick: ordinary good or bad news, expansion plans, subsidies or tax incentives, factory progress, product launches, analyst views, market commentary or summaries of how the market moved, foreign-investor buying or selling, rumours, follow-ups to news already known, or anything already priced in. When in doubt, leave it out. Almost always the answer is none; at most one item.",
     "Write in Traditional Chinese as used in Taiwan. Use only what the titles say; do not invent details.",
     'Return ONE JSON object: {"alerts":[{"n":item number,"title":"short title","impact":"利多|利空|不確定","why":"one sentence: what it means for Taiwan stocks or which holding"}]} — an empty list when nothing matters.',
     "",
@@ -796,7 +797,7 @@ async function watchNews(env, codes, S) {
   const g = await geminiJson(env, prompt, 0.2, 0);
   if (g.error) return [];
   let r = null; try { r = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { r = m ? JSON.parse(m[0]) : null; } catch (e2) { r = null; } }
-  return (r && Array.isArray(r.alerts) ? r.alerts : []).slice(0, 5).map(x => ({ title: twClip(x.title, 80), impact: x.impact, why: twClip(x.why, 200), link: (fresh[(+x.n || 0) - 1] || {}).u || "" }));
+  return (r && Array.isArray(r.alerts) ? r.alerts : []).slice(0, 1).map(x => ({ title: twClip(x.title, 80), impact: x.impact, why: twClip(x.why, 200), link: (fresh[(+x.n || 0) - 1] || {}).u || "" }));
 }
 
 /* ---------- index and futures charts (Yahoo Taiwan): 1-minute bars of the session, or daily bars for about a year ---------- */
