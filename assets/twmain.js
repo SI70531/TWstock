@@ -429,7 +429,7 @@
   const rowHTML = s => {
     const d = dig(s.price), t = tone(s.chg);
     return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}${flagTag(s.code)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : s.mkt === "esb" ? " 興櫃" : ""}</span></td>
-      <td><span class="pxpill ${t}">${fmt(s.price, d)}</span>${s.pct >= 9.4 ? `<em class="limtag up">漲停</em>` : s.pct <= -9.4 ? `<em class="limtag down">跌停</em>` : ""}</td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
+      <td><span class="pxpill ${t}${s.pct >= 9.4 || s.pct <= -9.4 ? " lim" : ""}"${s.pct >= 9.4 ? ' title="漲停"' : s.pct <= -9.4 ? ' title="跌停"' : ""}>${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
       <td class="vol">${fmt(s.vol)}</td><td>${wlBtn(s)}</td></tr>`;
   };
   /* inside 自選1–5: ＋ adds a searched stock to that list, − takes one out */
@@ -437,6 +437,7 @@
     if (VIEW.q) { const has = LISTS.some(l => l.includes(s.code)); return `<button type="button" class="wlbtn wladd${has ? " in" : ""}" data-code="${esc(s.code)}" aria-label="加入自選 ${esc(s.name)}">＋</button>`; }
     if (!/^w[1-5]$/.test(VIEW.preset)) return "";
     const n = listIdx() + 1, inL = LISTS[n - 1].includes(s.code);
+    if (inL && ARM.code === s.code && ARM.list === n - 1) return `<button type="button" class="wlbtn in arm" data-code="${esc(s.code)}" aria-label="確定從自選${n}移除 ${esc(s.name)}">確定移除</button>`;
     return `<button type="button" class="wlbtn${inL ? " in" : ""}" data-code="${esc(s.code)}" aria-label="${inL ? "從" : "加入"}自選${n}${inL ? "移除" : ""} ${esc(s.name)}">${inL ? "−" : "＋"}</button>`;
   };
   /* the ＋ on a search result opens a small menu: tap 自選1–5 to add or remove */
@@ -456,11 +457,18 @@
   document.addEventListener("click", e => { if (menuEl && !e.target.closest(".wlmenu, .wladd")) { menuEl.remove(); menuEl = null; } }, true);
   addEventListener("scroll", () => { if (menuEl) { menuEl.remove(); menuEl = null; } }, { passive: true });
   /* − asks once before removing: the first tap turns it into 確定移除, a second tap within 3 seconds removes */
+  /* the armed one is kept here, not only on the button, so the live repaint every 2 seconds draws it armed too */
+  const ARM = { code: "", list: -1, t: 0 };
+  function disarm() {
+    clearTimeout(ARM.t); const c = ARM.code; ARM.code = ""; ARM.list = -1;
+    if (c) $$(`.wlbtn.arm[data-code="${c}"]`).forEach(b => { b.classList.remove("arm"); b.textContent = "−"; });
+  }
   function wlRemove(btn) {
-    if (btn.classList.contains("arm")) { clearTimeout(btn._t); toggleWatch(btn.dataset.code, listIdx()); return; }
-    $$(".wlbtn.arm").forEach(b => { clearTimeout(b._t); b.classList.remove("arm"); b.textContent = "−"; });
-    btn.classList.add("arm"); btn.textContent = `確定移除`;
-    btn._t = setTimeout(() => { btn.classList.remove("arm"); btn.textContent = "−"; }, 3000);
+    const code = btn.dataset.code, li = listIdx();
+    if (ARM.code === code && ARM.list === li) { disarm(); toggleWatch(code, li); return; }
+    disarm();
+    ARM.code = code; ARM.list = li; ARM.t = setTimeout(disarm, 3000);
+    btn.classList.add("arm"); btn.textContent = "確定移除";
   }
   function paintTable(animate) {
     const box = $("#dpList"); if (!$(".mtbl", box)) return;
@@ -737,7 +745,7 @@
       if (!s) return `<tr class="wrow"><td class="l nm"><b>${esc(code)}</b><span>${DB.list.length ? "不在清單中" : "載入中…"}</span></td><td colspan="8"></td></tr>`;
       const d = dig(s.price), t = tone(s.chg), pos = s.high > s.low ? clamp((s.price - s.low) / (s.high - s.low) * 100, 0, 100) : 50;
       return `<tr class="wrow" data-code="${esc(code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}</b><span>${esc(code)}</span></td>
-        <td><span class="pxpill ${t}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
+        <td><span class="pxpill ${t}${s.pct >= 9.4 || s.pct <= -9.4 ? " lim" : ""}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
         <td>${fmt(s.open, d)}</td><td>${fmt(s.high, d)}</td><td>${fmt(s.low, d)}</td>
         <td class="wrng"><div class="rngbar"><i class="rngdot" style="left:${pos.toFixed(1)}%"></i></div></td><td class="vol">${fmt(s.vol)}</td>${star}</tr>`;
     });
