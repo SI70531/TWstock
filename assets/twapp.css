@@ -55,7 +55,6 @@
   .apppill { display: none; }
   .dashmain { padding-bottom: 40px; }
 }
-@media (prefers-reduced-motion: reduce) { .apppill .ap-hl { transition: none; } }
 
 /* desktop: 4 stat cards fill one row instead of leaving an orphan on the third row */
 @media (min-width: 721px) {

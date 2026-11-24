@@ -120,6 +120,7 @@
     /* published every 10 minutes by the "OTC list" GitHub Actions job (TPEx refuses both the page and the Worker) */
     let j = null;
     try { j = await J("https://raw.githubusercontent.com/SI70531/TWstock/data/otc.json"); } catch (e) { j = await J(`${WORKER}/tw/otc`); }
+    if (j && j.ind && typeof j.ind === "object") INDMAP = j.ind;
     return (j.list || []).map(([c, n, z, ch, o, h, l, v, m]) => Object.assign(mk(c, n, z == null ? NaN : z, ch == null ? NaN : ch, o == null ? NaN : o, h == null ? NaN : h, l == null ? NaN : l, v), { mkt: m }))
       .filter(s => s.code && s.name);
   }
@@ -346,6 +347,14 @@
         <div class="dcard bd-up"><div class="bd-h"><h3>漲幅排行</h3></div><div class="bd-list"></div></div>
         <div class="dcard bd-down"><div class="bd-h"><h3>跌幅排行</h3></div><div class="bd-list"></div></div>
       </div>
+      <div class="board board2">
+        <div class="dcard bd-heat"><div class="bd-h"><h3>類股熱力圖</h3><div class="hmsel"></div></div><div class="hm"></div></div>
+        <div class="dcard bd-strk"><div class="bd-h"><h3>法人連續買賣超</h3><span class="sub bd-n"></span></div>
+          <div class="chips">${[["f1", "外資連買"], ["f0", "外資連賣"], ["t1", "投信連買"], ["t0", "投信連賣"]].map(([k, t]) => `<button type="button" class="chip" data-stk="${k}" aria-pressed="${k === "f1"}">${t}</button>`).join("")}</div>
+          <div class="bd-list"><p class="sub">載入中…</p></div></div>
+        <div class="dcard bd-flag"><div class="bd-h"><h3>注意股・處置股</h3><span class="sub bd-n"></span></div><div class="bd-list"><p class="sub">載入中…</p></div><p class="sub fl-foot">證交所公告的上市股票；處置股交易受限制（分盤撮合，可能要預收款券）。</p></div>
+      </div>
+      <div class="dcard cl"><div class="aihead"><div><h3>AI 收盤摘要</h3></div><button type="button" class="btn clgo">產生</button></div><div class="clout"><p class="sub">載入中…</p></div></div>
       <div class="dcard mkt">
         <div class="mbar"><input class="msearch msfull" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
           <div class="chips">${PRESETS.map(([k, t]) => `<button type="button" class="chip" data-preset="${k}" aria-pressed="${k === VIEW.preset}">${t}</button>`).join("")}</div>
@@ -372,6 +381,10 @@
       const tr = e.target.closest("tr[data-code]");
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
+      if (e.target.closest(".clgo")) { clRun(e.target.closest(".clgo")); return; }
+      if (e.target.closest(".hmback")) { HEAT.sel = null; paintHeat(true); return; }
+      const hmt = e.target.closest(".hmt"); if (hmt) { if (hmt.dataset.code) openStock(hmt.dataset.code, hmt); else { HEAT.sel = hmt.dataset.k; paintHeat(true); } return; }
+      const sk = e.target.closest("[data-stk]"); if (sk) { STRK.tab = sk.dataset.stk; paintStreak(true); return; }
       const pk = e.target.closest("[data-pick]"); if (pk) { openStock(pk.dataset.pick, pk); return; }
       const gt = e.target.closest("[data-goto]"); if (gt) { open(gt.dataset.goto, true); return; }
       const bd = e.target.closest(".bd-row, .bd-tile"); if (bd) { openStock(bd.dataset.code, bd); return; }
@@ -380,8 +393,8 @@
       if (e.target.closest(".ixclose")) { ixOpen(IXV.k); return; }
     });
     /* the pre-market note and the stock list each have their own tab */
-    $("#dpPre").appendChild($(".pm", box)); $("#dpList").appendChild($(".mkt", box));
-    pmLoad(); setTimeout(alertSync, 2500); loadCharts(true);
+    $("#dpPre").appendChild($(".pm", box)); $("#dpPre").appendChild($(".cl", box)); $("#dpList").appendChild($(".mkt", box));
+    pmLoad(); clLoad(); setTimeout(alertSync, 2500); loadCharts(true);
     box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
   }
   function rowsNow() {
@@ -400,7 +413,7 @@
   }
   const rowHTML = s => {
     const d = dig(s.price), t = tone(s.chg);
-    return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : s.mkt === "esb" ? " 興櫃" : ""}</span></td>
+    return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}${flagTag(s.code)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : s.mkt === "esb" ? " 興櫃" : ""}</span></td>
       <td><span class="pxpill ${t}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
       <td class="vol">${fmt(s.vol)}</td><td>${wlBtn(s)}</td></tr>`;
   };
@@ -461,6 +474,7 @@
   }
   function paintStrip() {
     try { paintBoard(); } catch (e) {}
+    try { paintHeat(false); } catch (e) {}
     const el = $("#dpOverview .mstrip"); if (!el) return;
     const last = MKT.rows && MKT.rows[MKT.rows.length - 1], prev = MKT.rows && MKT.rows[MKT.rows.length - 2], I = MKT.inst;
     let up = 0, down = 0, flat = 0; DB.list.forEach(s => { if (s.chg > 0) up++; else if (s.chg < 0) down++; else flat++; });
@@ -474,6 +488,202 @@
     ].join("");
     const bc = el.lastElementChild;
     if (bc && DB.list.length) bc.insertAdjacentHTML("beforeend", breadthBar(up, flat, down));
+  }
+
+  /* ---------------- 類股熱力圖: every listed and 上櫃 stock grouped by industry, area = turnover, colour = turnover-weighted change ---------------- */
+  let INDMAP = null;                               /* code → TWSE / TPEx industry code, published with otc.json */
+  const INDN = { "01": "水泥", "02": "食品", "03": "塑膠", "04": "紡織纖維", "05": "電機機械", "06": "電器電纜", "08": "玻璃陶瓷", "09": "造紙", "10": "鋼鐵", "11": "橡膠", "12": "汽車",
+    "14": "建材營造", "15": "航運", "16": "觀光餐旅", "17": "金融保險", "18": "貿易百貨", "19": "綜合", "20": "其他", "21": "化學", "22": "生技醫療", "23": "油電燃氣", "24": "半導體",
+    "25": "電腦週邊", "26": "光電", "27": "通信網路", "28": "電子零組件", "29": "電子通路", "30": "資訊服務", "31": "其他電子", "32": "文化創意", "33": "農業科技", "34": "電子商務",
+    "35": "綠能環保", "36": "數位雲端", "37": "運動休閒", "38": "居家生活", "80": "管理股票", "91": "存託憑證" };
+  const HEAT = { sel: null, sig: "", w: 0 };
+  /* squarified treemap: values sorted largest first → [x, y, w, h] for each */
+  function squarify(vals, W, H) {
+    const total = vals.reduce((a, b) => a + b, 0), out = new Array(vals.length);
+    if (!(total > 0)) return out;
+    let x = 0, y = 0, w = W, h = H, row = [];
+    const items = vals.map((v, i) => ({ i, a: v * W * H / total }));
+    const worst = (r, side) => { const s = r.reduce((a, q) => a + q.a, 0); let mx = 0, mn = Infinity; r.forEach(q => { mx = Math.max(mx, q.a); mn = Math.min(mn, q.a); }); return Math.max(side * side * mx / (s * s), s * s / (side * side * mn)); };
+    const lay = r => {
+      const s = r.reduce((a, q) => a + q.a, 0);
+      if (w >= h) { const cw = s / h; let yy = y; r.forEach(q => { out[q.i] = [x, yy, cw, q.a / cw]; yy += q.a / cw; }); x += cw; w -= cw; }
+      else { const ch = s / w; let xx = x; r.forEach(q => { out[q.i] = [xx, y, q.a / ch, ch]; xx += q.a / ch; }); y += ch; h -= ch; }
+    };
+    items.forEach(it => { const side = Math.min(w, h); if (!row.length || worst(row.concat(it), side) <= worst(row, side)) row.push(it); else { lay(row); row = [it]; } });
+    if (row.length) lay(row);
+    return out;
+  }
+  function heatGroups() {
+    const G = new Map();
+    DB.list.forEach(s => {
+      const id = INDMAP && INDMAP[s.code]; if (!id || !INDN[id] || s.mkt === "esb" || !(s.price > 0) || !(s.vol > 0) || !ok(s.pct)) return;
+      const v = s.price * s.vol * 1000;
+      let g = G.get(id); if (!g) G.set(id, g = { id, name: INDN[id], val: 0, wp: 0, up: 0, dn: 0, list: [] });
+      g.val += v; g.wp += v * s.pct; g.list.push(s); if (s.chg > 0) g.up++; else if (s.chg < 0) g.dn++;
+    });
+    return [...G.values()].map(g => Object.assign(g, { pct: g.wp / g.val })).sort((a, b) => b.val - a.val);
+  }
+  function paintHeat(animate) {
+    const card = $("#dpOverview .bd-heat"); if (!card) return;
+    const hm = $(".hm", card), head = $(".hmsel", card);
+    if (!DB.list.length) return;
+    if (!INDMAP) { hm.innerHTML = `<p class="sub hmwait">${DB.live ? "產業分類還沒發布，稍後會出現。" : "示意資料模式下沒有熱力圖。"}</p>`; return; }
+    const groups = heatGroups(), g = HEAT.sel && groups.find(x => x.id === HEAT.sel);
+    if (HEAT.sel && !g) HEAT.sel = null;
+    const items = g ? g.list.slice().sort((a, b) => b.price * b.vol - a.price * a.vol).slice(0, 60).map(s => ({ key: s.code, name: s.name, val: s.price * s.vol * 1000, pct: s.pct, sub: fmt(s.price, dig(s.price)) }))
+      : groups.map(x => ({ key: x.id, name: x.name, val: x.val, pct: x.pct, sub: `${x.list.length} 檔` }));
+    const W = hm.clientWidth || 800, H = hm.clientHeight || 380;
+    const sig = (HEAT.sel || "") + W + ":" + items.map(i => i.key + (i.pct || 0).toFixed(2) + Math.round(i.val / 1e7)).join();
+    if (!animate && sig === HEAT.sig) return; HEAT.sig = sig;
+    const R = squarify(items.map(i => i.val), W, H), lim = g ? 7 : 3.5;
+    head.innerHTML = g ? `<button type="button" class="chip hmback">← 全部類股</button><b>${esc(g.name)}</b><span class="sub">${g.list.length} 檔・<em class="${tone(g.pct)}">${pct(g.pct)}</em>・上漲 ${g.up}／下跌 ${g.dn}</span>`
+      : `<span class="sub">面積 = 成交金額，顏色 = 漲跌幅（紅漲綠跌）；點類股看個股</span>`;
+    const tiles = items.map((it, i) => {
+      const r = R[i] || [0, 0, 0, 0], a = clamp(Math.abs(it.pct || 0) / lim, 0.08, 1) * 0.9, sz = r[2] < 58 || r[3] < 30 ? " xs" : r[2] < 96 || r[3] < 48 ? " sm" : "";
+      return { it, cls: `hmt ${tone(it.pct)}${sz}`, st: `left:${(r[0] / W * 100).toFixed(3)}%;top:${(r[1] / H * 100).toFixed(3)}%;width:${(r[2] / W * 100).toFixed(3)}%;height:${(r[3] / H * 100).toFixed(3)}%;--a:${a.toFixed(3)}` };
+    });
+    /* the same tiles as before (a live update): move and recolour them in place, so they glide to their new size */
+    const old = new Map($$(".hmt", hm).map(t => [t.dataset.k, t]));
+    if (!animate && old.size === items.length && items.every(i => old.has(i.key))) {
+      tiles.forEach(({ it, cls, st }) => { const t = old.get(it.key); t.setAttribute("style", st); t.className = cls; $("span", t).textContent = pct(it.pct); t.title = it.name + " " + pct(it.pct); });
+      return;
+    }
+    hm.innerHTML = tiles.map(({ it, cls, st }) => `<button type="button" class="${cls}" data-k="${esc(it.key)}"${g ? ` data-code="${esc(it.key)}"` : ""} style="${st}" title="${esc(it.name)} ${pct(it.pct)}"><b>${esc(it.name)}</b><span>${pct(it.pct)}</span><i>${esc(it.sub)}</i></button>`).join("");
+    if (animate) $$(".hmt", hm).forEach((t, i) => t.animate([{ opacity: 0, transform: "scale(.6)" }, { opacity: 1, transform: "none" }], { duration: 480, delay: Math.min(i, 30) * 22, easing: "cubic-bezier(.2,.9,.3,1.2)", fill: "backwards" }));
+  }
+  let heatRT = 0;
+  addEventListener("resize", () => { clearTimeout(heatRT); heatRT = setTimeout(() => { const hm = $("#dpOverview .hm"); if (hm && hm.clientWidth !== HEAT.w) { HEAT.w = hm.clientWidth; HEAT.sig = ""; paintHeat(false); } }, 200); });
+
+  /* ---------------- 注意股 / 處置股 (TWSE announcements; TPEx refuses other sites, so 上櫃 stocks are not covered) ---------------- */
+  const FLAGS = new Map();                         /* code → { k: "punish" | "notice", t, info } */
+  async function loadFlags() {
+    if (!DB.live) return;
+    const get = u => J(u).then(j => (j && j.stat === "OK" && Array.isArray(j.fields) ? j : null)).catch(() => null);
+    const [n, p] = await Promise.all([get(`https://www.twse.com.tw/rwd/zh/announcement/notice?response=json&startDate=${DB.date}&endDate=${DB.date}`), get("https://www.twse.com.tw/rwd/zh/announcement/punish?response=json")]);
+    FLAGS.clear();
+    const col = (j, k) => j.fields.indexOf(k), cell = (j, r, k) => String(col(j, k) >= 0 ? r[col(j, k)] : "").trim();
+    if (n) n.data.forEach(r => { const c = cell(n, r, "證券代號"); if (DB.by.has(c)) FLAGS.set(c, { k: "notice", t: "注意", info: cell(n, r, "注意交易資訊").replace(/﹝.*?﹞/g, "").replace(/。$/, ""), cnt: cell(n, r, "累計次數") }); });
+    if (p) p.data.forEach(r => { const c = cell(p, r, "證券代號"); if (DB.by.has(c)) FLAGS.set(c, { k: "punish", t: "處置", info: `${cell(p, r, "處置起迄時間")}・${cell(p, r, "處置措施")}`, cond: cell(p, r, "處置條件") }); });
+    FLAGS.ready = !!(n || p);
+    paintTable(false); paintHead(); paintFlagCard(true);
+  }
+  const flagTag = code => { const f = FLAGS.get(code); return f ? `<em class="sflag ${f.k}" title="${esc(f.t + "股：" + f.info)}">${f.t}</em>` : ""; };
+  function paintFlagCard(animate) {
+    const card = $("#dpOverview .bd-flag"); if (!card) return;
+    const list = [...FLAGS.entries()].map(([c, f]) => ({ s: DB.by.get(c), f })).filter(x => x.s).sort((a, b) => (a.f.k === "punish" ? 0 : 1) - (b.f.k === "punish" ? 0 : 1) || b.s.vol - a.s.vol);
+    const mineSet = new Set(LISTS.flat());
+    $(".bd-n", card).textContent = FLAGS.ready ? `處置 ${list.filter(x => x.f.k === "punish").length}・注意 ${list.filter(x => x.f.k === "notice").length}` : "";
+    $(".bd-list", card).innerHTML = !FLAGS.ready ? `<p class="sub">${DB.live ? "載入中…" : "示意資料模式下沒有名單。"}</p>` : !list.length ? `<p class="sub">今天沒有上市股票被列入。</p>`
+      : list.map(({ s, f }) => `<button type="button" class="bd-row fl-row" data-code="${esc(s.code)}"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i>${mineSet.has(s.code) ? `<i class="fl-mine">自選</i>` : ""}</span><span class="fl-info">${esc(f.info)}</span><span class="bd-v"><em class="sflag ${f.k}">${f.t}</em></span></button>`).join("");
+    if (animate) $$(".fl-row", card).forEach((r, i) => r.animate([{ opacity: 0, transform: "translateX(-8px)" }, { opacity: 1, transform: "none" }], { duration: 380, delay: Math.min(i, 12) * 40, fill: "backwards" }));
+  }
+
+  /* ---------------- 法人連續買賣超: the last 10 trading days of TWSE's T86, each day kept in this browser once read ---------------- */
+  const STRK = { days: null, busy: false, tab: "f1" };
+  const instKey = ds => "twinst-" + ds;
+  function instRead(ds) {
+    let v = null; try { v = localStorage.getItem(instKey(ds)); } catch (e) {}
+    if (!v) return null;
+    const m = new Map(); v.split(";").forEach(x => { const [c, f, t] = x.split(":"); if (c) m.set(c, [+f || 0, +t || 0]); });
+    return m;
+  }
+  function instWrite(ds, m) {
+    try {
+      localStorage.setItem(instKey(ds), [...m].map(([c, v]) => c + ":" + v[0] + ":" + v[1]).join(";"));
+      const cut = new Date(Date.now() - 45 * 864e5).toISOString().slice(0, 10).replace(/-/g, "");
+      Object.keys(localStorage).filter(k => k.startsWith("twinst-") && k.slice(7) < cut).forEach(k => localStorage.removeItem(k));
+    } catch (e) {}
+  }
+  async function loadStreak() {
+    if (STRK.busy || STRK.days || !DB.live || !MKT.rows) return;
+    STRK.busy = true;
+    let dates = MKT.rows.map(r => String(r[0])).filter(d => /^\d{8}$/.test(d));
+    if (DB.date && DB.date > dates[dates.length - 1]) dates.push(DB.date);
+    dates = dates.slice(-10).reverse();             /* newest first */
+    const days = [];
+    for (let i = 0; i < dates.length; i++) {
+      const ds = dates[i];
+      let m = instRead(ds);
+      if (!m) {
+        try {
+          const j = await J(`https://www.twse.com.tw/rwd/zh/fund/T86?date=${ds}&selectType=ALLBUT0999&response=json`);
+          if (j.stat === "OK" && Array.isArray(j.data) && j.data.length) {
+            const ix = (...subs) => j.fields.findIndex(f => subs.every(s => f.includes(s)));
+            const iF = ix("外陸資買賣超股數", "不含"), iF2 = ix("外資", "買賣超"), iT = ix("投信買賣超");
+            m = new Map();
+            j.data.forEach(r => { const c = String(r[0]).trim(), f = Math.round(num(r[iF >= 0 ? iF : iF2]) / 1000) || 0, t = Math.round(num(r[iT]) / 1000) || 0; if (f || t) m.set(c, [f, t]); });
+            instWrite(ds, m);
+          }
+        } catch (e) {}
+        await wait(350);
+      }
+      if (m) days.push({ ds, m });
+      else if (i > 0 || days.length) break;         /* a missing day in the middle breaks the run; today's may not be out yet */
+      paintStreakNote(`讀取法人資料 ${i + 1}/${dates.length}…`);
+    }
+    STRK.days = days; STRK.busy = false;
+    paintStreak(true);
+  }
+  const paintStreakNote = t => { const el = $("#dpOverview .bd-strk .bd-list"); if (el && !STRK.days) el.innerHTML = `<p class="sub">${esc(t)}</p>`; };
+  function streakRows(k, sg) {
+    const D = STRK.days, out = [];
+    D[0].m.forEach((v, c) => {
+      if (Math.sign(v[k]) !== sg || !DB.by.has(c)) return;
+      let n = 0, sum = 0;
+      for (const d of D) { const x = (d.m.get(c) || [0, 0])[k]; if (Math.sign(x) !== sg) break; n++; sum += x; }
+      if (n >= 2) out.push({ s: DB.by.get(c), n, sum });
+    });
+    return out.sort((a, b) => b.n - a.n || Math.abs(b.sum) - Math.abs(a.sum)).slice(0, 10);
+  }
+  function paintStreak(animate) {
+    const card = $("#dpOverview .bd-strk"); if (!card) return;
+    $$("[data-stk]", card).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.stk === STRK.tab)));
+    if (!STRK.days) return;
+    const D = STRK.days, el = $(".bd-list", card);
+    if (!D.length) { el.innerHTML = `<p class="sub">讀不到證交所的法人資料。</p>`; return; }
+    $(".bd-n", card).textContent = `近 ${D.length} 個交易日・至 ${shortDay(D[0].ds)}`;
+    const k = STRK.tab[0] === "f" ? 0 : 1, sg = STRK.tab[1] === "1" ? 1 : -1, rows = streakRows(k, sg), mx = Math.max(1, ...rows.map(r => r.n));
+    el.innerHTML = rows.length ? rows.map(r => `<button type="button" class="bd-row sk-row" data-code="${esc(r.s.code)}" style="--w:${(r.n / D.length * 100).toFixed(1)}%"><span class="bd-nm"><b>${esc(r.s.name)}</b><i>${esc(r.s.code)}</i></span><span class="bd-px ${sg > 0 ? "up" : "down"}">${signed(r.sum, 0)} 張</span><span class="bd-v sk-n">${r.n} 天</span></button>`).join("")
+      : `<p class="sub">沒有連續 2 天以上的股票。</p>`;
+    card.dataset.sg = sg > 0 ? "up" : "down";
+    if (animate) $$(".sk-row", card).forEach((r, i) => r.animate([{ opacity: 0, backgroundSize: "0% 100%" }, { opacity: 1, backgroundSize: "var(--w) 100%" }], { duration: 650, delay: i * 45, easing: "ease-out", fill: "backwards" }));
+  }
+
+  /* ---------------- AI 收盤摘要 (written by the Worker at 15:30 on trading days, or on request) ---------------- */
+  function clPaint(j, animate) {
+    const el = $("#dpPre .clout"); if (!el) return;
+    const n = j && j.note;
+    if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有收盤摘要，交易日 15:30 會自動產生。</p>`; return; }
+    const a = n.analysis, d = n.data || {}, X = d.taiex || {}, B = d.breadth || {}, li = arr => (Array.isArray(arr) ? arr : []).map(x => `<li>${esc(x)}</li>`).join("");
+    const at = new Date(n.at).toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    const t = /紅/.test(a.call || "") ? "up" : /黑/.test(a.call || "") ? "down" : "";
+    const mineBy = new Map((d.mine || []).map(x => [x.code, x]));
+    el.innerHTML = `
+      <div class="aisum lrise"><div class="aiverdict"><span class="aitag ${t}">${esc(a.call || "")}</span><b class="pmday">${esc(String(n.day).slice(5).replace("-", "/"))} 收盤</b><span class="sub">${esc(at)} 產生</span></div>
+        <p class="ailead">${esc(a.headline || "")}</p>
+        <div class="clnums">${X.z ? `<div><span>加權指數</span><b class="${tone(X.pct)}">${fmt(X.z, 2)}</b><i class="${tone(X.pct)}">${pct(X.pct)}</i></div>` : ""}${d.turnoverYi ? `<div><span>成交金額</span><b>${fmt(d.turnoverYi)} 億</b></div>` : ""}${B.up ? `<div><span>上漲／下跌</span><b><em class="up">${esc(B.up)}</em> / <em class="down">${esc(B.down)}</em></b></div>` : ""}</div>
+        <p>${esc(a.market || "")}</p></div>
+      ${a.check && (a.check.open || a.check.close) ? `<div class="clcheck lrise"><h4>盤前預測對帳</h4>${[a.check.open, a.check.close].filter(Boolean).map(x => `<p class="${/✅/.test(x) ? "ok" : /❌/.test(x) ? "miss" : ""}">${esc(x)}</p>`).join("")}${a.check.note ? `<p class="sub">${esc(a.check.note)}</p>` : ""}</div>` : ""}
+      <div class="aicols"><div class="lrise"><h4>領漲</h4><ul>${li(a.lead)}</ul></div><div class="lrise"><h4>落後</h4><ul>${li(a.lag)}</ul></div></div>
+      ${a.flows ? `<div class="lrise"><h4>法人</h4><p>${esc(a.flows)}</p></div>` : ""}
+      ${Array.isArray(a.mine) && a.mine.length ? `<div class="lrise"><h4>你的股票</h4><div class="bd-list">${a.mine.map(x => { const m = mineBy.get(String(x.code)) || {}; return `<button type="button" class="bd-row cl-row" data-code="${esc(x.code)}"><span class="bd-nm"><b>${esc(x.name || x.code)}</b><i>${esc(x.code)}</i>${m.flag ? `<em class="sflag ${m.flag === "處置股" ? "punish" : "notice"}">${esc(m.flag.slice(0, 2))}</em>` : ""}</span><span class="cl-note">${esc(x.note || "")}</span><span class="bd-v ${tone(m.pct)}">${ok(m.pct) ? pct(m.pct) : esc(x.pct || "")}</span></button>`; }).join("")}</div></div>` : ""}
+      ${Array.isArray(a.next) && a.next.length ? `<div class="lrise"><h4>下個交易日要盯</h4><ul>${li(a.next)}</ul></div>` : ""}
+      ${n.news && n.news.length ? `<details class="pmmore"><summary>參考的新聞</summary><div class="newslist">${newsHTML(n.news, null)}</div></details>` : ""}`;
+    if (animate) rise($$(".lrise", el), 70);
+  }
+  async function clLoad() { try { clPaint(await J(`${WORKER}/tw/close`), true); } catch (e) { const el = $("#dpPre .clout"); if (el) el.innerHTML = `<p class="sub">收盤摘要需要部署新版 Worker。</p>`; } }
+  async function clRun(b) {
+    const el = $("#dpPre .clout");
+    b.disabled = true; b.textContent = "整理中…";
+    try {
+      const r = await fetch(WORKER + "/tw/close/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
+      clPaint({ note: j }, true);
+      const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
+      if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
+    } catch (e) { el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${esc(e.message)}</p>`); }
+    b.disabled = false; b.textContent = "產生";
   }
 
   /* ---------------- 自選股 ---------------- */
@@ -617,6 +827,7 @@
       <div class="dcard shead">
         <div class="sfind"><button type="button" class="sback" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span></span></button><input class="ssearch" type="search" placeholder="輸入代號或名稱換一檔" aria-label="搜尋股票" autocomplete="off"><div class="ssug" hidden></div></div>
         <div class="stitle"><h2></h2></div>
+        <p class="sflagline" hidden></p>
         <div class="spx"><span class="big">—</span><span class="schg"></span><span class="sub stime"></span></div>
         <div class="sohlc"></div>
       </div>
@@ -658,7 +869,10 @@
   }
   function paintHead() {
     const box = $("#dpStock"), s = DB.by.get(CODE); if (!$(".shead", box)) return;
-    $(".stitle h2", box).innerHTML = s ? `${esc(s.name)} <span>${esc(s.code)}</span>` : esc(CODE);
+    $(".stitle h2", box).innerHTML = s ? `${esc(s.name)} <span>${esc(s.code)}</span>${flagTag(s.code)}` : esc(CODE);
+    const fl = FLAGS.get(CODE), fe = $(".sflagline", box);
+    fe.hidden = !fl; fe.className = "sflagline" + (fl ? " " + fl.k : "");
+    fe.textContent = fl ? (fl.k === "punish" ? `處置股：${fl.info}。交易受限制，下單前先確認撮合方式與是否要預收款券。` : `注意股：${fl.info}。`) : "";
     if (!s) { $(".spx .big", box).textContent = "—"; $(".schg", box).textContent = DB.list.length ? "找不到這檔上市股票" : ""; $(".sohlc", box).innerHTML = ""; return; }
     const d = dig(s.price), t = tone(s.chg);
     $(".spx .big", box).textContent = fmt(s.price, d); $(".spx .big", box).className = "big " + t;
@@ -1140,7 +1354,7 @@
     if (!quiet) {
       /* panel content rises in one block after another; then the figures inside draw themselves */
       rise(Array.from(panel.children), 80);
-      if (cur === "dpOverview") { rise($$(".ixcard", panel), 70); drawSpark(); const bx = $(".board", panel); if (bx) boardIn(bx, true); }
+      if (cur === "dpOverview") { rise($$(".ixcard", panel), 70); drawSpark(); const bx = $(".board", panel); if (bx) boardIn(bx, true); HEAT.sig = ""; paintHeat(true); paintStreak(true); paintFlagCard(true); }
       if (cur === "dpList") rise($$(".mtbl tbody tr", panel).slice(0, 24), 18, 200);
       if (cur === "dpWatch") { paintWatch(false); rise($$(".wcard", panel), 60, 80); }
       if (cur === "dpStock" && !same) { if (HIST.get(CODE)) drawChart(true); else setStock(CODE, true); }
@@ -1189,13 +1403,14 @@
 
   (async () => {
     try { await loadList(); } catch (e) { sampleList(); }
-    note(); paintTable(true); paintStrip(); paintWatch(true); paintHead();
+    note(); paintTable(true); paintStrip(); paintWatch(true); paintHead(); paintHeat(true);
     if (cur === "dpStock") setStock(CODE, true);
+    loadFlags();
     document.dispatchEvent(new Event("twdash:list"));
     alertSync();
     if (DB.live) {
       loadIdxEod().then(paintIdx, () => {}).then(paintIdx);
-      loadMarket().then(() => { paintIdx(); paintStrip(); if (cur === "dpOverview") drawSpark(); }, () => {});
+      loadMarket().then(() => { paintIdx(); paintStrip(); if (cur === "dpOverview") drawSpark(); setTimeout(loadStreak, 800); }, () => {});
       rtLoop();
     } else {
       IDX.forEach((i, k) => Object.assign(i, { z: [45120.5, 45180, 2410.3, 2105.8][k], y: [44890.2, 44950, 2395.1, 2110.2][k], src: "示意" }));

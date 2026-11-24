@@ -7,6 +7,7 @@ Taiwan stock research site, hosted on GitHub Pages: https://si70531.github.io/TW
 Four tabs:
 
 - **總覽**: four indices (TAIEX, front-month TAIEX futures, electronics, finance), a market strip (turnover, net buying of foreign investors / investment trusts / dealers, advancers and decliners) and every TWSE-listed and TPEx (上櫃) stock in one list; TPEx rows are marked 櫃. The list can be searched by code or name, sorted by price, change, change % or volume, and filtered with presets (全部, 自選, 強勢股, 弱勢股, 成交量). ★ adds a stock to the watchlist; tapping a row opens it in 個股分析.
+  - Below it: **類股熱力圖** (every listed and 上櫃 stock grouped by industry; area = turnover, colour = turnover-weighted change; tap an industry to see its stocks), **法人連續買賣超** (foreign investors and investment trusts buying or selling on consecutive days, from the last 10 trading days of TWSE's T86, each day kept in the browser once read) and **注意股・處置股** (TWSE's attention and disposition lists; also marked in the stock list and on the stock page). TPEx refuses other sites, so 上櫃 stocks are not on those lists.
 - **自選股**: the followed stocks as cards with price, change and the day's range.
 - **個股分析**: one stock.
   - Price header and a search box to switch stock.
@@ -34,7 +35,7 @@ index.html               Page shell and the tabs
 assets/twmain.js/.css    The app: data loading, 總覽, 自選股, 個股分析, charts, AI analysis
 assets/twlab.js          The 研究室 tab (uses helpers exposed by twmain.js as window.TWDash.api)
 assets/twui.css / twui.js  UI v3: glass shell (sidebar on wide screens, tabs on tablets, bottom bar on phones), light/dark from the device, drifting aurora tinted by the TAIEX, counting numbers, card tilt and sheen, loading skeletons
-tools/otc_list.py        Writes otc.json (上櫃 and 興櫃 stocks); the "OTC list" workflow publishes it on the `data` branch every 10 minutes in trading hours, because TPEx open data cannot be read by the page and refuses the Worker
+tools/otc_list.py        Writes otc.json (上櫃 and 興櫃 stocks, plus every company's industry code for the heat map); the "OTC list" workflow publishes it on the `data` branch every 10 minutes in trading hours, because TPEx open data cannot be read by the page and refuses the Worker
 assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill (mobile)
 assets/twdash.css, twmarket.css, twglass.css, twtheme.css   Shared look: cards, chips, glass surfaces, theme
 ```
@@ -51,6 +52,7 @@ assets/twdash.css, twmarket.css, twglass.css, twtheme.css   Shared look: cards, 
   - `GET /tw/premarket` the latest pre-market note. The Worker writes it at 05:30 Taipei on trading-day mornings from the TAIEX futures night session, the US close, rates, the NT dollar, institutional flows and headlines, and sends it to Telegram (secret `TELEGRAM_BOT_TOKEN` in this repository; the chat is whoever first messages the bot). `POST /tw/premarket/run` writes one on request (at most 4 an hour and 12 a day for the whole site).
   - Trading-hours alerts (cron every minute, day session 09:00–13:30 and night session 15:00–05:00): TAIEX and night-session TAIEX futures at every ±1.5%, the owner's watchlist and held codes at every ±5% and at limit up / down, and every 15 minutes the AI screens new headlines and the watched companies' material announcements; all sent to Telegram. `POST /tw/alerts/sync` stores the codes (codes only, never shares or costs); the first device that syncs is the owner. A manual `POST /tw/premarket/run` is also sent to Telegram.
   - Opening and closing bell: at 09:01 and 13:31 Taipei on trading days, one Telegram message with the TAIEX (and, at the open, whether the pre-market call was right), the TAIEX future and every held and watched stock.
+  - Close summary: at 15:30 Taipei on trading days the Worker writes an AI review of the day from TWSE's daily report (sector indices, movers, turnover, breadth), the day's institutional flows and headlines, checks the morning's call against the actual open and close, comments on each held and watched stock, and sends it to Telegram together with any of those stocks newly on the attention or disposition list. `GET /tw/close` serves it (shown under 盤前分析); `POST /tw/close/run` writes one on request (shares the pre-market limit).
 - Intraday quotes cover the stocks currently on screen (up to 70 rows, the watchlist, or the open stock) and refresh every 2 seconds during the day session (stocks and indices in one TWSE request, so an open page costs TWSE about one request every 2 seconds) and every 5 seconds for the TAIEX future in the night session; the rest of the list stays at the last close until scrolled into the first rows or opened. Sorting therefore mixes live and closing values.
 - When the Worker does not answer, the page keeps working on closing data and says so in the banner. When TWSE cannot be reached at all, the banner says 示意資料 and the numbers are sample values.
 

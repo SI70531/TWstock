@@ -7,7 +7,10 @@
      POST /tw/analyze {d, code, name, facts}   the AI analyst team (one AI call)
      POST /tw/alerts/sync {d, watch, hold}     the codes the trading-hours alerts watch (the first device that syncs owns the list)
      POST /tw/premarket/run                    write a pre-market note now (one AI call, a few per hour for the whole site)
+     GET  /tw/close                  the latest close summary
+     POST /tw/close/run                        write a close summary now (shares the pre-market limit)
      cron 05:30 Taipei on trading-day mornings: the pre-market note, sent to Telegram.
+     cron 15:30 Taipei on trading days: the AI close summary (and the owner's stocks newly on the attention / disposition lists), sent to Telegram.
      GET  /health                    does GEMINI_KEY work
    Secrets: GEMINI_KEY, TG_TOKEN (Telegram bot). Deployed by .github/workflows/worker.yml with tools/wrangler.toml.
    Google does not offer Gemini in Hong Kong, so the Gemini call goes through the GeminiRelay Durable Object in North America. */
@@ -22,6 +25,7 @@ export default {
   async scheduled(event, env, ctx) {
     ENV = env;
     if (event.cron === "* * * * *") ctx.waitUntil(Promise.all([watchTick(env, new Date(event.scheduledTime)).catch(() => {}), bellNotice(env, new Date(event.scheduledTime)).catch(() => {})]));
+    else if (event.cron === CLOSE_CRON) ctx.waitUntil(closeNote(env, true, false));
     else ctx.waitUntil(premarket(env, true));
   },
   async fetch(req, env) {
@@ -52,6 +56,7 @@ export default {
     if (url.pathname === "/tw/otc" && req.method === "GET") return twOtc(json, fail);
     if (url.pathname === "/tw/hist" && req.method === "GET") return twHist(url, json, fail);
     if (url.pathname === "/tw/premarket" && req.method === "GET") return json(await pmStore(env, "get"), 200, { "Cache-Control": "no-store" });
+    if (url.pathname === "/tw/close" && req.method === "GET") return json(await pmStore(env, "cget"), 200, { "Cache-Control": "no-store" });
 
     /* everything below: no sign-in; the page's random device id (d) and the caller's IP address */
     let bodyText = null, dev = "";
@@ -74,6 +79,12 @@ export default {
       const q = await guard(env, "pmrun", "ai", { hr: PM_HOUR, day: PM_DAY });
       if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached; try again later", { "Retry-After": String(q.aiWait || 60) });
       const r = await premarket(env, true);   /* a manual run is also sent to Telegram (useful as a test) */
+      return r.error ? (r.daily ? fail(429, "AI_DAILY", r.error) : fail(502, "AI_FAILED", r.error)) : json(r);
+    }
+    if (url.pathname === "/tw/close/run" && req.method === "POST") {
+      const q = await guard(env, "pmrun", "ai", { hr: PM_HOUR, day: PM_DAY });
+      if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached; try again later", { "Retry-After": String(q.aiWait || 60) });
+      const r = await closeNote(env, true, true);
       return r.error ? (r.daily ? fail(429, "AI_DAILY", r.error) : fail(502, "AI_FAILED", r.error)) : json(r);
     }
     return fail(404, "NOT_FOUND", "Unknown path");
@@ -468,6 +479,9 @@ export class Daily {
   constructor(state) { this.state = state; }
   async fetch(req) {
     const op = new URL(req.url).pathname.slice(1), st = this.state.storage, b = await req.json().catch(() => ({}));
+    if (op === "cput") { const h = (await st.get("close")) || []; h.unshift(b.note); h.length = Math.min(h.length, 10); await st.put("close", h); return Response.json({ ok: true }); }
+    if (op === "cget") { const h = (await st.get("close")) || []; return Response.json({ note: h[0] || null }); }
+    if (op === "flags") { const was = (await st.get("flags")) || {}; if (b.set) await st.put("flags", b.set); return Response.json(was); }
     if (op === "put") { const h = (await st.get("hist")) || []; h.unshift(b.note); h.length = Math.min(h.length, 14); await st.put("hist", h); return Response.json({ ok: true }); }
     if (op === "chat") { if (b.set) await st.put("chat", b.set); return Response.json({ chat: (await st.get("chat")) || null, offset: (await st.get("off")) || 0 }); }
     if (op === "off") { await st.put("off", b.off || 0); return Response.json({ ok: true }); }
@@ -920,3 +934,132 @@ async function bellNotice(env, now) {
   await tgSend(env, lines.join("\n"));
 }
 
+/* ---------- the close summary: 15:30 Taipei on trading days (TWSE's daily report and the day's institutional flows are out by then) ---------- */
+const CLOSE_CRON = "30 7 * * MON-FRI";
+const pctOf = (z, ch) => (z > 0 && ch != null && z - ch > 0 ? Math.round(ch / (z - ch) * 10000) / 100 : null);
+/* TWSE's daily report for one day: indices (sector indices included), turnover, breadth and every stock's close */
+async function twDayReport(ds) {
+  const j = await (await twFetch(`https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?date=${ds}&type=ALLBUT0999&response=json`, { headers: { "User-Agent": TW_UA } })).json();
+  if (j.stat !== "OK" || !Array.isArray(j.tables)) return null;
+  const T = j.tables, title = t => String(t.title || "");
+  const ix = (T.find(t => /價格指數\(臺灣證券交易所\)/.test(title(t))) || {}).data || [];
+  const idx = ix.map(r => ({ n: String(r[0]), z: twNum(r[1]), pts: twNum(r[3]), pct: twNum(r[4]) })).filter(x => x.z > 0);
+  const taiex = idx.find(x => x.n === "發行量加權股價指數") || null;
+  const sectors = idx.filter(x => /類指數$/.test(x.n) && x.pct != null).map(x => ({ name: x.n.replace(/類指數$/, ""), pct: x.pct })).sort((a, b) => b.pct - a.pct);
+  const sum = ((T.find(t => /大盤統計/.test(title(t))) || {}).data || []).find(r => /總計/.test(String(r[0])));
+  const br = (T.find(t => /漲跌證券數/.test(title(t))) || {}).data || [];
+  const brk = k => { const r = br.find(x => String(x[0]).startsWith(k)); return r ? String(r[2]) : null; };   /* the 股票 column */
+  const st = T.find(t => Array.isArray(t.fields) && t.fields.includes("證券代號") && (t.data || []).length > 100);
+  let stocks = [];
+  if (st) {
+    const f = k => st.fields.indexOf(k), iC = f("證券代號"), iN = f("證券名稱"), iV = f("成交股數"), iA = f("成交金額"), iZ = f("收盤價"), iS = f("漲跌(+/-)"), iD = f("漲跌價差");
+    stocks = st.data.filter(r => /^\d{4}$/.test(String(r[iC]))).map(r => {
+      const z = twNum(r[iZ]), ch = (/-|green/.test(String(r[iS])) ? -1 : 1) * Math.abs(twNum(r[iD]) || 0);
+      return { c: String(r[iC]), n: String(r[iN]).trim(), z, pct: pctOf(z, ch), lots: Math.round((twNum(r[iV]) || 0) / 1000), val: twNum(r[iA]) || 0 };
+    }).filter(x => x.z > 0 && x.pct != null);
+  }
+  return { taiex, sectors, turnoverYi: sum ? Math.round(twNum(sum[1]) / 1e8) : null, breadth: { up: brk("上漲"), down: brk("下跌"), flat: brk("持平") }, stocks };
+}
+/* the day's institutional net buying (NT$ 100 million) */
+async function twInstDay(ds) {
+  try {
+    const j = await (await twFetch(`https://www.twse.com.tw/rwd/zh/fund/BFI82U?type=day&dayDate=${ds}&response=json`, { headers: { "User-Agent": TW_UA } })).json();
+    if (j.stat === "OK" && Array.isArray(j.data)) return j.data.map(r => [String(r[0]).trim(), Math.round(twNum(r[3]) / 1e6) / 100]);
+  } catch (e) {}
+  return null;
+}
+/* TWSE's attention list (注意股) for a day and the disposition list (處置股) in force */
+async function twFlags(ds) {
+  const get = async u => { try { const j = await (await twFetch(u, { headers: { "User-Agent": TW_UA } })).json(); return j.stat === "OK" ? j : null; } catch (e) { return null; } };
+  const [n, p] = await Promise.all([get(`https://www.twse.com.tw/rwd/zh/announcement/notice?response=json&startDate=${ds}&endDate=${ds}`), get("https://www.twse.com.tw/rwd/zh/announcement/punish?response=json")]);
+  const col = (j, k) => (j && Array.isArray(j.fields) ? j.fields.indexOf(k) : -1);
+  const notice = n ? (n.data || []).map(r => ({ c: String(r[col(n, "證券代號")]).trim(), n: String(r[col(n, "證券名稱")]).trim() })).filter(x => /^\d{4}$/.test(x.c)) : null;
+  const punish = p ? (p.data || []).map(r => ({ c: String(r[col(p, "證券代號")]).trim(), n: String(r[col(p, "證券名稱")]).trim(), period: String(r[col(p, "處置起迄時間")] || "") })).filter(x => /^\d{4}$/.test(x.c)) : null;
+  return { notice, punish };
+}
+function closePrompt(day, D, news) {
+  return [
+"You are the closing desk of a Taiwan equity research team, writing the after-close review of " + day + " (" + WD[new Date(day + "T00:00:00Z").getUTCDay()] + ") for one private investor.",
+"Write everything in Traditional Chinese as used in Taiwan. Keep it SHORT and plain for a phone: sentences under about 35 Chinese characters, headline under 25, each list at most 3 items.",
+"Use ONLY the numbers in DATA and the headlines given; never invent a figure or an event. Name dates instead of saying 今日 / 明日.",
+"",
+"Cover: how the TAIEX closed and why; which sectors led and lagged (DATA.sectors are TWSE sector indices, % change); the day's biggest movers among liquid stocks; institutional flows (DATA.institutions, NT$ 100 million; if empty TWSE has not published yet, say so); turnover and breadth.",
+"If DATA.premarket exists it is this morning's call: compare its open call and gap with DATA.open (the actual open against the previous close) and its close call with the actual close, and say plainly whether each was right (✅ or ❌) and what it missed. If DATA.premarket is null, check is null.",
+"For each stock in DATA.mine (the user's holdings and watchlist) give one short line: what it did and the one thing to watch next. Mention any of them flagged in DATA.mine[].flag (注意股 = attention list, 處置股 = disposition list with trading restrictions).",
+"End with what to watch for the next session: at most 3 items, only from DATA and the headlines. Be conservative; this is a review, not a forecast.",
+"",
+"Return ONE JSON object and nothing else, in exactly this shape:",
+'{"call":"收紅|平盤|收黑","headline":"one sentence for a phone notification","market":"two or three sentences on the index, turnover and breadth","check":{"open":"盤前預測 vs 實際開盤 ✅/❌","close":"盤前預測 vs 實際收盤 ✅/❌","note":"what the morning call missed"},',
+'"lead":["sector or stock that led, with the reason"],"lag":["..."],"flows":"one or two sentences on the institutions","mine":[{"code":"2330","name":"台積電","pct":"+1.2%","note":"one short sentence"}],"next":["what to watch next session"]}',
+"",
+"DATA: " + JSON.stringify(D),
+"",
+"HEADLINES (today):",
+(news.map(x => "- " + x.t + (x.src ? "（" + x.src + "）" : "")).join("\n") || "(none)"),
+  ].join("\n");
+}
+async function closeNote(env, notify, manual) {
+  if (!env.GEMINI_KEY) return { error: "no GEMINI_KEY" };
+  const t = new Date(Date.now() + 8 * 3600e3), day = t.toISOString().slice(0, 10), ds = day.replace(/-/g, "");
+  const rep = await twDayReport(ds).catch(() => null);
+  if (!rep || !rep.taiex) return { error: "證交所今天的收盤資料還沒出來（大約 14:30 之後），或今天沒有交易" };
+  const [inst, flags, wl, pm, n1, n2, idxMis] = await Promise.all([
+    twInstDay(ds), twFlags(ds), pmStore(env, "wl").catch(() => ({})), pmStore(env, "get").catch(() => ({})),
+    twHeadlines("台股 OR 加權指數 OR 外資 when:1d", 10).catch(() => []), twHeadlines("台積電 OR 半導體 OR 美股 OR 關稅 when:1d", 8).catch(() => []),
+    twMis(["tse_t00.tw"]).catch(() => []),
+  ]);
+  const by = new Map(rep.stocks.map(x => [x.c, x])), liq = rep.stocks.filter(x => x.lots >= 1000);
+  const hold = wl.hold || [], codes = [...new Set([...hold, ...(wl.watch || [])])].slice(0, 30);
+  let mine = codes.map(c => by.get(c)).filter(Boolean);
+  const miss = codes.filter(c => !by.has(c));
+  if (miss.length) mine = mine.concat((await twYahooTW(miss).catch(() => [])).filter(q => q.z > 0 && q.y > 0).map(q => ({ c: q.c, n: q.n || q.c, z: q.z, pct: Math.round((q.z / q.y - 1) * 10000) / 100 })));
+  const T0 = idxMis.find(x => x.c === "t00"), pre = pm.note && pm.note.day === day && pm.note.analysis ? pm.note.analysis : null;
+  const flagOf = c => ((flags.punish || []).some(p => p.c === c) ? "處置股" : (flags.notice || []).some(p => p.c === c) ? "注意股" : null);
+  const D = {
+    taiex: rep.taiex, turnoverYi: rep.turnoverYi, breadth: rep.breadth,
+    open: T0 && T0.o > 0 && T0.y > 0 && T0.d === ds ? { open: T0.o, previousClose: T0.y, gapPoints: Math.round(T0.o - T0.y) } : null,
+    sectors: { lead: rep.sectors.slice(0, 6), lag: rep.sectors.slice(-6).reverse() },
+    gainers: liq.slice().sort((a, b) => b.pct - a.pct).slice(0, 8).map(x => ({ code: x.c, name: x.n, pct: x.pct })),
+    losers: liq.slice().sort((a, b) => a.pct - b.pct).slice(0, 8).map(x => ({ code: x.c, name: x.n, pct: x.pct })),
+    turnoverTop: rep.stocks.slice().sort((a, b) => b.val - a.val).slice(0, 8).map(x => ({ code: x.c, name: x.n, pct: x.pct, valueYi: Math.round(x.val / 1e7) / 10 })),
+    institutions: inst || [],
+    premarket: pre ? { open: pre.call, gap: pre.gap, close: pre.close && { call: pre.close.call, range: pre.close.range } } : null,
+    mine: mine.map(x => ({ code: x.c, name: x.n, close: x.z, pct: x.pct, held: hold.includes(x.c), flag: flagOf(x.c) })),
+  };
+  const seen = new Set(), news = [...n1, ...n2].filter(x => !seen.has(x.t) && seen.add(x.t)).sort((a, b) => b.at - a.at).slice(0, 14);
+  const prompt = closePrompt(day, D, news);
+  let g = await geminiJson(env, prompt, 0.3, 0);
+  for (let k = 1; g.error && [500, 502, 503, 504].includes(g.error.status) && k <= (manual ? 2 : 4); k++) {
+    await new Promise(r => setTimeout(r, (manual ? 4000 : 20000) * k));
+    g = await geminiJson(env, prompt, 0.3, k);
+  }
+  if (g.error) return { error: g.error.daily ? "AI 今天的額度用完了" : aiWhy(g.error.status), daily: !!g.error.daily };
+  let a = null; try { a = JSON.parse(g.text); } catch (e) { const t2 = String(g.text || ""), i = t2.indexOf("{"), j = t2.lastIndexOf("}"); try { a = JSON.parse(t2.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e2) { a = null; } }
+  if (!a || !a.headline) return { error: "AI 的回答不完整，再按一次" };
+  const note = { at: Date.now(), day, analysis: a, data: { taiex: rep.taiex, turnoverYi: rep.turnoverYi, breadth: rep.breadth, sectors: rep.sectors, institutions: inst || [], mine: D.mine }, news: news.slice(0, 10).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
+  await pmStore(env, "cput", { note });
+  /* the owner's stocks newly on the attention or disposition list: each one is told once (forgotten 10 days after it was last seen) */
+  const was = await pmStore(env, "flags").catch(() => ({})), keep = {}, newly = [], cut = new Date(Date.now() + 8 * 3600e3 - 10 * 864e5).toISOString().slice(0, 10);
+  Object.entries(was || {}).forEach(([k, v]) => { if (typeof v === "string" && v >= cut) keep[k] = v; });
+  codes.forEach(c => { const f = flagOf(c); if (!f) return; const k = c + ":" + f; if (!keep[k]) newly.push({ c, f }); keep[k] = day; });
+  await pmStore(env, "flags", { set: keep }).catch(() => {});
+  if (notify) {
+    const sg = v => (v > 0 ? "+" : "") + Number(v).toFixed(2) + "%", arw = v => (v > 0 ? "🔺" : v < 0 ? "🔻" : "▪️"), L = x => (Array.isArray(x) ? x.slice(0, 3) : []);
+    const nm = c => (by.get(c) || mine.find(x => x.c === c) || {}).n || c, X = rep.taiex;
+    const text = [
+      `<b>📋 ${day.slice(5).replace("-", "/")} 收盤摘要：${hesc(a.call || "")}</b>`,
+      `${arw(X.pct)} 加權 ${X.z.toFixed(2)}（${X.pts != null ? (X.pct < 0 ? "-" : "+") + Math.abs(X.pts).toFixed(0) + " 點，" : ""}${sg(X.pct)}）${rep.turnoverYi ? "・成交 " + rep.turnoverYi.toLocaleString() + " 億" : ""}`,
+      hesc(a.headline), "", hesc(a.market || ""),
+      ...(a.check && (a.check.open || a.check.close) ? ["", "<b>盤前預測對帳</b>", ...[a.check.open, a.check.close, a.check.note].filter(Boolean).map(hesc)] : []),
+      ...(L(a.lead).length ? ["", "<b>領漲</b> " + L(a.lead).map(hesc).join("；")] : []),
+      ...(L(a.lag).length ? ["<b>落後</b> " + L(a.lag).map(hesc).join("；")] : []),
+      ...(a.flows ? ["<b>法人</b> " + hesc(a.flows)] : []),
+      ...(Array.isArray(a.mine) && a.mine.length ? ["", "<b>你的股票</b>", ...a.mine.slice(0, 20).map(x => `${hesc(x.name || x.code)} ${hesc(x.pct || "")}　${hesc(x.note || "")}`)] : []),
+      ...(newly.length ? ["", "<b>⚠️ 新列入</b>", ...newly.map(x => `${hesc(nm(x.c))}（${x.c}）${x.f}${x.f === "處置股" ? "：交易受限制（分盤撮合、可能要預收款券）" : "：成交量或漲跌異常"}`)] : []),
+      ...(L(a.next).length ? ["", "<b>下個交易日盯</b> " + L(a.next).map(hesc).join("；")] : []),
+      `<a href="https://si70531.github.io/TWstock/">完整內容</a>｜AI 研究參考，不保證漲跌`,
+    ].join("\n");
+    note.sent = await tgSend(env, text);
+  }
+  return note;
+}

@@ -59,7 +59,6 @@
   .stkwrap { grid-template-columns: 1fr; }
   .stkprice { font-size: 30px; }
 }
-@media (prefers-reduced-motion: reduce) { .chip { transition: none; } }
 
 /* dense dashboard: smaller type and tighter spacing so more fits on one screen */
 .dash { gap: 10px; }

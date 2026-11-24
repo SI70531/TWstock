@@ -126,7 +126,6 @@
 
 @keyframes uiIn { from { opacity: 0; transform: translateY(12px) scale(.96); } }
 @keyframes uiOut { to { opacity: 0; transform: translateY(8px); } }
-@media (prefers-reduced-motion: reduce) { .ui-root *, .ui-modal, .ui-toast { transition: none !important; animation: none !important; } }
 
 /* ===== 補齊影片裡的 18 個組件 ===== */
 /* 01 按鈕：三種樣式（實心 / 外框 / 淡底） */

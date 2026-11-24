@@ -380,3 +380,69 @@ p.skel, div.skel.block { min-height: 64px; }
 .pday .pdo { font-size: var(--text-xs); line-height: 1.5; }
 .pana { margin: 4px 0 8px; padding-left: 1.1em; display: grid; gap: 2px; font-size: var(--text-sm); line-height: 1.55; }
 .pmpgrid { grid-template-columns: 1fr !important; }
+
+/* ---------- overview: sector heat map, institutional streaks, attention / disposition lists; the close summary ---------- */
+.board2 { margin-top: 12px; }
+.bd-heat { grid-column: span 12; }
+.bd-strk { grid-column: span 7; } .bd-flag { grid-column: span 5; }
+@media (max-width: 1100px) { .bd-strk, .bd-flag { grid-column: span 12; } }
+.bd-heat .bd-h { flex-wrap: wrap; }
+.hmsel { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.hmsel b { font-weight: 600; }
+.hmsel em { font-style: normal; }
+.hm { --hm-0: oklch(27% 0.012 260); position: relative; height: 400px; border-radius: 14px; overflow: hidden; background: var(--hm-0); }
+[data-theme="light"] .hm { --hm-0: oklch(91% 0.006 260); }
+@media (max-width: 720px) { .hm { height: 320px; } }
+.hmwait { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; }
+.hmt {
+  position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 4px;
+  border: 1px solid color-mix(in oklch, var(--bg-0, #000) 55%, transparent); border-radius: 6px; background: var(--hm-0); color: var(--color-ink);
+  text-align: center; overflow: hidden; cursor: pointer;
+  transition: left .6s var(--ease-out), top .6s var(--ease-out), width .6s var(--ease-out), height .6s var(--ease-out), background-color .6s, filter .2s;
+}
+.hmt.up { background: color-mix(in oklab, var(--color-up) calc(var(--a) * 100%), var(--hm-0)); }
+.hmt.down { background: color-mix(in oklab, var(--color-down) calc(var(--a) * 100%), var(--hm-0)); }
+.hmt b { max-width: 100%; font-weight: 600; font-size: var(--text-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hmt span { font: 600 var(--text-sm)/1.1 var(--font-outlier); }
+.hmt i { font-style: normal; font: 400 11px/1 var(--font-outlier); opacity: .75; }
+.hmt.sm b { font-size: 11px; } .hmt.sm span { font-size: 11px; } .hmt.sm i { display: none; }
+.hmt.xs > * { display: none; }
+.hmt:hover { z-index: 2; filter: brightness(1.18) saturate(1.1); box-shadow: inset 0 0 0 2px var(--color-ink); }
+.hmt:focus-visible { z-index: 2; outline: 2px solid var(--color-focus); outline-offset: -2px; }
+
+.bd-strk .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.sk-row { grid-template-columns: minmax(0, 1fr) auto 56px; background-repeat: no-repeat; background-size: var(--w) 100%; }
+.bd-strk[data-sg="up"] .sk-row { background-image: linear-gradient(90deg, color-mix(in oklch, var(--color-up) 22%, transparent), color-mix(in oklch, var(--color-up) 6%, transparent)); }
+.bd-strk[data-sg="down"] .sk-row { background-image: linear-gradient(90deg, color-mix(in oklch, var(--color-down) 22%, transparent), color-mix(in oklch, var(--color-down) 6%, transparent)); }
+.sk-n { font-weight: 600; }
+
+.sflag { display: inline-block; margin-left: 6px; padding: 0 7px; border-radius: 999px; border: 1px solid; font: 600 11px/17px var(--font-body); font-style: normal; vertical-align: 2px; white-space: nowrap; }
+.sflag.punish { color: var(--color-bad); border-color: var(--color-bad); background: color-mix(in oklch, var(--color-bad) 16%, transparent); }
+.sflag.notice { color: oklch(78% 0.15 80); border-color: oklch(78% 0.15 80); background: color-mix(in oklch, oklch(78% 0.15 80) 14%, transparent); }
+.sflag.punish { animation: flagpulse 2.4s ease-in-out infinite; }
+@keyframes flagpulse { 50% { box-shadow: 0 0 0 4px color-mix(in oklch, var(--color-bad) 18%, transparent); } }
+.stitle h2 .sflag { font-size: 12px; line-height: 20px; }
+.sflagline { margin: 4px 0 0; padding: 8px 12px; border-radius: 12px; font-size: var(--text-sm); line-height: 1.5; }
+.sflagline.punish { background: color-mix(in oklch, var(--color-bad) 14%, transparent); border: 1px solid color-mix(in oklch, var(--color-bad) 50%, transparent); }
+.sflagline.notice { background: color-mix(in oklch, oklch(78% 0.15 80) 12%, transparent); border: 1px solid color-mix(in oklch, oklch(78% 0.15 80) 45%, transparent); }
+.sflagline[hidden] { display: none; }
+.fl-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr) auto; }
+.fl-info { font-size: var(--text-xs); color: var(--color-muted); line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.fl-mine { color: var(--color-accent) !important; font-weight: 600; }
+.fl-foot { margin: 0; font-size: var(--text-xs); }
+.bd-flag .bd-list { max-height: 420px; overflow: auto; }
+
+.dcard.cl { margin-top: 12px; display: grid; gap: 12px; }
+.clout { display: grid; gap: 12px; }
+.clout h4 { margin: 0 0 6px; }
+.clout p, .clout ul { margin: 0; }
+.clnums { display: flex; flex-wrap: wrap; gap: 8px; }
+.clnums > div { display: grid; gap: 2px; padding: 8px 12px; border-radius: 12px; background: var(--glass-2); border: 1px solid var(--glass-line); }
+.clnums span { font-size: var(--text-xs); color: var(--color-muted); }
+.clnums b { font: 600 var(--text-lg)/1.1 var(--font-outlier); }
+.clnums i, .clnums em { font-style: normal; font-family: var(--font-outlier); }
+.clcheck { display: grid; gap: 4px; padding: 10px 14px; border-radius: 14px; border: 1px solid var(--glass-line); background: var(--glass-2); }
+.clcheck p.ok { color: var(--color-ok); } .clcheck p.miss { color: var(--color-bad); }
+.cl-row { grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr) 72px; }
+.cl-note { font-size: var(--text-xs); color: var(--color-muted); line-height: 1.4; }
+@media (max-width: 560px) { .fl-row, .cl-row { grid-template-columns: minmax(0, 1fr) auto; } .fl-info, .cl-note { grid-column: 1 / -1; grid-row: 2; } }

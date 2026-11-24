@@ -33,5 +33,18 @@ for x in esb:
     out.append([c, str(x.get("CompanyName", "")).strip(), last, round(last - prev, 2) if last is not None and prev is not None else None, None, num(x.get("Highest")), num(x.get("Lowest")), round((num(x.get("TransactionVolume")) or 0) / 1000), "esb"])
 if len(out) < 500:
     sys.exit("TPEx returned too little: %d" % len(out))
-json.dump({"date": date, "list": out}, open(sys.argv[1], "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-print(len(out), "stocks")
+
+# industry of every listed (TWSE) and 上櫃 / 興櫃 (TPEx) company, for the site's sector heat map; codes like "24" (半導體)
+ind = {}
+for url, kc, ki in [("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", "公司代號", "產業別"),
+                    ("https://www.tpex.org.tw/openapi/v1/mopsfin_t187ap03_O", "SecuritiesCompanyCode", "SecuritiesIndustryCode")]:
+    try:
+        for x in get(url):
+            c, i = str(x.get(kc, "")).strip(), str(x.get(ki, "")).strip()
+            if re.match(r"^\d{4}$", c) and re.match(r"^\d{2}$", i):
+                ind[c] = i
+    except Exception as e:  # the heat map just misses that market until the next run
+        print("industry list failed:", url, e)
+
+json.dump({"date": date, "list": out, "ind": ind}, open(sys.argv[1], "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+print(len(out), "stocks,", len(ind), "industries")
