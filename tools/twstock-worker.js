@@ -184,12 +184,18 @@ async function twFut() {
 async function twRt(url, json) {
   const codes = [...new Set((url.searchParams.get("c") || "").split(",").map(v => v.trim()).filter(v => /^[0-9A-Z]{4,6}$/.test(v)))].slice(0, 80);
   const out = { at: Date.now(), q: [], idx: [], fut: null };
-  const jobs = [];
-  if (codes.length) jobs.push(twCached("q:" + codes.join(","), 4000, () => twMis(codes.flatMap(c => ["tse_" + c + ".tw", "otc_" + c + ".tw"]))).then(v => { out.q = v; }));
-  if (url.searchParams.get("idx") === "1") {
-    jobs.push(twCached("idx", 4000, () => twMis(["tse_t00.tw", "tse_t13.tw", "tse_t17.tw"])).then(v => { out.idx = v; }));
-    jobs.push(twCached("fut", 4000, twFut).then(v => { out.fut = v; }));
+  const jobs = [], wantIdx = url.searchParams.get("idx") === "1";
+  /* the page asks every 2 seconds in the day session: the stocks and the indices go to TWSE as ONE request (kept 2 seconds),
+     so each open page costs TWSE about one request every 2 seconds, as before (TWSE blocks an address that asks too often) */
+  const IDX_CH = ["tse_t00.tw", "tse_t13.tw", "tse_t17.tw"], IDX_C = new Set(["t00", "t13", "t17"]);
+  if (codes.length || wantIdx) {
+    const chs = codes.flatMap(c => ["tse_" + c + ".tw", "otc_" + c + ".tw"]).concat(wantIdx ? IDX_CH : []);
+    jobs.push(twCached("mis:" + codes.join(",") + (wantIdx ? "|idx" : ""), 2000, () => twMis(chs)).then(v => {
+      out.q = v.filter(x => !IDX_C.has(x.c) || codes.includes(x.c));
+      if (wantIdx) out.idx = v.filter(x => IDX_C.has(x.c));
+    }));
   }
+  if (wantIdx) jobs.push(twCached("fut", 2000, twFut).then(v => { out.fut = v; }));
   await Promise.all(jobs.map(p => p.catch(e => { out.err = twClip(e && e.message, 80); })));
   /* TWSE's MIS often refuses or answers empty to cloud servers outside Taiwan (this Worker runs in the US):
      every code still without a price is filled from Yahoo Finance (delayed a little, but the right day's price) */

@@ -318,7 +318,7 @@
   }
   function rtLoop() {
     clearTimeout(rtTimer);
-    rtPoll().then(() => { rtTimer = setTimeout(rtLoop, marketOpen() || nightOpen() ? 5000 : 120000); });
+    rtPoll().then(() => { rtTimer = setTimeout(rtLoop, marketOpen() ? 2000 : nightOpen() ? 5000 : 120000); });
   }
 
   /* ---------------- banner ---------------- */
@@ -326,7 +326,7 @@
     const el = $(".dash-note"); if (!el) return;
     if (!DB.list.length) { el.innerHTML = `<b>載入中</b>正在讀取證交所公開資料…`; return; }
     if (!DB.live) { el.innerHTML = `<b>示意資料</b>目前連不到證交所，以下數字是示意，不代表真實行情。`; return; }
-    if (DB.rt) el.innerHTML = `<b class="live">即時</b>${esc(DB.rtAt)} 更新${DB.rtSrc === "yahoo" ? "・來源 Yahoo，可能延遲" : ""}${marketOpen() ? "・每 5 秒更新" : nightOpen() ? "・股票已收盤，台指期夜盤更新中" : "・非交易時段"}`;
+    if (DB.rt) el.innerHTML = `<b class="live">即時</b>${esc(DB.rtAt)} 更新${DB.rtSrc === "yahoo" ? "・來源 Yahoo，可能延遲" : ""}${marketOpen() ? "・每 2 秒更新" : nightOpen() ? "・股票已收盤，台指期夜盤更新中" : "・非交易時段"}`;
     else el.innerHTML = `<b>收盤</b>${slash(DB.date)} 收盤資料${DB.rt === false ? "（即時報價暫時連不上）" : ""}`;
   }
 
@@ -350,7 +350,7 @@
         <div class="mbar"><input class="msearch msfull" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
           <div class="chips">${PRESETS.map(([k, t]) => `<button type="button" class="chip" data-preset="${k}" aria-pressed="${k === VIEW.preset}">${t}</button>`).join("")}</div>
           <span class="sub mcount"></span></div>
-        <div class="mwrap"><table class="mtbl ttbl mktab"><thead><tr><th class="l">商品</th>${COLS.map(([k, t]) => `<th class="sort" data-key="${k}">${t}<i></i></th>`).join("")}<th aria-label="自選"></th></tr></thead><tbody></tbody></table></div>
+        <div class="mwrap"><table class="mtbl ttbl mktab"><thead><tr><th class="l">股票</th>${COLS.map(([k, t]) => `<th class="sort" data-key="${k}">${t}<i></i></th>`).join("")}<th aria-label="自選"></th></tr></thead><tbody></tbody></table></div>
         <button type="button" class="mmore" hidden>顯示更多</button>
       </div>`;
     const box = $("#dpOverview");
