@@ -592,3 +592,23 @@ a.nrow:hover .ntext { text-decoration: underline; text-decoration-color: var(--c
 .ixfig.up .ixarea { fill: var(--color-up); fill-opacity: .10; } .ixfig.down .ixarea { fill: var(--color-down); fill-opacity: .10; }
 .ixfig .ixvl { stroke: var(--color-ink); stroke-width: 1; opacity: .5; }
 .ixfig .ixcur circle { fill: var(--color-ink); }
+
+#fx { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1200; }
+/* opening intro: a chart draws itself, then the sign-in opens */
+.intro { position: fixed; inset: 0; z-index: 1100; overflow: hidden; background: var(--color-paper-3); color: var(--color-ink); font-family: var(--font-outlier); }
+.intro .grid { position: absolute; inset: 0; background-image: linear-gradient(var(--color-rule) 1px, transparent 1px), linear-gradient(90deg, var(--color-rule) 1px, transparent 1px); background-size: 44px 44px; opacity: .5; }
+.intro svg.chart { position: absolute; inset: 0; width: 100%; height: 100%; }
+.intro .cd { transform-box: fill-box; transform-origin: 50% 100%; }
+.intro .vig { position: absolute; inset: 0; background: radial-gradient(closest-side at 50% 50%, color-mix(in oklab, var(--color-paper-3) 90%, transparent), color-mix(in oklab, var(--color-paper-3) 40%, transparent) 70%, transparent); }
+.intro .center { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: var(--space-md); text-align: center; }
+.intro .mk { display: grid; place-items: center; width: 84px; height: 84px; border-radius: var(--radius-card); background: var(--color-accent); color: var(--color-accent-ink); font: 500 var(--text-2xl) var(--font-outlier); }
+.intro .ti { min-height: 1.2em; font: 500 clamp(2rem, 9vw, 3.75rem) var(--font-outlier); color: var(--color-ink); }
+.intro .cur { display: inline-block; width: .08em; height: .9em; margin-left: .06em; vertical-align: -.1em; background: var(--color-accent); animation: blink 1s steps(1) infinite; }
+.intro .sub { color: var(--color-muted); font-size: var(--text-sm); }
+.intro .tape { position: absolute; left: 0; right: 0; display: flex; align-items: center; height: 34px; overflow: hidden; border: solid var(--color-rule); border-width: 1px 0; background: var(--color-paper-2); font: 400 var(--text-sm) var(--font-outlier); color: var(--color-muted); }
+.intro .tape.t { top: 0; } .intro .tape.b { bottom: 0; }
+.intro .track { display: flex; gap: 32px; white-space: nowrap; padding-left: 32px; animation: tape 22s linear infinite; }
+.intro .tape.b .track { animation-direction: reverse; }
+.intro .track b { color: var(--color-ink); font-weight: 400; }
+.intro .sk { position: absolute; left: 0; right: 0; bottom: 52px; text-align: center; color: var(--color-muted); font-size: var(--text-xs); }
+.irisring { position: fixed; left: 50%; top: 50%; border: 2px solid var(--color-accent); border-radius: 50%; transform: translate(-50%, -50%); z-index: 1101; pointer-events: none; }
