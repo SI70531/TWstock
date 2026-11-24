@@ -290,6 +290,27 @@
     if (cur === "dpStock") return [CODE];
     return $$("#dpList .mtbl tbody tr[data-code]").slice(0, 70).map(r => r.dataset.code);
   }
+  function rtApply(x) {
+    const s = DB.by.get(x.c); if (!s || !(x.z > 0) || !(x.y > 0)) return false;
+    s.flash = x.z > s.price ? "up" : x.z < s.price ? "down" : "";
+    s.price = x.z; s.prev = x.y; s.chg = x.z - x.y; s.pct = (x.z / x.y - 1) * 100;
+    if (x.o > 0) s.open = x.o; if (x.h > 0) s.high = x.h; if (x.l > 0) s.low = x.l; if (ok(x.v)) s.vol = x.v;
+    s.tm = x.tm; s.day = x.d; s.rt = true;
+    return true;
+  }
+  /* a stock just opened during trading hours: fetch its quote right away, outside the regular poll,
+     and keep yesterday's close off the header until it arrives */
+  async function quoteNow(code) {
+    const s = DB.by.get(code); if (!s || s.rt || !DB.live || !marketOpen()) return;
+    s.rtWait = true;
+    try {
+      const j = await J(`${WORKER}/tw/rt?c=${encodeURIComponent(code)}`);
+      (j.q || []).forEach(rtApply);
+      DB.rtSrc = j.src || DB.rtSrc;
+    } catch (e) {}
+    s.rtWait = false;
+    if (CODE === code) { paintHead(); if (HIST.get(code)) drawChart(false); }
+  }
   async function rtPoll() {
     if (rtBusy || !DB.live || document.hidden) return;
     if (DB.rt === false && Date.now() - rtFailAt < 300000) return;
@@ -298,14 +319,7 @@
       const codes = rtCodes(), wantIdx = cur === "dpOverview" || !IDX[0].rt;
       const j = await J(`${WORKER}/tw/rt?c=${codes.join(",")}${wantIdx ? "&idx=1" : ""}`);
       let any = false;
-      (j.q || []).forEach(x => {
-        const s = DB.by.get(x.c); if (!s || !(x.z > 0) || !(x.y > 0)) return;
-        any = true;
-        s.flash = x.z > s.price ? "up" : x.z < s.price ? "down" : "";
-        s.price = x.z; s.prev = x.y; s.chg = x.z - x.y; s.pct = (x.z / x.y - 1) * 100;
-        if (x.o > 0) s.open = x.o; if (x.h > 0) s.high = x.h; if (x.l > 0) s.low = x.l; if (ok(x.v)) s.vol = x.v;
-        s.tm = x.tm; s.day = x.d; s.rt = true;
-      });
+      (j.q || []).forEach(x => { if (rtApply(x)) any = true; });
       (j.idx || []).forEach(x => {
         const it = IDX.find(i => i.k === x.c); if (!it || !(x.z > 0)) return;
         any = true; Object.assign(it, { z: x.z, y: x.y, h: x.h, l: x.l, tm: x.tm, src: marketOpen() ? "盤中" : "收盤", rt: true });
@@ -874,6 +888,7 @@
     fe.hidden = !fl; fe.className = "sflagline" + (fl ? " " + fl.k : "");
     fe.textContent = fl ? (fl.k === "punish" ? `處置股：${fl.info}。交易受限制，下單前先確認撮合方式與是否要預收款券。` : `注意股：${fl.info}。`) : "";
     if (!s) { $(".spx .big", box).textContent = "—"; $(".schg", box).textContent = DB.list.length ? "找不到這檔上市股票" : ""; $(".sohlc", box).innerHTML = ""; return; }
+    if (s.rtWait) { $(".spx .big", box).textContent = "—"; $(".spx .big", box).className = "big"; $(".schg", box).textContent = "讀取即時報價…"; $(".schg", box).className = "schg"; $(".stime", box).textContent = ""; $(".sohlc", box).innerHTML = ""; return; }
     const d = dig(s.price), t = tone(s.chg);
     $(".spx .big", box).textContent = fmt(s.price, d); $(".spx .big", box).className = "big " + t;
     $(".schg", box).textContent = `${arrow(s.chg)} ${fmt(Math.abs(s.chg), d)}（${pct(s.pct)}）`; $(".schg", box).className = "schg " + t;
@@ -978,7 +993,8 @@
   async function setStock(code, animate) {
     CODE = code; store.set("twmain-code", CODE);
     const box = $("#dpStock"), tok = ++chartTok;
-    paintHead();
+    const qs = DB.by.get(code); if (qs && !qs.rt && DB.live && marketOpen()) qs.rtWait = true;
+    paintHead(); quoteNow(code);
     $(".cbox", box).innerHTML = `<p class="mempty">載入中…</p>`; $(".cread", box).textContent = "";
     $(".snaplist", box).innerHTML = `<p class="sub">載入中…</p>`;
     paintAI();

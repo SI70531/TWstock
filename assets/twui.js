@@ -123,7 +123,7 @@
       const text = el.textContent, v = num(text), k = keyOf(el, i), who = el.closest("#dpStock") && A && A.code ? A.code() : "", prev = LAST.get(k);
       LAST.set(k, { v, who });
       if (!Number.isFinite(v) || !prev) return;
-      const from = prev.who !== who ? 0 : prev.v;
+      const from = prev.who !== who || !Number.isFinite(prev.v) ? 0 : prev.v;
       if (!Number.isFinite(from) || from === v) return;
       countTo(el, from, v, text);
     });
