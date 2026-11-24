@@ -120,12 +120,13 @@
   function scanNumbers() {
     $$(".dash .big, .side .sb-ix b").forEach((el, i) => {
       if (RUN.has(el)) return;
-      const text = el.textContent, v = num(text), k = keyOf(el, i), old = LAST.get(k);
-      LAST.set(k, v);
-      if (!Number.isFinite(v) || !Number.isFinite(old) || old === v) return;
-      countTo(el, old, v, text);
-      const c = v > old ? "nflash-up" : "nflash-down";
-      el.classList.remove("nflash-up", "nflash-down"); void el.offsetWidth; el.classList.add(c);
+      /* who: the stock now shown on the 個股分析 page; switching to another stock counts up from 0 */
+      const text = el.textContent, v = num(text), k = keyOf(el, i), who = el.closest("#dpStock") && A && A.code ? A.code() : "", prev = LAST.get(k);
+      LAST.set(k, { v, who });
+      if (!Number.isFinite(v) || !prev) return;
+      const from = prev.who !== who ? 0 : prev.v;
+      if (!Number.isFinite(from) || from === v) return;
+      countTo(el, from, v, text);
     });
     $$(".dash .pxpill").forEach(el => {
       const tr = el.closest("[data-code]"), k = "px:" + (tr ? tr.dataset.code : ""), v = num(el.textContent), old = LAST.get(k);
