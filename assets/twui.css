@@ -681,14 +681,14 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--glass-line);
 
 /* ---------- phones and tablets: clock and quotes in a second row of the top bar (the sidebar holds them on wide screens) ---------- */
 @media (max-width: 1099px) { .app .topbar { flex-wrap: wrap; row-gap: 8px; } }
-.mclock { order: 9; flex: 1 0 100%; display: grid; grid-template-columns: auto 1fr 1fr; align-items: center; gap: 6px 14px; padding: 8px 4px 2px; border-top: 1px solid var(--glass-line); }
-.mclock .mc-t { display: grid; gap: 2px; }
-.mclock .mc-t .t { font: 500 var(--text-lg)/1 var(--font-outlier); letter-spacing: -.02em; }
-.mclock .mc-t .sd { font-size: var(--text-xs); color: var(--color-muted); }
+.mclock { order: 9; flex: 1 0 100%; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 8px 14px; padding: 8px 4px 2px; border-top: 1px solid var(--glass-line); }
+.mclock .mc-t { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px; }
+.mclock .mc-t .t { font: 700 2.25rem/1 var(--font-outlier); letter-spacing: -.02em; background: linear-gradient(90deg, var(--color-ink), var(--ring-c), var(--color-ink)); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: rainbow 6s linear infinite; text-shadow: none; filter: drop-shadow(0 0 10px color-mix(in oklch, var(--ring-c) 45%, transparent)); }
+.mclock .mc-t .sd { font-size: var(--text-sm); color: var(--color-muted); }
 .mclock .sb-ix { display: grid; gap: 2px; justify-content: stretch; font: 500 var(--text-sm)/1.2 var(--font-outlier); }
 .mclock .sb-ix span { font: 400 var(--text-xs)/1 var(--font-body, inherit); color: var(--color-muted); }
 .mclock .sb-ix b { white-space: nowrap; font-weight: 500; }
 .mclock .sb-prog { grid-column: 1 / -1; grid-template-columns: 1fr auto; align-items: center; gap: 10px; }
 .mclock .sb-prog[hidden] { display: none; }
-@media (max-width: 440px) { .mclock { gap: 6px 10px; padding-right: 0; } .mclock .mc-t .t { font-size: var(--text-md); } .mclock .sb-ix b { font-size: 13px; } }
+@media (max-width: 440px) { .mclock { gap: 6px 10px; padding-right: 0; } .mclock .mc-t .t { font-size: 2rem; } .mclock .sb-ix b { font-size: 13px; } }
 @media (min-width: 1100px) { .mclock { display: none; } }
