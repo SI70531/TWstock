@@ -292,11 +292,51 @@
   }
   function rtApply(x) {
     const s = DB.by.get(x.c); if (!s || !(x.z > 0) || !(x.y > 0)) return false;
+    const had = s.rt, was = s.pct;
     s.flash = x.z > s.price ? "up" : x.z < s.price ? "down" : "";
     s.price = x.z; s.prev = x.y; s.chg = x.z - x.y; s.pct = (x.z / x.y - 1) * 100;
     if (x.o > 0) s.open = x.o; if (x.h > 0) s.high = x.h; if (x.l > 0) s.low = x.l; if (ok(x.v)) s.vol = x.v;
     s.tm = x.tm; s.day = x.d; s.rt = true;
+    if (had && marketOpen()) moveAlert(s, was);
     return true;
+  }
+  /* the levels: limit up / down, then ±5%; a card appears when one of your stocks reaches a higher level than before (once per day) */
+  const lvOf = p => (!ok(p) ? 0 : p >= 9.4 ? 2 : p >= 5 ? 1 : p <= -9.4 ? -2 : p <= -5 ? -1 : 0);
+  function moveAlert(s, was) {
+    if (!LISTS.some(l => l.includes(s.code))) return;
+    const lv = lvOf(s.pct), pv = lvOf(was);
+    if (!lv || (Math.sign(lv) === Math.sign(pv) && Math.abs(lv) <= Math.abs(pv))) return;
+    const key = "twtoast-" + (s.day || "") + ":" + s.code + ":" + lv;
+    try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, "1"); } catch (e) {}
+    toast(s, lv);
+  }
+  let toastHost = null;
+  function toast(s, lv) {
+    if (!toastHost) { toastHost = document.createElement("div"); toastHost.className = "toasts"; toastHost.setAttribute("aria-live", "polite"); document.body.appendChild(toastHost); }
+    const up = lv > 0, lim = Math.abs(lv) === 2, label = lim ? (up ? "漲停" : "跌停") : (up ? "漲逾 5%" : "跌逾 5%");
+    const el = document.createElement("div");
+    el.className = `toast ${up ? "up" : "down"}${lim ? " lim" : ""}`; el.dataset.code = s.code;
+    el.innerHTML = `<span class="tt-badge">${label}</span><button type="button" class="tt-body" data-go="${esc(s.code)}"><b>${esc(s.name)} <i>${esc(s.code)}</i></b><span><em>${fmt(s.price, dig(s.price))}</em> <em>${pct(s.pct)}</em>　${esc((s.tm || "").slice(0, 5))}</span></button><button type="button" class="tt-x" aria-label="關閉">✕</button><i class="tt-life"></i>`;
+    toastHost.prepend(el);
+    while (toastHost.children.length > 4) toastHost.lastElementChild.remove();
+    el.animate([{ opacity: 0, transform: "translateX(28px) scale(.96)", filter: "blur(6px)" }, { opacity: 1, transform: "none", filter: "none" }], { duration: 420, easing: "cubic-bezier(.16,1,.3,1)" });
+    if (lim) sparks($(".tt-badge", el), up);
+    const life = $(".tt-life", el).animate([{ transform: "scaleX(1)" }, { transform: "scaleX(0)" }], { duration: 9000, easing: "linear", fill: "forwards" });
+    const close = () => { if (!el.isConnected) return; el.animate([{ opacity: 1 }, { opacity: 0, transform: "translateX(24px)" }], { duration: 200, fill: "forwards" }).onfinish = () => el.remove(); };
+    life.onfinish = close;
+    el.addEventListener("pointerenter", () => life.pause()); el.addEventListener("pointerleave", () => life.play());
+    $(".tt-x", el).addEventListener("click", close);
+    $(".tt-body", el).addEventListener("click", () => { close(); openStock(s.code); });
+  }
+  /* sparks fly out of the limit badge */
+  function sparks(from, up) {
+    const r = from.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    for (let k = 0; k < 16; k++) {
+      const d = document.createElement("i"); d.className = "spark " + (up ? "up" : "down"); d.style.left = cx + "px"; d.style.top = cy + "px"; document.body.appendChild(d);
+      const ang = Math.random() * Math.PI * 2, dist = 30 + Math.random() * 70, sz = 0.6 + Math.random() * 0.8;
+      d.animate([{ transform: `translate(-50%,-50%) scale(${sz})`, opacity: 1 }, { transform: `translate(calc(-50% + ${Math.cos(ang) * dist}px), calc(-50% + ${Math.sin(ang) * dist + 18}px)) scale(0)`, opacity: 0 }],
+        { duration: 650 + Math.random() * 450, easing: "cubic-bezier(.16,1,.3,1)" }).onfinish = () => d.remove();
+    }
   }
   /* a stock just opened during trading hours: fetch its quote right away, outside the regular poll,
      and keep yesterday's close off the header until it arrives */
@@ -377,12 +417,12 @@
         <button type="button" class="mmore" hidden>顯示更多</button>
       </div>`;
     const box = $("#dpOverview");
-    $(".msearch", box).addEventListener("input", e => { VIEW.q = e.target.value.trim(); VIEW.shown = 50; paintTable(true); });
+    $(".msearch", box).addEventListener("input", e => { VIEW.q = e.target.value.trim(); VIEW.dist = null; VIEW.shown = 50; paintTable(true); });
     root.addEventListener("click", e => {
       if (!e.target.closest("#dpOverview, #dpPre, #dpList")) return;
       const p = e.target.closest("[data-preset]");
       if (p) {
-        VIEW.q = ""; $("#dpList .msearch").value = "";
+        VIEW.q = ""; $("#dpList .msearch").value = ""; VIEW.dist = null;
         VIEW.preset = p.dataset.preset; VIEW.shown = 50;
         const o = { all: ["vol", -1], w1: ["ord", 1], w2: ["ord", 1], w3: ["ord", 1], w4: ["ord", 1], w5: ["ord", 1], strong: ["pct", -1], weak: ["pct", 1], volume: ["vol", -1] }[VIEW.preset];
         VIEW.key = o[0]; VIEW.dir = o[1]; paintTable(true); return;
@@ -396,9 +436,12 @@
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
       if (e.target.closest(".clgo")) { clRun(e.target.closest(".clgo")); return; }
-      if (e.target.closest(".hmback")) { HEAT.sel = null; paintHeat(true); return; }
-      const hmt = e.target.closest(".hmt"); if (hmt) { if (hmt.dataset.code) openStock(hmt.dataset.code, hmt); else { HEAT.sel = hmt.dataset.k; paintHeat(true); } return; }
+      if (e.target.closest(".hmback")) { heatZoom(null); return; }
+      const hmt = e.target.closest(".hmt"); if (hmt) { if (hmt.dataset.code) openStock(hmt.dataset.code, hmt); else heatZoom(hmt); return; }
       const sk = e.target.closest("[data-stk]"); if (sk) { STRK.tab = sk.dataset.stk; paintStreak(true); return; }
+      const dc = e.target.closest("[data-dist]");
+      if (dc) { VIEW.q = ""; $("#dpList .msearch").value = ""; VIEW.dist = +dc.dataset.dist; VIEW.key = "vol"; VIEW.dir = -1; VIEW.shown = 50; open("dpList", true); paintTable(true); return; }
+      if (e.target.closest(".distclr")) { VIEW.dist = null; VIEW.key = "ord"; VIEW.dir = 1; paintTable(true); return; }
       const pk = e.target.closest("[data-pick]"); if (pk) { openStock(pk.dataset.pick, pk); return; }
       const gt = e.target.closest("[data-goto]"); if (gt) { open(gt.dataset.goto, true); return; }
       const bd = e.target.closest(".bd-row, .bd-tile"); if (bd) { openStock(bd.dataset.code, bd); return; }
@@ -409,13 +452,18 @@
     /* the pre-market note and the stock list each have their own tab */
     $("#dpPre").appendChild($(".pm", box)); $("#dpPre").appendChild($(".cl", box)); $("#dpList").appendChild($(".mkt", box));
     pmLoad(); clLoad();
+    const dd = $(".bd-dist", box); dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; });
     const hm = $(".hm", box); hm.addEventListener("pointermove", heatTip); hm.addEventListener("pointerleave", () => { const t = $(".hmtip", hm); if (t) t.hidden = true; }); setTimeout(alertSync, 2500); loadCharts(true);
     box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
   }
   function rowsNow() {
     const q = VIEW.q.toLowerCase();
     let rows = DB.list;
-    const L = /^w[1-5]$/.test(VIEW.preset) ? LISTS[listIdx()] : null;
+    const L = /^w[1-5]$/.test(VIEW.preset) && VIEW.dist == null ? LISTS[listIdx()] : null;
+    if (!q && VIEW.dist != null && DIST[VIEW.dist]) {
+      const f = DIST[VIEW.dist][1], v = x => (ok(x) ? x : -Infinity);
+      return DB.list.filter(x => ok(x.price) && x.price > 0 && ok(x.pct) && f(x.pct)).sort((a, b) => (v(a[VIEW.key]) - v(b[VIEW.key])) * VIEW.dir || a.code.localeCompare(b.code));
+    }
     if (q) return DB.list.filter(s => s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q))   /* a search looks through every stock */
       .sort((a, b) => (a.code.toLowerCase() === q ? -1 : 0) - (b.code.toLowerCase() === q ? -1 : 0) || (ok(b.vol) ? b.vol : 0) - (ok(a.vol) ? a.vol : 0));
     if (L) rows = rows.filter(s => L.includes(s.code));
@@ -434,7 +482,7 @@
   };
   /* inside 自選1–5: ＋ adds a searched stock to that list, − takes one out */
   const wlBtn = s => {
-    if (VIEW.q) { const has = LISTS.some(l => l.includes(s.code)); return `<button type="button" class="wlbtn wladd${has ? " in" : ""}" data-code="${esc(s.code)}" aria-label="加入自選 ${esc(s.name)}">＋</button>`; }
+    if (VIEW.q || VIEW.dist != null) { const has = LISTS.some(l => l.includes(s.code)); return `<button type="button" class="wlbtn wladd${has ? " in" : ""}" data-code="${esc(s.code)}" aria-label="加入自選 ${esc(s.name)}">＋</button>`; }
     if (!/^w[1-5]$/.test(VIEW.preset)) return "";
     const n = listIdx() + 1, inL = LISTS[n - 1].includes(s.code);
     if (inL && ARM.code === s.code && ARM.list === n - 1) return `<button type="button" class="wlbtn in arm" data-code="${esc(s.code)}" aria-label="確定從自選${n}移除 ${esc(s.name)}">確定移除</button>`;
@@ -476,8 +524,10 @@
     $(".mtbl tbody", box).innerHTML = show.map(rowHTML).join("") ||
       `<tr><td class="mempty" colspan="6">${/^w[1-5]$/.test(VIEW.preset) && !VIEW.q ? `自選${listIdx() + 1} 還沒有股票。`  : DB.list.length ? "找不到符合的股票。" : "載入中…"}</td></tr>`;
     $(".mmore", box).hidden = rows.length <= VIEW.shown;
-    $(".mcount", box).textContent = DB.list.length ? `${fmt(rows.length)} 檔${VIEW.preset === "strong" || VIEW.preset === "weak" ? "（成交量 500 張以上）" : ""}` : "";
-    $$("[data-preset]", box).forEach(b => b.setAttribute("aria-pressed", String(!VIEW.q && b.dataset.preset === VIEW.preset)));
+    const dl = VIEW.dist != null && !VIEW.q && DIST[VIEW.dist];
+    $(".mcount", box).innerHTML = !DB.list.length ? "" : dl ? `<button type="button" class="chip distclr" aria-pressed="true">漲跌幅 ${esc(dl[0])}${/~/.test(dl[0]) ? "%" : ""}<i aria-hidden="true">✕</i></button> ${fmt(rows.length)} 檔`
+      : `${fmt(rows.length)} 檔${VIEW.preset === "strong" || VIEW.preset === "weak" ? "（成交量 500 張以上）" : ""}`;
+    $$("[data-preset]", box).forEach(b => b.setAttribute("aria-pressed", String(!VIEW.q && !dl && b.dataset.preset === VIEW.preset)));
     $$("th.sort", box).forEach(th => { th.dataset.dir = th.dataset.key === VIEW.key ? (VIEW.dir < 0 ? "desc" : "asc") : ""; });
     if (animate && box.classList.contains("on")) rise($$(".mtbl tbody tr", box).slice(0, 24), 18);
     if (animate) rtPoll();
@@ -594,6 +644,26 @@
     tip.hidden = false;
     const r = hm.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, w = tip.offsetWidth, h = tip.offsetHeight;
     tip.style.transform = `translate(${Math.round(x + 16 + w > r.width ? x - w - 14 : x + 16)}px, ${Math.round(y + 16 + h > r.height ? Math.max(4, y - h - 12) : y + 16)}px)`;
+  }
+  function heatZoom(tile) {
+    const hm = $("#dpOverview .hm"); if (!hm) return;
+    const hr = hm.getBoundingClientRect(), from = HEAT.sel;
+    const box = el => { const r = el.getBoundingClientRect(); return { x: r.left - hr.left, y: r.top - hr.top, w: r.width, h: r.height, bg: getComputedStyle(el).backgroundColor }; };
+    const veil = (b, grow) => {
+      const v = document.createElement("div"); v.className = "hmveil"; v.style.background = b.bg; hm.appendChild(v);
+      const small = `translate(${b.x}px, ${b.y}px) scale(${Math.max(0.01, b.w / hr.width)}, ${Math.max(0.01, b.h / hr.height)})`;
+      const a = v.animate(grow ? [{ transform: small, borderRadius: "6px" }, { transform: "none", borderRadius: "14px" }] : [{ transform: "none", opacity: 0.95 }, { transform: small, opacity: 0.95 }], { duration: grow ? 460 : 420, easing: "cubic-bezier(.16,1,.3,1)", fill: "forwards" });
+      a.onfinish = () => v.animate([{ opacity: grow ? 1 : 0.95 }, { opacity: 0 }], { duration: 260, fill: "forwards" }).onfinish = () => v.remove();
+    };
+    const fadeIn = delay => $$(".hmt", hm).forEach((t, i) => t.animate([{ opacity: 0, filter: "blur(6px)", transform: "scale(.94)" }, { opacity: 1, filter: "none", transform: "none" }], { duration: 420, delay: delay + Math.min(i, 30) * 14, easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" }));
+    if (tile) {
+      const b = box(tile); HEAT.sel = tile.dataset.k; HEAT.sig = ""; paintHeat(false); veil(b, true); fadeIn(260);
+    } else {
+      HEAT.sel = null; HEAT.sig = ""; paintHeat(false);
+      const t = from && $(`.hmt[data-k="${from}"]`, hm);
+      if (t) { const b = box(t); veil(b, false); }
+      fadeIn(120);
+    }
   }
   let heatRT = 0;
   addEventListener("resize", () => { clearTimeout(heatRT); heatRT = setTimeout(() => { const hm = $("#dpOverview .hm"); if (hm && hm.clientWidth !== HEAT.w) { HEAT.w = hm.clientWidth; HEAT.sig = ""; paintHeat(false); } }, 200); });
@@ -1170,6 +1240,9 @@
 
 
 
+  /* the distribution's buckets (% change); also a filter for the stock list */
+  const DIST = [["跌停", p => p <= -9.4, "down"], ["-9~-6", p => p > -9.4 && p <= -6, "down"], ["-6~-3", p => p > -6 && p <= -3, "down"], ["-3~0", p => p > -3 && p < 0, "down"], ["平", p => p === 0, ""],
+      ["0~3", p => p > 0 && p < 3, "up"], ["3~6", p => p >= 3 && p < 6, "up"], ["6~9", p => p >= 6 && p < 9.4, "up"], ["漲停", p => p >= 9.4, "up"]];
   /* ---------------- overview board: distribution, movers, volume, watchlist heat map, pre-market summary ---------------- */
   let PMN = null, boardSig = "";
   function paintBoard() {
@@ -1178,11 +1251,10 @@
     const sig = live.length + ":" + live.reduce((a, s) => a + s.pct, 0).toFixed(1) + ":" + (PMN ? PMN.at : 0) + ":" + WATCH.join();
     const first = !boardSig; if (sig === boardSig) return; boardSig = sig;
     /* distribution: ≤-9, -9..-6, -6..-3, -3..0, 0, 0..3, 3..6, 6..9, ≥9 */
-    const B = [["跌停", p => p <= -9.4, "down"], ["-9~-6", p => p > -9.4 && p <= -6, "down"], ["-6~-3", p => p > -6 && p <= -3, "down"], ["-3~0", p => p > -3 && p < 0, "down"], ["平", p => p === 0, ""],
-      ["0~3", p => p > 0 && p < 3, "up"], ["3~6", p => p >= 3 && p < 6, "up"], ["6~9", p => p >= 6 && p < 9.4, "up"], ["漲停", p => p >= 9.4, "up"]];
+    const B = DIST;
     const cnt = B.map(b => live.filter(s => b[1](s.pct)).length), mx = Math.max(1, ...cnt);
     $(".bd-n", box).textContent = `${fmt(live.length)} 檔`;
-    $(".bd-bars", box).innerHTML = B.map((b, i) => `<div class="bd-col"><span class="bd-c">${fmt(cnt[i])}</span><i class="bd-b ${b[2]}" style="--h:${(cnt[i] / mx * 100).toFixed(1)}%"></i><span class="bd-l">${b[0]}</span></div>`).join("");
+    $(".bd-bars", box).innerHTML = B.map((b, i) => `<button type="button" class="bd-col" data-dist="${i}" aria-label="漲跌幅 ${b[0]}：${cnt[i]} 檔，點一下在股票清單列出"><span class="bd-c">${fmt(cnt[i])}</span><i class="bd-b ${b[2]}" style="--h:${(cnt[i] / mx * 100).toFixed(1)}%"></i><span class="bd-l">${b[0]}</span></button>`).join("");
     const row = (s, v, t) => `<button type="button" class="bd-row" data-code="${esc(s.code)}"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i></span><span class="bd-px">${fmt(s.price, dig(s.price))}</span><span class="bd-v ${t}">${v}</span></button>`;
     const up = liq.slice().sort((a, b) => b.pct - a.pct).slice(0, 8), dn = liq.slice().sort((a, b) => a.pct - b.pct).slice(0, 8), vol = live.slice().sort((a, b) => b.vol - a.vol).slice(0, 8), vmx = vol.length ? vol[0].vol : 1;
     $(".bd-up .bd-list", box).innerHTML = up.map(s => row(s, pct(s.pct), "up")).join("");
@@ -1192,6 +1264,19 @@
     ($(".bd-pmout", box) || {}).innerHTML = a ? `<div class="bd-call"><span class="aitag ${/高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : ""}">${esc(a.call)}</span><span class="sub">預測 ${esc(String(PMN.day).slice(5).replace("-", "/"))} 開盤・${esc(a.gap || "")}</span>${a.close && a.close.call ? `<span class="aitag ${/紅/.test(a.close.call) ? "up" : /黑/.test(a.close.call) ? "down" : ""}">${esc(a.close.call)}</span><span class="sub">收盤 ${esc(a.close.range || "")}</span>` : ""}</div><p class="bd-head">${esc(a.headline || "")}</p>
       ${Array.isArray(a.picks) && a.picks.length ? `<div class="bd-picks">${a.picks.slice(0, 8).map(x => `<button type="button" class="bd-row" data-code="${esc(x.code)}"><span class="bd-nm"><b>${esc(x.name)}</b><i>${esc(x.code)}</i></span><span class="bd-px">${esc(x.tag || "")}</span><span class="bd-v ${/買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""}">${esc(x.action || "")}</span></button>`).join("")}</div>` : ""}<div class="bd-ch">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc((a.chances || {})[k] || "—")}</b></div>`).join("")}</div>` : `<p class="sub">05:30 自動產生。</p>`;
     if (first || cur === "dpOverview") boardIn(box, first);
+  }
+  /* the reading over a distribution bar: how many, and the busiest stocks in that bucket */
+  function distTip(e) {
+    const card = e.currentTarget, col = e.target.closest && e.target.closest(".bd-col");
+    let tip = $(".bdtip", card);
+    if (!col) { if (tip) tip.hidden = true; return; }
+    if (!tip) { tip = document.createElement("div"); tip.className = "hmtip bdtip"; card.appendChild(tip); }
+    const b = DIST[+col.dataset.dist], list = DB.list.filter(x => ok(x.price) && x.price > 0 && ok(x.pct) && b[1](x.pct));
+    const top = list.slice().sort((a, c) => c.vol - a.vol).slice(0, 5);
+    tip.innerHTML = `<b>漲跌幅 ${esc(b[0])}${/~/.test(b[0]) ? "%" : ""} <em>${fmt(list.length)} 檔</em></b>${top.length ? `<ul>${top.map(x => `<li><span>${esc(x.name)}</span><em class="${tone(x.chg)}">${pct(x.pct)}</em></li>`).join("")}</ul>` : ""}<p>點一下在股票清單列出全部</p>`;
+    tip.hidden = false;
+    const r = card.getBoundingClientRect(), cr = col.getBoundingClientRect(), w = tip.offsetWidth;
+    tip.style.transform = `translate(${Math.round(clamp(cr.left - r.left + cr.width / 2 - w / 2, 6, r.width - w - 6))}px, ${Math.round(Math.max(6, cr.top - r.top + 24))}px)`;
   }
   /* bars grow from the baseline, list rows slide in one after another, tiles pop in */
   function boardIn(box, full) {
@@ -1490,6 +1575,15 @@
     if (!animate) { pill.offsetWidth; pill.style.transition = ""; }
   }
   function open(id, animate, quiet) {
+    const nb = tabs.find(t => t.dataset.p === id) || tabs[0];
+    if (animate && !quiet && cur && cur !== nb.dataset.p && document.startViewTransition && !document.hidden) {
+      document.documentElement.style.setProperty("--vtd", tabs.indexOf(nb) > tabs.findIndex(t => t.dataset.p === cur) ? "1" : "-1");
+      document.startViewTransition(() => openNow(id, animate, quiet));
+      return;
+    }
+    openNow(id, animate, quiet);
+  }
+  function openNow(id, animate, quiet) {
     const b = tabs.find(t => t.dataset.p === id) || tabs[0], panel = document.getElementById(b.dataset.p), same = cur === b.dataset.p;
     if (b.dataset.p !== "dpStock" && typeof BACK !== "undefined" && BACK) { BACK = null; showBack(); }
     tabs.forEach(t => t.setAttribute("aria-selected", t === b ? "true" : "false"));
@@ -1646,7 +1740,7 @@
   window.TWDash = { replay: () => open(cur, false),
     /* shared with the 研究室 tab (assets/twlab.js) */
     api: { DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
-      store, openStock: code => openStock(code), code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
+      store, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
   document.dispatchEvent(new Event("twdash:ready"));
 
   (async () => {

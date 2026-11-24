@@ -589,3 +589,47 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--glass-line);
 .mtbl .pxpill.lim { padding: 3px 10px; border-radius: 7px; font-weight: 700; }
 .mtbl .pxpill.lim.up { background: var(--color-up); border-color: var(--color-up); color: #fff; box-shadow: 0 4px 14px -6px var(--color-up); }
 .mtbl .pxpill.lim.down { background: var(--color-down); border-color: var(--color-down); color: oklch(20% 0.03 150); box-shadow: 0 4px 14px -6px var(--color-down); }
+
+/* ---------- distribution bars are buttons: the hovered one stands out, the rest step back ---------- */
+.bd-bars .bd-col { padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; border-radius: 10px; transition: opacity .2s, transform .2s var(--ease-out); }
+.bd-bars:hover .bd-col:not(:hover) { opacity: .42; }
+.bd-bars .bd-col:hover { transform: translateY(-3px); }
+.bd-bars .bd-col:hover .bd-b { filter: brightness(1.25) saturate(1.2); box-shadow: 0 10px 24px -10px currentColor; }
+.bd-bars .bd-col:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.bd-dist { position: relative; }
+.bdtip { z-index: 8; }
+.distclr { display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; }
+.distclr i { font-style: normal; opacity: .7; }
+
+/* ---------- heat map zoom: the tile's colour grows to fill the map, then gives way to the stocks ---------- */
+.hmveil { position: absolute; inset: 0; z-index: 4; transform-origin: 0 0; border-radius: 14px; pointer-events: none; }
+
+/* ---------- tabs: the panel area slides and blurs in the direction of travel ---------- */
+.dpanels { view-transition-name: panels; }
+.side, .topbar { view-transition-name: none; }
+::view-transition-old(panels) { animation: vtout .2s cubic-bezier(.4,0,1,1) both; }
+::view-transition-new(panels) { animation: vtin .42s cubic-bezier(.16,1,.3,1) both; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .18s; }
+@keyframes vtout { to { opacity: 0; transform: translateX(calc(var(--vtd, 1) * -28px)); filter: blur(6px); } }
+@keyframes vtin { from { opacity: 0; transform: translateX(calc(var(--vtd, 1) * 36px)); filter: blur(8px); } }
+
+/* ---------- cards for your stocks reaching the limit or ±5% during the session ---------- */
+.toasts { position: fixed; right: 18px; bottom: 18px; z-index: 85; display: grid; gap: 10px; width: min(340px, calc(100vw - 24px)); }
+@media (max-width: 720px) { .toasts { right: 12px; bottom: 92px; } }
+.toast { position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 12px 10px 12px 12px; overflow: hidden; border-radius: 16px;
+  background: color-mix(in oklch, var(--bg-0) 88%, transparent); border: 1px solid var(--glass-line); box-shadow: 0 24px 48px -22px rgba(0,0,0,.8);
+  -webkit-backdrop-filter: blur(18px) saturate(140%); backdrop-filter: blur(18px) saturate(140%); }
+.toast.up { --tc: var(--color-up); } .toast.down { --tc: var(--color-down); }
+.toast.lim { border-color: color-mix(in oklab, var(--tc) 60%, transparent); box-shadow: 0 24px 48px -22px rgba(0,0,0,.8), 0 0 0 1px color-mix(in oklab, var(--tc) 35%, transparent), 0 10px 40px -18px var(--tc); }
+.tt-badge { display: grid; place-items: center; min-width: 58px; padding: 8px 8px; border-radius: 10px; font-weight: 700; font-size: var(--text-sm); color: var(--tc); background: color-mix(in oklab, var(--tc) 18%, transparent); border: 1px solid color-mix(in oklab, var(--tc) 50%, transparent); }
+.toast.lim .tt-badge { color: #fff; background: var(--tc); border-color: var(--tc); }
+.toast.lim.down .tt-badge { color: oklch(20% 0.03 150); }
+.tt-body { display: grid; gap: 3px; min-width: 0; padding: 0; border: 0; background: none; color: var(--color-ink); font: inherit; text-align: left; cursor: pointer; }
+.tt-body b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .tt-body b i { font-style: normal; font: 400 var(--text-xs) var(--font-outlier); color: var(--color-muted); }
+.tt-body span { font-size: var(--text-xs); color: var(--color-muted); } .tt-body em { font: 600 var(--text-sm) var(--font-outlier); font-style: normal; color: var(--tc); }
+.tt-x { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--color-muted); cursor: pointer; }
+.tt-x:hover { background: var(--glass-2); color: var(--color-ink); }
+.tt-life { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--tc); transform-origin: left; opacity: .8; }
+.spark { position: fixed; z-index: 95; width: 7px; height: 7px; border-radius: 50%; pointer-events: none; }
+.spark.up { background: radial-gradient(circle, #fff 0 20%, var(--color-up) 45%, transparent 70%); box-shadow: 0 0 10px var(--color-up); }
+.spark.down { background: radial-gradient(circle, #fff 0 20%, var(--color-down) 45%, transparent 70%); box-shadow: 0 0 10px var(--color-down); }
