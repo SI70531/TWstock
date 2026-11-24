@@ -673,3 +673,8 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--glass-line);
 .schart .chips .chip[data-draw] svg { margin-right: 0; }
 .key-x { padding: 0; border: 0; background: none; cursor: pointer; }
 .key-x:hover kbd { color: var(--color-ink); border-color: var(--color-accent); }
+
+/* index-card sparkline: full card width, plain line (the svg shares the .spark class with the click sparks, so their glow is cleared here) */
+:root .ixcard svg.spark, :root .ixcard svg.spark.up, :root .ixcard svg.spark.down { display: block; position: absolute; left: 16px; right: 16px; bottom: 12px; top: auto; z-index: auto; width: calc(100% - 32px); height: 40px; border-radius: 0; background: none; box-shadow: none; overflow: visible; pointer-events: none; }
+:root .ixcard svg.spark path { stroke-width: 1.8; vector-effect: non-scaling-stroke; }
+:root .ixcard svg.spark .spbase { vector-effect: non-scaling-stroke; }

@@ -536,7 +536,7 @@
     IDX.forEach(i => {
       const c = $(`.ixcard[data-k="${i.k}"]`); if (!c) return;
       const d = ok(i.z) && ok(i.y) ? i.z - i.y : NaN, t = tone(d), big = $(".big", c);
-      if (i.label) $(".ixn", c).textContent = i.name + "（" + i.label.replace(/^臺指期\s*/, "") + "）";
+      if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); $(".ixn", c).textContent = sub ? i.name + "（" + sub + "）" : i.name; }
       $(".ixsrc", c).textContent = i.src ? i.src + (i.tm ? " " + i.tm.slice(0, 5) : "") : "";
       big.textContent = ok(i.z) ? fmt(i.z, 2) : "—"; big.className = "big " + t;
       $(".ixchg", c).textContent = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)}（${pct(d / i.y * 100)}）` : (i.k === "fut" && DB.rt === false ? "需要部署新版 Worker" : DB.list.length ? "讀不到資料" : "載入中…");
