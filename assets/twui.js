@@ -34,6 +34,7 @@
     const side = document.createElement("aside");
     side.className = "side"; side.setAttribute("aria-label", "側欄");
     side.innerHTML = `<div class="sb-clock"><div class="s"><span class="statuschip" data-s="closed"><i></i><span class="ss">—</span></span><span class="sd"></span></div><div class="t">--:--:--</div>
+        <div class="sb-prog" hidden><div class="bar"><i></i></div><span></span></div>
         <div class="sb-ix" data-k="t00"><span>加權</span><b>—</b></div><div class="sb-ix" data-k="fut"><span>台指期</span><b>—</b></div></div>
       <nav aria-label="主要導覽"><i class="sb-hl"></i>${tabs.map(t => `<button type="button" data-p="${t.dataset.p}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t.dataset.p] || '<circle cx="12" cy="12" r="3"/>'}</svg>${t.textContent.trim()}</button>`).join("")}</nav>`;
     document.body.appendChild(side);
@@ -61,6 +62,12 @@
     seg.className = "thseg"; seg.setAttribute("role", "radiogroup"); seg.setAttribute("aria-label", "外觀");
     seg.innerHTML = [["system", "跟隨裝置", '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'], ["light", "淺色", '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'], ["dark", "深色", '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>']]
       .map(([k, l, ic]) => `<button type="button" role="radio" data-t="${k}" title="${l}" aria-label="${l}"><svg viewBox="0 0 24 24" aria-hidden="true">${ic}</svg><span>${l}</span></button>`).join("") + '<i class="th-hl"></i>';
+    /* the command palette (twmain.js) also opens with Ctrl+K */
+    const sb = document.createElement("button");
+    sb.type = "button"; sb.className = "tbsearch"; sb.setAttribute("aria-label", "搜尋股票或頁面（Ctrl+K）");
+    sb.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span>搜尋</span><kbd>Ctrl K</kbd>`;
+    sb.addEventListener("click", () => document.dispatchEvent(new Event("twdash:palette")));
+    right.appendChild(sb);
     right.appendChild(seg);
     const markTheme = () => {
       const bs = $$("button", seg), i = Math.max(0, bs.findIndex(b => b.dataset.t === (T ? T.mode : "system")));
@@ -77,6 +84,16 @@
     $$(".statuschip").forEach(c => { c.dataset.s = s; const ss = $(".ss", c); if (ss) ss.textContent = label; const tt = $(".tt", c); if (tt) tt.textContent = t.hms; });
     const side = $(".side"); if (!side) return;
     $(".sb-clock .t", side).textContent = t.hms; $(".sb-clock .sd", side).textContent = t.md;
+    /* how far the session has run, and how long until it ends (or opens) */
+    const pr = $(".sb-prog", side), now = new Date(Date.now() + 8 * 3600e3), sec = t.m * 60 + now.getUTCSeconds();
+    const span = s === "day" ? [540, 810, "距收盤"] : s === "pre" ? [525, 540, "距開盤"] : s === "night" ? [900, 1740, "距夜盤收盤"] : null;
+    if (!span) { pr.hidden = true; return; }
+    const cur = s === "night" && sec < 300 * 60 ? sec + 1440 * 60 : sec, a = span[0] * 60, b = span[1] * 60, left = Math.max(0, b - cur);
+    const hh = Math.floor(left / 3600), mm = Math.floor(left % 3600 / 60), ss = left % 60, two = n => String(n).padStart(2, "0");
+    pr.hidden = false; pr.dataset.s = s;
+    $("i", pr).style.transform = `scaleX(${Math.min(1, Math.max(0, (cur - a) / (b - a))).toFixed(4)})`;
+    $("span", pr).textContent = `${span[2]} ${hh ? hh + ":" + two(mm) : mm}:${two(ss)}`;
+    pr.classList.toggle("ending", s === "day" && left <= 300);
   }
   function paintSide() {
     const side = $(".side"); if (!side || !A) return;
@@ -162,6 +179,33 @@
   function untilt(el) { el.classList.remove("tilting"); el.style.setProperty("--rx", "0deg"); el.style.setProperty("--ry", "0deg"); }
 
 
+  /* ---------- a soft light that follows the pointer across a card, and brightens its ring ---------- */
+  let spotEl = null;
+  function spot(e) {
+    if (e.pointerType && e.pointerType !== "mouse") return;
+    const el = e.target.closest && e.target.closest(".dcard:not(.dcard .dcard)");
+    if (spotEl && spotEl !== el) spotEl.classList.remove("spot");
+    spotEl = el; if (!el) return;
+    const r = el.getBoundingClientRect();
+    el.style.setProperty("--sx", (e.clientX - r.left).toFixed(0) + "px"); el.style.setProperty("--sy", (e.clientY - r.top).toFixed(0) + "px");
+    el.classList.add("spot");
+  }
+  /* ---------- pressing anything that acts: a ripple from the exact point, clipped to the control's own shape ---------- */
+  const PRESS = "button, [role=tab], .chip, tr[data-code], .bd-row, .hmt, .tp, .sb-row, .wcard";
+  function ripple(e) {
+    if (e.button > 0) return;
+    const el = e.target.closest && e.target.closest(PRESS); if (!el || el.disabled || el.closest(".pal, .ctxmenu")) return;
+    const r = el.getBoundingClientRect(); if (!r.width) return;
+    const cs = getComputedStyle(el), host = document.createElement("span"), dot = document.createElement("i");
+    host.className = "rp"; host.style.cssText = `left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:${cs.borderRadius}`;
+    const d = Math.hypot(Math.max(e.clientX - r.left, r.right - e.clientX), Math.max(e.clientY - r.top, r.bottom - e.clientY)) * 2;
+    dot.style.cssText = `left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px;width:${d}px;height:${d}px`;
+    host.appendChild(dot); document.body.appendChild(host);
+    const a = dot.animate([{ transform: "scale(0)", opacity: 0.5 }, { transform: "scale(1)", opacity: 0 }], { duration: 650, easing: "cubic-bezier(.16,1,.3,1)" });
+    a.onfinish = () => host.remove();
+    if (el.matches("button, .chip, .bd-row, .tp, .sb-row")) el.animate([{ transform: "scale(1)" }, { transform: "scale(.96)" }, { transform: "scale(1)" }], { duration: 260, easing: "cubic-bezier(.16,1,.3,1)" });
+  }
+
   /* ---------- hot cards: a brighter ring and glow for big moves, a pulse at limit up / down ---------- */
   function scanHot() {
     $$(".ixcard, .wcard, .bd-tile").forEach(el => {
@@ -231,6 +275,9 @@
     document.addEventListener("twdash:live", paintSide);
     new MutationObserver(schedule).observe(document.querySelector(".app") || document.body, { subtree: true, childList: true, characterData: true });
     document.addEventListener("pointermove", tilt, { passive: true });
+    document.addEventListener("pointermove", spot, { passive: true });
+    document.addEventListener("pointerdown", ripple, { passive: true });
+    document.addEventListener("pointerleave", () => { if (spotEl) { spotEl.classList.remove("spot"); spotEl = null; } });
     document.addEventListener("pointerleave", () => $$(".tilting").forEach(untilt));
     document.addEventListener("pointerup", e => { if (e.pointerType !== "mouse") $$(".tilting").forEach(untilt); });
     document.addEventListener("pointercancel", () => $$(".tilting").forEach(untilt));

@@ -408,7 +408,8 @@
     });
     /* the pre-market note and the stock list each have their own tab */
     $("#dpPre").appendChild($(".pm", box)); $("#dpPre").appendChild($(".cl", box)); $("#dpList").appendChild($(".mkt", box));
-    pmLoad(); clLoad(); setTimeout(alertSync, 2500); loadCharts(true);
+    pmLoad(); clLoad();
+    const hm = $(".hm", box); hm.addEventListener("pointermove", heatTip); hm.addEventListener("pointerleave", () => { const t = $(".hmtip", hm); if (t) t.hidden = true; }); setTimeout(alertSync, 2500); loadCharts(true);
     box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
   }
   function rowsNow() {
@@ -428,7 +429,7 @@
   const rowHTML = s => {
     const d = dig(s.price), t = tone(s.chg);
     return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}${flagTag(s.code)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : s.mkt === "esb" ? " 興櫃" : ""}</span></td>
-      <td><span class="pxpill ${t}">${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
+      <td><span class="pxpill ${t}">${fmt(s.price, d)}</span>${s.pct >= 9.4 ? `<em class="limtag up">漲停</em>` : s.pct <= -9.4 ? `<em class="limtag down">跌停</em>` : ""}</td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
       <td class="vol">${fmt(s.vol)}</td><td>${wlBtn(s)}</td></tr>`;
   };
   /* inside 自選1–5: ＋ adds a searched stock to that list, − takes one out */
@@ -542,7 +543,7 @@
     const hm = $(".hm", card), head = $(".hmsel", card);
     if (!DB.list.length) return;
     if (!INDMAP) { hm.innerHTML = `<p class="sub hmwait">${DB.live ? "產業分類還沒發布，稍後會出現。" : "示意資料模式下沒有熱力圖。"}</p>`; return; }
-    const groups = heatGroups(), g = HEAT.sel && groups.find(x => x.id === HEAT.sel);
+    const groups = heatGroups(), g = HEAT.sel && groups.find(x => x.id === HEAT.sel); HEAT.groups = groups;
     if (HEAT.sel && !g) HEAT.sel = null;
     const items = g ? g.list.slice().sort((a, b) => b.price * b.vol - a.price * a.vol).slice(0, 60).map(s => ({ key: s.code, name: s.name, val: s.price * s.vol * 1000, pct: s.pct, sub: fmt(s.price, dig(s.price)) }))
       : groups.map(x => ({ key: x.id, name: x.name, val: x.val, pct: x.pct, sub: `${x.list.length} 檔` }));
@@ -562,8 +563,29 @@
       tiles.forEach(({ it, cls, st }) => { const t = old.get(it.key); t.setAttribute("style", st); t.className = cls; $("span", t).textContent = pct(it.pct); t.title = it.name + " " + pct(it.pct); });
       return;
     }
+    const keepTip = $(".hmtip", hm);
     hm.innerHTML = tiles.map(({ it, cls, st }) => `<button type="button" class="${cls}" data-k="${esc(it.key)}"${g ? ` data-code="${esc(it.key)}"` : ""} style="${st}" title="${esc(it.name)} ${pct(it.pct)}"><b>${esc(it.name)}</b><span>${pct(it.pct)}</span><i>${esc(it.sub)}</i></button>`).join("");
+    if (keepTip) { keepTip.hidden = true; hm.appendChild(keepTip); }
     if (animate) $$(".hmt", hm).forEach((t, i) => t.animate([{ opacity: 0, transform: "scale(.6)" }, { opacity: 1, transform: "none" }], { duration: 480, delay: Math.min(i, 30) * 22, easing: "cubic-bezier(.2,.9,.3,1.2)", fill: "backwards" }));
+  }
+  function heatTip(e) {
+    const hm = e.currentTarget, t = e.target.closest && e.target.closest(".hmt");
+    let tip = $(".hmtip", hm);
+    if (!t) { if (tip) tip.hidden = true; return; }
+    if (!tip) { tip = document.createElement("div"); tip.className = "hmtip"; hm.appendChild(tip); }
+    const yi = v => fmt(v / 1e8, v >= 1e10 ? 0 : 1) + " 億";
+    if (t.dataset.code) {
+      const s = DB.by.get(t.dataset.code); if (!s) return;
+      tip.innerHTML = `<b>${esc(s.name)} <i>${esc(s.code)}</i>${flagTag(s.code)}</b><div><span>成交價</span><em class="${tone(s.chg)}">${fmt(s.price, dig(s.price))}</em><span>漲跌幅</span><em class="${tone(s.chg)}">${pct(s.pct)}</em><span>成交量</span><em>${fmt(s.vol)} 張</em><span>成交金額</span><em>${yi(s.price * s.vol * 1000)}</em></div><p>點一下看個股分析・右鍵加自選</p>`;
+    } else {
+      const g = (HEAT.groups || []).find(x => x.id === t.dataset.k); if (!g) return;
+      const top = g.list.slice().sort((a, b) => b.price * b.vol - a.price * a.vol).slice(0, 4);
+      tip.innerHTML = `<b>${esc(g.name)} <em class="${tone(g.pct)}">${pct(g.pct)}</em></b><div><span>成交金額</span><em>${yi(g.val)}</em><span>上漲／下跌</span><em><i class="up">${g.up}</i>／<i class="down">${g.dn}</i></em></div>
+        <ul>${top.map(s => `<li><span>${esc(s.name)}</span><em class="${tone(s.chg)}">${pct(s.pct)}</em></li>`).join("")}</ul><p>點一下看這個類股的個股</p>`;
+    }
+    tip.hidden = false;
+    const r = hm.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, w = tip.offsetWidth, h = tip.offsetHeight;
+    tip.style.transform = `translate(${Math.round(x + 16 + w > r.width ? x - w - 14 : x + 16)}px, ${Math.round(y + 16 + h > r.height ? Math.max(4, y - h - 12) : y + 16)}px)`;
   }
   let heatRT = 0;
   addEventListener("resize", () => { clearTimeout(heatRT); heatRT = setTimeout(() => { const hm = $("#dpOverview .hm"); if (hm && hm.clientWidth !== HEAT.w) { HEAT.w = hm.clientWidth; HEAT.sig = ""; paintHeat(false); } }, 200); });
@@ -745,7 +767,7 @@
     LISTS[i] = L.includes(code) ? L.filter(c => c !== code) : L.concat(code);
     WATCH = LISTS[0];
     saveLists();
-    if (i === 0) alertSync();
+    if (i === 0) { alertSync(); paintTape(); }
     paintWatch(false);
     if (VIEW.q || /^w[1-5]$/.test(VIEW.preset)) paintTable(false);
   }
@@ -772,8 +794,9 @@
   }
 
   /* ---------------- the chart: price, volume and the chosen indicators in one drawing with a shared time axis ---------------- */
-  function chartSVG(all, span) {
-    const I = calc(all), off = Math.max(0, all.length - span), cs = all.slice(off), N = cs.length;
+  function chartSVG(all, span, end) {
+    const N0 = Math.min(span, all.length), off = clamp(all.length - N0 - (end || 0), 0, Math.max(0, all.length - N0));
+    const I = calc(all), cs = all.slice(off, off + N0), N = cs.length;
     const W = 720, PL = 8, PR = 54, gap = 14;
     const panes = [{ k: "price", h: 250 }];
     if (IND.vol) panes.push({ k: "vol", h: 64 });
@@ -787,7 +810,7 @@
     svg.setAttribute("class", "kchart");
     const add = (tag, attrs, cls, parent) => { const e = document.createElementNS(NS, tag); for (const a in attrs) e.setAttribute(a, attrs[a]); if (cls) e.setAttribute("class", cls); (parent || svg).appendChild(e); return e; };
     const X = i => PL + (W - PL - PR) * (i + 0.5) / N, bw = Math.max(2, (W - PL - PR) / N * 0.62);
-    const sl = a => a.slice(off);
+    const sl = a => a.slice(off, off + N);
     const line = (arr, Y, cls) => add("path", { d: arr.map((v, i) => (v == null ? "" : (i && arr[i - 1] != null ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1))).join("") }, cls);
     const label = (p, t) => { add("text", { x: PL + 2, y: p.y + 11 }, "plabel").textContent = t; };
     panes.forEach(p => {
@@ -804,7 +827,7 @@
         });
         if (IND.boll) { line(sl(I.bu), Y, "bb"); line(sl(I.bl), Y, "bb"); }
         if (IND.ma) { line(sl(I.ma5), Y, "ma5"); line(sl(I.ma20), Y, "ma20"); line(sl(I.ma60), Y, "ma60"); }
-        p.Y = Y;
+        p.Y = Y; p.a = a; p.b = b;
       } else if (p.k === "vol") {
         const max = Math.max(...cs.map(c => c[5])) || 1, Y = v => bot - (p.h - 12) * v / max;
         cs.forEach((c, i) => add("rect", { x: X(i) - bw / 2, y: Y(c[5]), width: bw, height: Math.max(1, bot - Y(c[5])) }, (c[4] >= c[1] ? "tk-up" : "tk-down") + " volbar"));
@@ -823,6 +846,9 @@
     });
     [0, Math.floor((N - 1) / 2), N - 1].forEach((i, k) => add("text", { x: X(i), y: H - 1, "text-anchor": k === 0 ? "start" : k === 2 ? "end" : "middle" }, "xlabel").textContent = shortDay(cs[i][0]));
     const cross = add("line", { x1: 0, x2: 0, y1: 8, y2: H - 14 }, "cross"); cross.style.opacity = 0;
+    const PP = panes[0], hline = add("line", { x1: PL, x2: W - PR, y1: 0, y2: 0 }, "cross hl"), dot = add("circle", { r: 3.5, cx: 0, cy: 0 }, "kdot");
+    const ytag = add("g", {}, "ytag"), ytr = add("rect", { x: W - PR + 1, y: -9, width: PR - 2, height: 18, rx: 4 }, "", ytag), ytt = add("text", { x: W - PR + 6, y: 4 }, "", ytag);
+    [hline, dot, ytag].forEach(e => { e.style.opacity = 0; });
     const at = i => {
       const j = off + i, c = cs[i], d = dig(c[4]), v = x => (x == null ? "—" : fmt(x, d));
       return `${slash(c[0])}　開 ${fmt(c[1], d)}　高 ${fmt(c[2], d)}　低 ${fmt(c[3], d)}　收 ${fmt(c[4], d)}　量 ${fmt(c[5])} 張` +
@@ -831,7 +857,59 @@
         (IND.macd ? `　DIF ${fmt(I.dif[j], 2)}　MACD ${fmt(I.dea[j], 2)}` : "");
     };
     const hit = e => { const r = svg.getBoundingClientRect(); return clamp(Math.round(((e.clientX - r.left) / r.width * W - PL) / (W - PL - PR) * N - 0.5), 0, N - 1); };
-    return { svg, N, read: at, hit, mark(i) { cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.style.opacity = 1; }, unmark() { cross.style.opacity = 0; } };
+    return { svg, N, off, cs, plotFrac: (W - PL - PR) / W, read: at, hit,
+      mark(i, e) {
+        cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.style.opacity = 1;
+        dot.setAttribute("cx", X(i)); dot.setAttribute("cy", PP.Y(cs[i][4])); dot.setAttribute("class", "kdot " + (cs[i][4] >= cs[i][1] ? "up" : "down")); dot.style.opacity = 1;
+        const r = svg.getBoundingClientRect(), sy = e && r.height ? (e.clientY - r.top) / r.height * H : -1;
+        if (sy >= PP.y && sy <= PP.y + PP.h) {
+          const v = PP.a - (PP.a - PP.b) * (sy - PP.y) / PP.h;
+          hline.setAttribute("y1", sy); hline.setAttribute("y2", sy); hline.style.opacity = 1;
+          ytag.setAttribute("transform", `translate(0 ${sy.toFixed(1)})`); ytt.textContent = fmt(v, dig(v)); ytag.style.opacity = 1;
+        } else { hline.style.opacity = 0; ytag.style.opacity = 0; }
+      },
+      unmark() { [cross, hline, dot, ytag].forEach(x => { x.style.opacity = 0; }); } };
+  }
+
+  /* the floating reading next to the pointer: date, OHLC, change against the day before, volume */
+  const ktip = document.createElement("div"); ktip.className = "ktip"; ktip.hidden = true;
+  function showTip(c, i, e, host) {
+    const b = c.cs[i], prev = i > 0 ? c.cs[i - 1][4] : (c.off > 0 ? null : null), d = dig(b[4]);
+    const ch = prev ? (b[4] / prev - 1) * 100 : NaN, t = tone(b[4] - (prev || b[1]));
+    ktip.innerHTML = `<b>${slash(b[0])}</b><div><span>開</span><em>${fmt(b[1], d)}</em><span>高</span><em>${fmt(b[2], d)}</em><span>低</span><em>${fmt(b[3], d)}</em><span>收</span><em class="${t}">${fmt(b[4], d)}</em></div><p><i class="${tone(ch)}">${ok(ch) ? pct(ch) : ""}</i>　量 ${fmt(b[5])} 張</p>`;
+    ktip.hidden = false;
+    const r = host.getBoundingClientRect(), x = e.clientX - r.left + host.scrollLeft, y = e.clientY - r.top, w = ktip.offsetWidth || 180;
+    ktip.style.transform = `translate(${Math.round(x + 16 + w > r.width + host.scrollLeft ? x - w - 16 : x + 16)}px, ${Math.round(clamp(y - 30, 4, r.height - 90))}px)`;
+  }
+  function chartInput(cb, box) {
+    const read = () => $(".cread", box);
+    const idle = () => { const c = KV.c; if (!c) return; read().textContent = c.read(c.N - 1); c.unmark(); ktip.hidden = true; };
+    const hover = e => { const c = KV.c; if (!c) return; const i = c.hit(e); c.mark(i, e); read().textContent = c.read(i); showTip(c, i, e, cb); };
+    cb.addEventListener("pointerdown", e => { if (!KV.c || e.button > 0) return; KV.drag = { x: e.clientX, end: KV.end, moved: false, id: e.pointerId }; hover(e); });
+    cb.addEventListener("pointermove", e => {
+      const c = KV.c, d = KV.drag; if (!c) return;
+      if (d) {
+        if (!d.moved && Math.abs(e.clientX - d.x) > 5) { d.moved = true; cb.classList.add("panning"); try { cb.setPointerCapture(d.id); } catch (er) {} }
+        if (d.moved) {
+          const per = c.svg.getBoundingClientRect().width * c.plotFrac / c.N, ne = clamp(d.end + Math.round((e.clientX - d.x) / per), 0, Math.max(0, KV.len - KV.span));
+          if (ne !== KV.end) { KV.end = ne; drawChart(false, true); }
+        }
+      }
+      hover(e);
+    });
+    const up = () => { if (KV.drag && KV.drag.moved) { cb.classList.remove("panning"); drawChart(false); } KV.drag = null; };
+    cb.addEventListener("pointerup", up); cb.addEventListener("pointercancel", up);
+    cb.addEventListener("pointerleave", () => { if (!KV.drag) idle(); });
+    cb.addEventListener("wheel", e => {
+      const c = KV.c; if (!c || !e.deltaY || KV.len < 21) return;
+      e.preventDefault();
+      const ns = clamp(Math.round(KV.span * (e.deltaY > 0 ? 1.18 : 1 / 1.18)), 20, KV.len); if (ns === KV.span) return;
+      const i = c.hit(e), ai = c.off + i, frac = (i + 0.5) / c.N, nOff = Math.round(ai + 0.5 - frac * ns);   /* the day under the pointer stays under it */
+      KV.span = ns; KV.end = clamp(KV.len - ns - nOff, 0, KV.len - ns);
+      drawChart(false, true); hover(e);
+      clearTimeout(cb._wt); cb._wt = setTimeout(() => drawChart(false), 250);
+    }, { passive: false });
+    cb.addEventListener("dblclick", () => { KV.span = SPAN; KV.end = 0; drawChart(true); });
   }
 
   /* ---------------- 個股分析 ---------------- */
@@ -850,7 +928,7 @@
           <span class="clab">指標</span>${INDS.map(([k, t]) => `<button type="button" class="chip" data-ind="${k}">${t}</button>`).join("")}</div>
         <div class="cbox"><p class="mempty">載入中…</p></div>
         <p class="sub cread"></p>
-        <p class="sub clegend">紅漲綠跌；均線：<i class="lg ma5"></i>MA5 <i class="lg ma20"></i>MA20 <i class="lg ma60"></i>MA60</p>
+        <div class="cfoot"><p class="sub clegend">紅漲綠跌；均線：<i class="lg ma5"></i>MA5 <i class="lg ma20"></i>MA20 <i class="lg ma60"></i>MA60</p><p class="sub chint"><span class="czoom"></span>拖曳平移・滾輪縮放・雙擊還原</p></div>
       </div>
       <div class="sgrid">
         <div class="dcard ssnap"><h3>技術面快照</h3><div class="snaplist"><p class="sub">載入中…</p></div></div>
@@ -865,6 +943,7 @@
         <details class="slab"><summary>研究工具（自動交給 AI）</summary><div id="dpLab" class="on"></div></details>
       </div>`;
     const box = $("#dpStock"), inp = $(".ssearch", box), sug = $(".ssug", box);
+    chartInput($(".cbox", box), box);
     inp.addEventListener("input", () => {
       const q = inp.value.trim().toLowerCase();
       const hits = q ? DB.list.filter(s => s.code.toLowerCase().startsWith(q) || s.name.toLowerCase().includes(q)).slice(0, 8) : [];
@@ -876,7 +955,7 @@
       if (e.target.closest("#dpLab")) return;                 /* the research tools handle their own clicks */
       const s = e.target.closest(".ssug button"); if (s) { inp.value = ""; sug.hidden = true; setStock(s.dataset.code, true); navPush(); return; }
       if (e.target.closest(".sback")) { goBack(); return; }
-      const sp = e.target.closest("[data-span]"); if (sp) { SPAN = +sp.dataset.span; store.set("twmain-span", SPAN); drawChart(true); return; }
+      const sp = e.target.closest("[data-span]"); if (sp) { SPAN = +sp.dataset.span; KV.span = SPAN; KV.end = 0; store.set("twmain-span", SPAN); drawChart(true); return; }
       const ind = e.target.closest("[data-ind]"); if (ind) { IND[ind.dataset.ind] = !IND[ind.dataset.ind]; store.set("twmain-ind", IND); drawChart(true); return; }
       if (e.target.closest(".aigo")) analyze();
     });
@@ -906,18 +985,21 @@
     return cs;
   }
   let chartTok = 0;
-  function drawChart(animate) {
+  /* the chart's window: how many days (span) and how far back from the latest (end); dragged, zoomed with the wheel, double-click resets */
+  const KV = { span: SPAN, end: 0, code: null, c: null, len: 0, drag: null };
+  function drawChart(animate, quick) {
     const box = $("#dpStock"), host = $(".cbox", box), read = $(".cread", box), cs = barsOf(CODE);
-    $$("[data-span]", box).forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.span === SPAN)));
+    if (KV.code !== CODE) { KV.code = CODE; KV.span = SPAN; KV.end = 0; }
+    $$("[data-span]", box).forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.span === KV.span && !KV.end)));
     $$("[data-ind]", box).forEach(b => b.setAttribute("aria-pressed", String(!!IND[b.dataset.ind])));
     $(".clegend", box).hidden = !IND.ma;
     if (!cs) return;
-    const c = chartSVG(cs, SPAN);
-    host.replaceChildren(c.svg);
-    const idle = () => { read.textContent = c.read(c.N - 1); c.unmark(); };
-    idle();
-    const move = e => { const i = c.hit(e); c.mark(i); read.textContent = c.read(i); };
-    c.svg.addEventListener("pointermove", move); c.svg.addEventListener("pointerdown", move); c.svg.addEventListener("pointerleave", idle);
+    KV.len = cs.length; KV.span = clamp(KV.span, Math.min(20, cs.length), cs.length); KV.end = clamp(KV.end, 0, Math.max(0, cs.length - KV.span));
+    const c = chartSVG(cs, KV.span, KV.end); KV.c = c;
+    host.replaceChildren(c.svg, ktip);
+    const zl = $(".czoom", box); if (zl) zl.textContent = `${c.N} 日${KV.end ? `・往前 ${KV.end} 日` : ""}`;
+    if (quick) return;
+    read.textContent = c.read(c.N - 1); c.unmark(); ktip.hidden = true;
     /* the drawing is revealed from the left as one layer (cheap on a tablet), oldest day first */
     if (animate && box.classList.contains("on")) c.svg.animate([{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }], { duration: 700, easing: "cubic-bezier(.3,.7,.3,1)" });
     paintSnap(cs);
@@ -995,7 +1077,8 @@
     const box = $("#dpStock"), tok = ++chartTok;
     const qs = DB.by.get(code); if (qs && !qs.rt && DB.live && marketOpen()) qs.rtWait = true;
     paintHead(); quoteNow(code);
-    $(".cbox", box).innerHTML = `<p class="mempty">載入中…</p>`; $(".cread", box).textContent = "";
+    KV.c = null; $(".cbox", box).innerHTML = `<p class="mempty">載入中…</p>`; $(".cread", box).textContent = "";
+    try { store.set("twrecent", [code, ...(store.get("twrecent", []) || []).filter(c => c !== code)].slice(0, 8)); } catch (e) {}
     $(".snaplist", box).innerHTML = `<p class="sub">載入中…</p>`;
     paintAI();
     if (!DB.list.length) return;
@@ -1330,16 +1413,56 @@
     }
   }
 
+  /* a row or a tape item lights up in the direction of the tick, then fades */
+  function tickFlash(el, dir) { el.classList.remove("tick-up", "tick-down"); void el.offsetWidth; el.classList.add(dir === "up" ? "tick-up" : "tick-down"); }
+
+  /* ---------------- the tape: the indices and 自選1, scrolling across the top of every tab ---------------- */
+  const tape = document.createElement("div");
+  tape.className = "tape"; tape.setAttribute("aria-label", "自選1 行情"); tape.hidden = true;
+  tape.innerHTML = `<div class="tape-track"></div>`;
+  let tapeSig = "";
+  function paintTape() {
+    const note = $(".dash-note"); if (note && !tape.isConnected) note.after(tape);
+    const codes = (LISTS[0] || []).filter(c => DB.by.has(c)).slice(0, 40);
+    if (!DB.list.length || (!codes.length && !IDX.some(i => ok(i.z)))) { tape.hidden = true; return; }
+    tape.hidden = false;
+    const item = (key, name, v, p, d, isIx) => `<button type="button" class="tp" ${isIx ? `data-ix="${key}"` : `data-code="${esc(key)}"`}><b>${esc(name)}</b><span>${fmt(v, d)}</span><em class="${tone(p)}">${arrow(p)}${pct(p)}</em></button>`;
+    const items = IDX.slice(0, 2).filter(i => ok(i.z) && ok(i.y)).map(i => ({ k: "ix" + i.k, h: item(i.k, i.name, i.z, (i.z / i.y - 1) * 100, i.k === "fut" ? 0 : 2, true), v: i.z, p: (i.z / i.y - 1) * 100 }))
+      .concat(codes.map(c => { const s = DB.by.get(c); return { k: c, h: item(c, s.name, s.price, s.pct, dig(s.price)), v: s.price, p: s.pct, s }; }));
+    const sig = items.map(x => x.k).join();
+    const track = $(".tape-track", tape);
+    if (sig !== tapeSig) {
+      tapeSig = sig;
+      const one = items.map(x => x.h).join("");
+      track.innerHTML = `<div class="tape-set">${one}</div><div class="tape-set" aria-hidden="true">${one}</div>`;
+      track.style.setProperty("--dur", Math.max(24, items.length * 4.5) + "s");
+      return;
+    }
+    items.forEach(x => {
+      $$(x.k.startsWith("ix") ? `.tp[data-ix="${x.k.slice(2)}"]` : `.tp[data-code="${x.k}"]`, track).forEach(b => {
+        const sp = $("span", b), em = $("em", b), txt = fmt(x.v, x.k === "ixfut" ? 0 : x.s ? dig(x.v) : 2);
+        if (sp.textContent !== txt) { const up = num(sp.textContent) < x.v; sp.textContent = txt; tickFlash(b, up ? "up" : "down"); }
+        em.className = tone(x.p); em.textContent = arrow(x.p) + pct(x.p);
+      });
+    });
+  }
+  tape.addEventListener("click", e => {
+    const b = e.target.closest(".tp"); if (!b) return;
+    if (b.dataset.code) openStock(b.dataset.code, b); else { open("dpOverview", true); setTimeout(() => ixOpen(b.dataset.ix), 300); }
+  });
+
   /* ---------------- live repaint ---------------- */
   function paintLive() {
-    paintIdx(); paintStrip(); document.dispatchEvent(new Event("twdash:live"));   /* the sidebar repaints in the same frame */
+    paintIdx(); paintStrip(); paintTape(); document.dispatchEvent(new Event("twdash:live"));   /* the sidebar repaints in the same frame */
     if (cur === "dpList") {
       $$("#dpList .mtbl tbody tr[data-code]").forEach(tr => {
         const s = DB.by.get(tr.dataset.code); if (!s || !s.rt) return;
         const tmp = document.createElement("tbody"); tmp.innerHTML = rowHTML(s);
         const fresh = tmp.firstElementChild;
-        if (fresh.innerHTML !== tr.innerHTML) { tr.innerHTML = fresh.innerHTML; if (s.flash) { const p = $(".pxpill", tr); p && p.animate([{ filter: "brightness(1.7)" }, { filter: "none" }], { duration: 600 }); } }
-        s.flash = "";
+        if (fresh.innerHTML !== tr.innerHTML) { tr.innerHTML = fresh.innerHTML; if (s.flash) tickFlash(tr, s.flash); }
+        const lim = s.pct >= 9.4 ? "up" : s.pct <= -9.4 ? "down" : "";
+        if (lim && s.lim !== lim && s.lim !== undefined) { tr.classList.remove("lim-up", "lim-down"); void tr.offsetWidth; tr.classList.add("lim-" + lim); }
+        s.lim = lim; s.flash = "";
       });
     } else if (cur === "dpWatch") paintWatch(false);
     else if (cur === "dpStock") { paintHead(); const s = DB.by.get(CODE); if (s && s.rt && HIST.get(CODE)) drawChart(false); }
@@ -1392,7 +1515,108 @@
     const n = tabs[(i + (/Right|Down/.test(e.key) ? 1 : tabs.length - 1)) % tabs.length]; n.focus(); n.click();
   });
   addEventListener("resize", () => { const b = tabs.find(t => t.getAttribute("aria-selected") === "true"); b && movePill(b, false); });
-  root.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches && e.target.matches("tr[data-code], .wcard[data-code]")) e.target.click(); });
+  root.addEventListener("keydown", e => {
+    if (!e.target.matches) return;
+    if (e.key === "Enter" && e.target.matches("tr[data-code], .wcard[data-code]")) e.target.click();
+    if (/^(ArrowDown|ArrowUp|j|k)$/.test(e.key) && e.target.matches("tr[data-code]")) {
+      e.preventDefault();
+      const n = /ArrowDown|j/.test(e.key) ? e.target.nextElementSibling : e.target.previousElementSibling;
+      if (n && n.matches("tr[data-code]")) { n.focus(); n.scrollIntoView({ block: "nearest" }); }
+    }
+  });
+  /* ---------- right-click (or long-press) on any stock: open it, add it to 自選1–5, copy its code ---------- */
+  let ctxEl = null, lp = null, swallow = false;
+  const ctxClose = () => { if (ctxEl) { const el = ctxEl; ctxEl = null; el.animate([{ opacity: 1 }, { opacity: 0, transform: "scale(.96)" }], { duration: 120 }).onfinish = () => el.remove(); } };
+  function ctxMenu(code, x, y) {
+    ctxClose(); if (menuEl) { menuEl.remove(); menuEl = null; }
+    const s = DB.by.get(code); if (!s) return;
+    const el = document.createElement("div"); el.className = "ctxmenu"; el.setAttribute("role", "menu");
+    const paint = () => {
+      el.innerHTML = `<div class="cx-h"><b>${esc(s.name)}</b><i>${esc(code)}</i><em class="${tone(s.chg)}">${fmt(s.price, dig(s.price))}　${pct(s.pct)}</em></div>
+        <button type="button" role="menuitem" data-a="open"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19V5M5 19h14M8 15l4-5 3 3 4-6"/></svg>個股分析</button>
+        <div class="cx-l">${LISTS.map((l, i) => `<button type="button" role="menuitemcheckbox" aria-checked="${l.includes(code)}" data-a="w" data-i="${i}">自選${i + 1}<i>${l.includes(code) ? "✓" : "＋"}</i></button>`).join("")}</div>
+        <button type="button" role="menuitem" data-a="copy"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg>複製代號</button>`;
+    };
+    paint(); document.body.appendChild(el); ctxEl = el;
+    const w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = clamp(x, 8, innerWidth - w - 8) + "px"; el.style.top = clamp(y, 8, innerHeight - h - 8) + "px";
+    el.style.transformOrigin = `${x > innerWidth - w - 8 ? "right" : "left"} ${y > innerHeight - h - 8 ? "bottom" : "top"}`;
+    el.animate([{ opacity: 0, transform: "scale(.92)" }, { opacity: 1, transform: "none" }], { duration: 180, easing: "cubic-bezier(.16,1,.3,1)" });
+    el.addEventListener("click", e => {
+      const b = e.target.closest("button"); if (!b) return; e.stopPropagation();
+      if (b.dataset.a === "open") { ctxClose(); openStock(code); }
+      else if (b.dataset.a === "w") { toggleWatch(code, +b.dataset.i); paint(); }
+      else if (b.dataset.a === "copy") { try { navigator.clipboard.writeText(code); } catch (er) {} b.lastChild.textContent = "已複製"; setTimeout(ctxClose, 500); }
+    });
+    $("button", el).focus({ preventScroll: true });
+  }
+  const codeAt = t => { const el = t.closest && t.closest("[data-code]"); return el && DB.by.has(el.dataset.code) ? el : null; };
+  document.addEventListener("contextmenu", e => { const el = codeAt(e.target); if (!el || !el.closest("#dash")) return; e.preventDefault(); ctxMenu(el.dataset.code, e.clientX, e.clientY); });
+  document.addEventListener("pointerdown", e => {
+    if (ctxEl && !e.target.closest(".ctxmenu")) ctxClose();
+    if (e.pointerType !== "touch") return;
+    const el = codeAt(e.target); if (!el || !el.closest("#dash")) return;
+    lp = { x: e.clientX, y: e.clientY, t: setTimeout(() => { swallow = true; if (navigator.vibrate) navigator.vibrate(12); ctxMenu(el.dataset.code, lp.x, lp.y); }, 520) };
+  }, true);
+  document.addEventListener("pointermove", e => { if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) { clearTimeout(lp.t); lp = null; } }, { passive: true });
+  document.addEventListener("pointerup", () => { if (lp) { clearTimeout(lp.t); lp = null; } });
+  document.addEventListener("click", e => { if (swallow) { swallow = false; if (!e.target.closest(".ctxmenu")) { e.preventDefault(); e.stopPropagation(); } } }, true);
+  document.addEventListener("keydown", e => { if (e.key === "Escape") ctxClose(); });
+  addEventListener("scroll", ctxClose, { passive: true });
+
+  /* ---------- the command palette (Ctrl+K): any stock, any tab, light / dark ---------- */
+  let pal = null;
+  const PAGES = [["dpOverview", "總覽", "大盤、熱力圖、法人、注意股"], ["dpPre", "盤前分析", "AI 盤前與收盤摘要"], ["dpList", "股票", "清單與自選1–5"], ["dpStock", "個股分析", "K 線、籌碼、AI 團隊"]];
+  function palOpen() {
+    if (pal) { $("input", pal).focus(); return; }
+    pal = document.createElement("div"); pal.className = "pal"; pal.setAttribute("role", "dialog"); pal.setAttribute("aria-modal", "true"); pal.setAttribute("aria-label", "搜尋");
+    pal.innerHTML = `<div class="pal-box"><div class="pal-in"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input type="text" placeholder="代號、名稱或頁面…" aria-label="搜尋股票或頁面" autocomplete="off" spellcheck="false"><kbd>Esc</kbd></div><div class="pal-list" role="listbox"></div><p class="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd> 選擇</span><span><kbd>Enter</kbd> 開啟</span><span>右鍵任何股票可加自選</span></p></div>`;
+    document.body.appendChild(pal);
+    const inp = $("input", pal), list = $(".pal-list", pal);
+    let items = [], on = 0;
+    const T = window.__twTheme;
+    const paint = () => {
+      const q = inp.value.trim().toLowerCase();
+      const row = (k, ic, a, b, c, cls) => `<button type="button" role="option" class="pal-it" data-k="${esc(k)}"><span class="pi-ic">${ic}</span><b>${a}</b><span class="pi-sub">${b}</span>${c ? `<em class="${cls || ""}">${c}</em>` : ""}</button>`;
+      const stk = s => ({ k: "s:" + s.code, h: row("s:" + s.code, esc(s.code), esc(s.name), FLAGS.get(s.code) ? flagTag(s.code) : s.mkt === "otc" ? "上櫃" : s.mkt === "esb" ? "興櫃" : "上市", `${fmt(s.price, dig(s.price))}　${pct(s.pct)}`, tone(s.chg)) });
+      let stocks;
+      if (!q) stocks = (store.get("twrecent", []) || []).map(c => DB.by.get(c)).filter(Boolean).slice(0, 6);
+      else stocks = DB.list.filter(s => s.code.toLowerCase().startsWith(q) || s.name.toLowerCase().includes(q))
+        .sort((a, b) => (b.code.toLowerCase() === q) - (a.code.toLowerCase() === q) || (b.code.toLowerCase().startsWith(q)) - (a.code.toLowerCase().startsWith(q)) || b.vol - a.vol).slice(0, 8);
+      const pages = PAGES.filter(p => !q || p[1].toLowerCase().includes(q) || p[2].toLowerCase().includes(q)).map(p => ({ k: "p:" + p[0], h: row("p:" + p[0], "→", p[1], p[2]) }));
+      const acts = [["t:dark", "深色模式"], ["t:light", "淺色模式"], ["t:system", "外觀跟隨裝置"]].filter(a => !q || a[1].includes(q) || /dark|light|theme|深|淺|外觀/.test(q)).map(a => ({ k: a[0], h: row(a[0], "◐", a[1], T && T.mode === a[0].slice(2) ? "目前" : "") }));
+      const sec = (t, arr) => (arr.length ? `<p class="pal-sec">${t}</p>` + arr.map(x => x.h).join("") : "");
+      items = [...stocks.map(stk), ...pages, ...(q ? acts : [])];
+      list.innerHTML = sec(q ? "股票" : "最近看過", stocks.map(stk)) + sec("頁面", pages) + (q ? sec("外觀", acts) : "") || `<p class="pal-empty">找不到「${esc(inp.value)}」。試試代號，例如 2330。</p>`;
+      on = clamp(on, 0, Math.max(0, items.length - 1)); mark();
+    };
+    const mark = () => { $$(".pal-it", list).forEach((b, i) => { b.classList.toggle("on", i === on); b.setAttribute("aria-selected", String(i === on)); }); const b = $$(".pal-it", list)[on]; b && b.scrollIntoView({ block: "nearest" }); };
+    const run = k => {
+      palClose();
+      if (k.startsWith("s:")) openStock(k.slice(2));
+      else if (k.startsWith("p:")) open(k.slice(2), true);
+      else if (k.startsWith("t:") && T) T.set(k.slice(2));
+    };
+    inp.addEventListener("input", () => { on = 0; paint(); });
+    inp.addEventListener("keydown", e => {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); on = clamp(on + (e.key === "ArrowDown" ? 1 : -1), 0, items.length - 1); mark(); }
+      else if (e.key === "Enter") { e.preventDefault(); const b = $$(".pal-it", list)[on]; if (b) run(b.dataset.k); }
+      else if (e.key === "Escape") { e.preventDefault(); palClose(); }
+    });
+    list.addEventListener("pointermove", e => { const b = e.target.closest(".pal-it"); if (!b) return; const i = $$(".pal-it", list).indexOf(b); if (i !== on) { on = i; mark(); } });
+    list.addEventListener("click", e => { const b = e.target.closest(".pal-it"); if (b) run(b.dataset.k); });
+    pal.addEventListener("pointerdown", e => { if (e.target === pal) palClose(); });
+    paint();
+    pal.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160 });
+    $(".pal-box", pal).animate([{ opacity: 0, transform: "translateY(-10px) scale(.97)", filter: "blur(6px)" }, { opacity: 1, transform: "none", filter: "none" }], { duration: 260, easing: "cubic-bezier(.16,1,.3,1)" });
+    inp.focus();
+  }
+  function palClose() {
+    if (!pal) return; const el = pal; pal = null;
+    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120 }).onfinish = () => el.remove();
+  }
+  document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "k") { e.preventDefault(); pal ? palClose() : palOpen(); } });
+  document.addEventListener("twdash:palette", palOpen);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) rtPoll(); });
   /* "/" jumps to the search box from anywhere: the stock page's own box there, the list's everywhere else */
   document.addEventListener("keydown", e => {
@@ -1419,7 +1643,7 @@
 
   (async () => {
     try { await loadList(); } catch (e) { sampleList(); }
-    note(); paintTable(true); paintStrip(); paintWatch(true); paintHead(); paintHeat(true);
+    note(); paintTable(true); paintStrip(); paintWatch(true); paintHead(); paintHeat(true); paintTape();
     if (cur === "dpStock") setStock(CODE, true);
     loadFlags();
     document.dispatchEvent(new Event("twdash:list"));
