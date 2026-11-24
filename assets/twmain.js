@@ -73,7 +73,7 @@
     ["2887", "0050", "0056", "00878", "00919", "00929", "006208", "00403A", "0052"]];
   let LISTS = store.get("twtrade-wl", null);
   if (!Array.isArray(LISTS) || LISTS.length !== 5) LISTS = [WATCH.slice(), [], [], [], []];
-  if (!store.get("twtrade-wl-seed", 0)) { LISTS[0] = WL_SEED[0].slice(); LISTS[1] = WL_SEED[1].slice(); WATCH = LISTS[0]; store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS); store.set("twtrade-wl-seed", 1); WL_SEEDED = true; }
+  if (!store.get("twtrade-wl-seed", 0)) { LISTS[0] = WL_SEED[0].slice(); LISTS[1] = WL_SEED[1].slice(); WATCH = LISTS[0]; store.set("twtrade-watch", WATCH); store.set("twtrade-wl", LISTS); store.set("twtrade-wl-seed", 1); }
   LISTS[0] = WATCH;
   const listIdx = () => (/^w[1-5]$/.test(VIEW.preset) ? +VIEW.preset[1] - 1 : 0);
   const IND = Object.assign({ ma: true, boll: false, vol: true, kd: true, macd: false, rsi: false }, store.get("twmain-ind", {}));
