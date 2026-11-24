@@ -923,6 +923,8 @@
       }
     });
     [0, Math.floor((N - 1) / 2), N - 1].forEach((i, k) => add("text", { x: X(i), y: H - 1, "text-anchor": k === 0 ? "start" : k === 2 ? "end" : "middle" }, "xlabel").textContent = shortDay(cs[i][0]));
+    const clip = add("clipPath", { id: "kclip" }); add("rect", { x: PL, y: panes[0].y, width: W - PL - PR, height: panes[0].h }, "", clip);
+    const tg = add("g", { "clip-path": "url(#kclip)" }, "tlines");
     const cross = add("line", { x1: 0, x2: 0, y1: 8, y2: H - 14 }, "cross"); cross.style.opacity = 0;
     const PP = panes[0], hline = add("line", { x1: PL, x2: W - PR, y1: 0, y2: 0 }, "cross hl"), dot = add("circle", { r: 3.5, cx: 0, cy: 0 }, "kdot");
     const ytag = add("g", {}, "ytag"), ytr = add("rect", { x: W - PR + 1, y: -9, width: PR - 2, height: 18, rx: 4 }, "", ytag), ytt = add("text", { x: W - PR + 6, y: 4 }, "", ytag);
@@ -935,7 +937,14 @@
         (IND.macd ? `　DIF ${fmt(I.dif[j], 2)}　MACD ${fmt(I.dea[j], 2)}` : "");
     };
     const hit = e => { const r = svg.getBoundingClientRect(); return clamp(Math.round(((e.clientX - r.left) / r.width * W - PL) / (W - PL - PR) * N - 0.5), 0, N - 1); };
-    return { svg, N, off, cs, plotFrac: (W - PL - PR) / W, read: at, hit,
+    return { svg, N, off, cs, all, tg, plotFrac: (W - PL - PR) / W, read: at, hit,
+      plot: { x0: PL, x1: W - PR, y0: PP.y, y1: PP.y + PP.h },
+      xOf: ai => X(ai - off), yOf: v => PP.Y(v),
+      /* the pointer in chart terms: which bar (fractional, counted over the whole history) and which price */
+      at(e) {
+        const r = svg.getBoundingClientRect(), sx = (e.clientX - r.left) / r.width * W, sy = (e.clientY - r.top) / r.height * H;
+        return { ai: off + ((sx - PL) / (W - PL - PR) * N - 0.5), price: PP.a - (PP.a - PP.b) * (sy - PP.y) / PP.h, inPrice: sy >= PP.y && sy <= PP.y + PP.h };
+      },
       mark(i, e) {
         cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.style.opacity = 1;
         dot.setAttribute("cx", X(i)); dot.setAttribute("cy", PP.Y(cs[i][4])); dot.setAttribute("class", "kdot " + (cs[i][4] >= cs[i][1] ? "up" : "down")); dot.style.opacity = 1;
@@ -963,9 +972,23 @@
     const read = () => $(".cread", box);
     const idle = () => { const c = KV.c; if (!c) return; read().textContent = c.read(c.N - 1); c.unmark(); ktip.hidden = true; };
     const hover = e => { const c = KV.c; if (!c) return; const i = c.hit(e); c.mark(i, e); read().textContent = c.read(i); showTip(c, i, e, cb); };
-    cb.addEventListener("pointerdown", e => { if (!KV.c || e.button > 0) return; KV.drag = { x: e.clientX, end: KV.end, moved: false, id: e.pointerId }; hover(e); });
+    cb.addEventListener("pointerdown", e => {
+      if (!KV.c || e.button > 0) return;
+      if (KV.draw) {
+        const a = KV.c.at(e); if (!a.inPrice) return;
+        e.preventDefault(); try { cb.setPointerCapture(e.pointerId); } catch (er) {}
+        KV.pen = { a, x: e.clientX, y: e.clientY, g: null }; return;
+      }
+      KV.drag = { x: e.clientX, end: KV.end, moved: false, id: e.pointerId }; hover(e);
+    });
     cb.addEventListener("pointermove", e => {
       const c = KV.c, d = KV.drag; if (!c) return;
+      if (KV.pen) {
+        const p = KV.pen, b = c.at(e);
+        if (p.g) p.g.remove();
+        p.g = lineEls(c, c.xOf(p.a.ai), c.yOf(p.a.price), c.xOf(b.ai), c.yOf(b.price), "pen");
+        hover(e); return;
+      }
       if (d) {
         if (!d.moved && Math.abs(e.clientX - d.x) > 5) { d.moved = true; cb.classList.add("panning"); try { cb.setPointerCapture(d.id); } catch (er) {} }
         if (d.moved) {
@@ -975,7 +998,21 @@
       }
       hover(e);
     });
-    const up = () => { if (KV.drag && KV.drag.moved) { cb.classList.remove("panning"); drawChart(false); } KV.drag = null; };
+    const up = e => {
+      if (KV.pen) {
+        const p = KV.pen, c = KV.c; KV.pen = null;
+        if (p.g) p.g.remove();
+        if (c && e && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 12) {
+          const b = c.at(e), i1 = clamp(Math.round(p.a.ai), 0, c.all.length - 1), i2 = clamp(Math.round(b.ai), 0, c.all.length - 1);
+          if (i1 !== i2) {
+            const [x, y] = i1 < i2 ? [[i1, p.a.price], [i2, b.price]] : [[i2, b.price], [i1, p.a.price]], r2 = v => Math.round(v * 100) / 100;
+            store.set(linesKey(), [...(store.get(linesKey(), []) || []), { d1: c.all[x[0]][0], p1: r2(x[1]), d2: c.all[y[0]][0], p2: r2(y[1]) }].slice(-12));
+          }
+        }
+        drawChart(false); return;
+      }
+      if (KV.drag && KV.drag.moved) { cb.classList.remove("panning"); drawChart(false); } KV.drag = null;
+    };
     cb.addEventListener("pointerup", up); cb.addEventListener("pointercancel", up);
     cb.addEventListener("pointerleave", () => { if (!KV.drag) idle(); });
     cb.addEventListener("wheel", e => {
@@ -994,7 +1031,7 @@
   const INDS = [["ma", "均線"], ["boll", "布林通道"], ["vol", "成交量"], ["kd", "KD"], ["macd", "MACD"], ["rsi", "RSI"]];
   function buildStock() {
     $("#dpStock").innerHTML = `
-      <div class="dcard shead">
+      <div class="dcard shead"><i class="sglow" aria-hidden="true"></i>
         <div class="sfind"><button type="button" class="sback" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span></span></button><input class="ssearch" type="search" placeholder="輸入代號或名稱換一檔" aria-label="搜尋股票" autocomplete="off"><div class="ssug" hidden></div></div>
         <div class="stitle"><h2></h2></div>
         <p class="sflagline" hidden></p>
@@ -1003,7 +1040,8 @@
       </div>
       <div class="dcard schart">
         <div class="chips"><span class="clab">區間</span>${[[60, "60 日"], [120, "120 日"]].map(([n, t]) => `<button type="button" class="chip" data-span="${n}">${t}</button>`).join("")}
-          <span class="clab">指標</span>${INDS.map(([k, t]) => `<button type="button" class="chip" data-ind="${k}">${t}</button>`).join("")}</div>
+          <span class="clab">指標</span>${INDS.map(([k, t]) => `<button type="button" class="chip" data-ind="${k}">${t}</button>`).join("")}
+          <span class="clab">畫線</span><button type="button" class="chip" data-draw aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19L20 5"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="5" r="2"/></svg>趨勢線</button><button type="button" class="chip" data-clrline hidden>清除</button></div>
         <div class="cbox"><p class="mempty">載入中…</p></div>
         <p class="sub cread"></p>
         <div class="cfoot"><p class="sub clegend">紅漲綠跌；均線：<i class="lg ma5"></i>MA5 <i class="lg ma20"></i>MA20 <i class="lg ma60"></i>MA60</p><p class="sub chint"><span class="czoom"></span>拖曳平移・滾輪縮放・雙擊還原</p></div>
@@ -1034,10 +1072,13 @@
       const s = e.target.closest(".ssug button"); if (s) { inp.value = ""; sug.hidden = true; setStock(s.dataset.code, true); navPush(); return; }
       if (e.target.closest(".sback")) { goBack(); return; }
       const sp = e.target.closest("[data-span]"); if (sp) { SPAN = +sp.dataset.span; KV.span = SPAN; KV.end = 0; store.set("twmain-span", SPAN); drawChart(true); return; }
+      if (e.target.closest("[data-draw]")) { KV.draw = !KV.draw; drawChart(false); return; }
+      if (e.target.closest("[data-clrline]")) { store.set(linesKey(), []); drawChart(false); return; }
       const ind = e.target.closest("[data-ind]"); if (ind) { IND[ind.dataset.ind] = !IND[ind.dataset.ind]; store.set("twmain-ind", IND); drawChart(true); return; }
       if (e.target.closest(".aigo")) analyze();
     });
   }
+  const HEADLAST = { code: "", px: NaN };
   function paintHead() {
     const box = $("#dpStock"), s = DB.by.get(CODE); if (!$(".shead", box)) return;
     $(".stitle h2", box).innerHTML = s ? `${esc(s.name)} <span>${esc(s.code)}</span>${flagTag(s.code)}` : esc(CODE);
@@ -1046,7 +1087,10 @@
     fe.textContent = fl ? (fl.k === "punish" ? `處置股：${fl.info}。交易受限制，下單前先確認撮合方式與是否要預收款券。` : `注意股：${fl.info}。`) : "";
     if (!s) { $(".spx .big", box).textContent = "—"; $(".schg", box).textContent = DB.list.length ? "找不到這檔上市股票" : ""; $(".sohlc", box).innerHTML = ""; return; }
     if (s.rtWait) { $(".spx .big", box).textContent = "—"; $(".spx .big", box).className = "big"; $(".schg", box).textContent = "讀取即時報價…"; $(".schg", box).className = "schg"; $(".stime", box).textContent = ""; $(".sohlc", box).innerHTML = ""; return; }
-    const d = dig(s.price), t = tone(s.chg);
+    const d = dig(s.price), t = tone(s.chg), sh = $(".shead", box);
+    sh.dataset.tone = t || "flat"; sh.classList.toggle("live", !!s.rt);
+    if (HEADLAST.code === CODE && ok(HEADLAST.px) && s.price !== HEADLAST.px) { const g = $(".sglow", sh); g.classList.remove("hit"); void g.offsetWidth; g.classList.add("hit"); }
+    HEADLAST.code = CODE; HEADLAST.px = s.price;
     $(".spx .big", box).textContent = fmt(s.price, d); $(".spx .big", box).className = "big " + t;
     $(".schg", box).textContent = `${arrow(s.chg)} ${fmt(Math.abs(s.chg), d)}（${pct(s.pct)}）`; $(".schg", box).className = "schg " + t;
     $(".stime", box).textContent = s.rt ? `盤中 ${s.tm || ""}` : DB.live ? `收盤 ${slash(DB.date)}` : "示意資料";
@@ -1064,7 +1108,25 @@
   }
   let chartTok = 0;
   /* the chart's window: how many days (span) and how far back from the latest (end); dragged, zoomed with the wheel, double-click resets */
-  const KV = { span: SPAN, end: 0, code: null, c: null, len: 0, drag: null };
+  const KV = { span: SPAN, end: 0, code: null, c: null, len: 0, drag: null, draw: false, pen: null };
+  const linesKey = () => "twlines:" + CODE;
+  const NSL = (tag, attrs, cls, parent) => { const e = document.createElementNS(NS, tag); for (const a in attrs) e.setAttribute(a, attrs[a]); if (cls) e.setAttribute("class", cls); parent.appendChild(e); return e; };
+  /* one trend line: the drawn part solid, carried on to the right edge dashed (where the trend would be now) */
+  function lineEls(c, x1, y1, x2, y2, cls) {
+    const g = NSL("g", {}, "tl " + (cls || ""), c.tg);
+    NSL("line", { x1, y1, x2, y2 }, "tl-s", g);
+    if (Math.abs(x2 - x1) > 0.5) { const xr = c.plot.x1, yr = y2 + (y2 - y1) / (x2 - x1) * (xr - x2); if (x2 < xr) NSL("line", { x1: x2, y1: y2, x2: xr, y2: yr }, "tl-x", g); }
+    [[x1, y1], [x2, y2]].forEach(([x, y]) => NSL("circle", { cx: x, cy: y, r: 3 }, "tl-p", g));
+    return g;
+  }
+  function paintLines(c) {
+    const L = store.get(linesKey(), []) || [], ix = new Map(c.all.map((b, i) => [b[0], i]));
+    L.forEach(l => { const a = ix.get(l.d1), b = ix.get(l.d2); if (a == null || b == null) return; const up = l.p2 >= l.p1; lineEls(c, c.xOf(a), c.yOf(l.p1), c.xOf(b), c.yOf(l.p2), up ? "rise" : "fall"); });
+    const box = $("#dpStock"), clr = $("[data-clrline]", box);
+    if (clr) { clr.hidden = !L.length; clr.textContent = `清除 ${L.length} 條`; }
+    $$("[data-draw]", box).forEach(b => b.setAttribute("aria-pressed", String(KV.draw)));
+    $(".cbox", box).classList.toggle("drawing", KV.draw);
+  }
   function drawChart(animate, quick) {
     const box = $("#dpStock"), host = $(".cbox", box), read = $(".cread", box), cs = barsOf(CODE);
     if (KV.code !== CODE) { KV.code = CODE; KV.span = SPAN; KV.end = 0; }
@@ -1075,6 +1137,7 @@
     KV.len = cs.length; KV.span = clamp(KV.span, Math.min(20, cs.length), cs.length); KV.end = clamp(KV.end, 0, Math.max(0, cs.length - KV.span));
     const c = chartSVG(cs, KV.span, KV.end); KV.c = c;
     host.replaceChildren(c.svg, ktip);
+    paintLines(c);
     const zl = $(".czoom", box); if (zl) zl.textContent = `${c.N} 日${KV.end ? `・往前 ${KV.end} 日` : ""}`;
     if (quick) return;
     read.textContent = c.read(c.N - 1); c.unmark(); ktip.hidden = true;
@@ -1719,6 +1782,25 @@
   }
   document.addEventListener("keydown", e => { if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === "k") { e.preventDefault(); pal ? palClose() : palOpen(); } });
   document.addEventListener("twdash:palette", palOpen);
+  let help = null;
+  function helpToggle() {
+    if (help) { const el = help; help = null; el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120 }).onfinish = () => el.remove(); return; }
+    help = document.createElement("div"); help.className = "pal"; help.setAttribute("role", "dialog"); help.setAttribute("aria-label", "快捷鍵");
+    const K = [["Ctrl", "K"], ["/"], ["1"], ["2"], ["3"], ["4"], ["↑", "↓"], ["Enter"], ["右鍵"], ["拖曳"], ["滾輪"], ["雙擊"], ["Esc"], ["?"]];
+    const T = ["搜尋股票、切換頁面或外觀", "跳到搜尋框", "總覽", "盤前分析", "股票", "個股分析", "在股票清單上下移動", "打開選到的股票", "任何股票：開啟、加自選、複製代號（手機長按）", "K 線：平移（開啟「趨勢線」時改成畫線）", "K 線：縮放", "K 線：還原", "關閉面板或選單", "顯示這張表"];
+    help.innerHTML = `<div class="pal-box keys"><div class="pal-in"><b>快捷鍵</b><button type="button" class="key-x" aria-label="關閉"><kbd>Esc</kbd></button></div><div class="pal-list">${K.map((k, i) => `<div class="key-row"><span>${k.map(x => `<kbd>${x}</kbd>`).join(" ")}</span><span>${T[i]}</span></div>`).join("")}</div></div>`;
+    document.body.appendChild(help);
+    help.addEventListener("pointerdown", e => { if (e.target === help) helpToggle(); });
+    $(".key-x", help).addEventListener("click", helpToggle);
+    $(".pal-box", help).animate([{ opacity: 0, transform: "translateY(-10px) scale(.97)", filter: "blur(6px)" }, { opacity: 1, transform: "none", filter: "none" }], { duration: 260, easing: "cubic-bezier(.16,1,.3,1)" });
+  }
+  document.addEventListener("keydown", e => {
+    if (help && (e.key === "Escape" || e.key === "Esc")) { e.preventDefault(); helpToggle(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || pal) return;
+    const t = e.target; if (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || "")) return;
+    if (e.key === "?") { e.preventDefault(); helpToggle(); return; }
+    if (/^[1-4]$/.test(e.key) && !help) { e.preventDefault(); open(PAGES[+e.key - 1][0], true); }
+  });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) rtPoll(); });
   /* "/" jumps to the search box from anywhere: the stock page's own box there, the list's everywhere else */
   document.addEventListener("keydown", e => {

@@ -633,3 +633,43 @@ kbd { padding: 1px 6px; border-radius: 6px; border: 1px solid var(--glass-line);
 .spark { position: fixed; z-index: 95; width: 7px; height: 7px; border-radius: 50%; pointer-events: none; }
 .spark.up { background: radial-gradient(circle, #fff 0 20%, var(--color-up) 45%, transparent 70%); box-shadow: 0 0 10px var(--color-up); }
 .spark.down { background: radial-gradient(circle, #fff 0 20%, var(--color-down) 45%, transparent 70%); box-shadow: 0 0 10px var(--color-down); }
+
+/* ---------- trend lines on the K-line ---------- */
+.schart .chips .chip svg { width: 14px; height: 14px; margin-right: 4px; vertical-align: -2px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.cbox.drawing { cursor: crosshair; }
+.cbox.drawing .kchart { touch-action: none; }
+.kchart .tl { pointer-events: none; }
+.kchart .tl-s { stroke: var(--color-accent); stroke-width: 2; stroke-linecap: round; filter: drop-shadow(0 0 4px color-mix(in oklch, var(--color-accent) 60%, transparent)); }
+.kchart .tl-x { stroke: var(--color-accent); stroke-width: 1.4; stroke-dasharray: 5 5; opacity: .65; }
+.kchart .tl-p { fill: var(--bg-0); stroke: var(--color-accent); stroke-width: 2; }
+.kchart .tl.pen .tl-s { stroke-dasharray: 6 4; animation: penmarch .5s linear infinite; }
+@keyframes penmarch { to { stroke-dashoffset: -10; } }
+.kchart .tl:not(.pen) .tl-s { stroke-dasharray: 1000; animation: tldraw .6s cubic-bezier(.16,1,.3,1); }
+@keyframes tldraw { from { stroke-dashoffset: 1000; } }
+
+/* ---------- stock header glow ---------- */
+.dcard > .sglow { position: absolute; inset: -20%; z-index: 0; pointer-events: none; opacity: .9;
+  background: radial-gradient(42% 60% at 18% 62%, color-mix(in oklab, var(--gc, transparent) 26%, transparent), transparent 70%); transition: background .6s; }
+.shead[data-tone="up"] { --gc: var(--color-up); } .shead[data-tone="down"] { --gc: var(--color-down); } .shead[data-tone="flat"] { --gc: var(--color-muted); }
+.shead.live > .sglow { animation: breathe 3.6s ease-in-out infinite; }
+@keyframes breathe { 50% { opacity: .45; transform: scale(1.04); } }
+.dcard > .sglow.hit { animation: glowhit .9s cubic-bezier(.16,1,.3,1); }
+@keyframes glowhit { 0% { opacity: 1; filter: brightness(1.9) saturate(1.3); transform: scale(1.08); } 100% { opacity: .9; filter: none; transform: none; } }
+
+/* ---------- the top bar once the page scrolls ---------- */
+.topbar { transition: padding .3s var(--ease-out), box-shadow .3s, background-color .3s, -webkit-backdrop-filter .3s, backdrop-filter .3s; }
+.topbar.scrolled { padding-top: 6px; padding-bottom: 6px; box-shadow: 0 18px 40px -24px rgba(0,0,0,.8); -webkit-backdrop-filter: blur(26px) saturate(150%); backdrop-filter: blur(26px) saturate(150%); }
+.topbar .tb-prog { position: absolute; left: 14px; right: 14px; bottom: 0; height: 2px; border-radius: 2px; transform: scaleX(0); transform-origin: left; pointer-events: none;
+  background: linear-gradient(90deg, var(--ring-c), var(--ring-a), var(--ring-b)); opacity: 0; transition: opacity .3s; }
+.topbar.scrolled .tb-prog { opacity: 1; }
+
+/* ---------- the shortcut sheet ---------- */
+.pal-box.keys { grid-template-rows: auto 1fr; }
+.pal-box.keys .pal-in b { flex: 1; color: var(--color-ink); font-weight: 600; }
+.key-row { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: center; padding: 9px 12px; border-radius: 10px; font-size: var(--text-sm); }
+.key-row:nth-child(odd) { background: color-mix(in oklch, var(--bg-0) 40%, transparent); }
+.key-row kbd { font-size: 12px; }
+.schart .chips .chip[data-draw] { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.schart .chips .chip[data-draw] svg { margin-right: 0; }
+.key-x { padding: 0; border: 0; background: none; cursor: pointer; }
+.key-x:hover kbd { color: var(--color-ink); border-color: var(--color-accent); }

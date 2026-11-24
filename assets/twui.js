@@ -56,6 +56,14 @@
     bar.innerHTML = `<div class="tb-brand">TWstock</div><div class="tb-title"><h2>總覽</h2></div>
       <span class="statuschip tbchip" data-s="closed"><i></i><span class="ss">—</span><b class="tt"></b></span><div class="tb-right"></div>`;
     main.insertBefore(bar, main.firstChild);
+    const prog = document.createElement("i"); prog.className = "tb-prog"; prog.setAttribute("aria-hidden", "true"); bar.appendChild(prog);
+    let sf = 0;
+    const onScroll = () => { if (sf) return; sf = requestAnimationFrame(() => {
+      sf = 0; const max = document.documentElement.scrollHeight - innerHeight;
+      bar.classList.toggle("scrolled", scrollY > 24);
+      prog.style.transform = `scaleX(${max > 0 ? Math.min(1, scrollY / max).toFixed(4) : 0})`;
+    }); };
+    addEventListener("scroll", onScroll, { passive: true }); addEventListener("resize", onScroll); onScroll();
     const right = $(".tb-right", bar);
     /* light / dark / follow the device */
     const T = window.__twTheme, seg = document.createElement("div");
