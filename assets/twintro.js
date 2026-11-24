@@ -1,11 +1,10 @@
 /* TWstock opening intro: a stock chart draws itself, the name types out, an iris opens on the site.
-   Plays once per tab (a new tab or window); not with reduced motion, not in automated browsers unless ?intro=1. */
+   Plays once per tab (a new tab or window); not in automated browsers unless ?intro=1. */
 (() => {
-  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const robot = navigator.webdriver && !/[?&]intro=1/.test(location.search);
   let seen = false;
   try { seen = sessionStorage.getItem("twintro-seen") === "1" && !/[?&]intro=1/.test(location.search); sessionStorage.setItem("twintro-seen", "1"); } catch (e) {}
-  if (reduced || robot || seen) return;
+  if (robot || seen) return;
 
   const fx = document.createElement("canvas");
   fx.id = "fx"; fx.setAttribute("aria-hidden", "true");
@@ -21,7 +20,6 @@
   addEventListener("resize", sizeFx);
   sizeFx();
   function spawn(x, y, n, o) {
-    if (reduced) return;
     const light = isLight() && o.force !== "dark";
     for (let i = 0; i < n; i++) {
       const a = o.a0 + Math.random() * (o.a1 - o.a0), sp = o.v0 + Math.random() * (o.v1 - o.v0);
