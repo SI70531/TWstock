@@ -7,7 +7,7 @@ Taiwan stock research site, hosted on GitHub Pages: https://si70531.github.io/TW
 Three tabs: **總覽**, **分析** and **股票**. A stock's own page (個股分析) opens when you tap the stock, and 返回 goes back.
 
 - **總覽**: four indices (TAIEX, front-month TAIEX futures, electronics, finance), a market strip (turnover, net buying of foreign investors / investment trusts / dealers, advancers and decliners) and every TWSE-listed and TPEx (上櫃) stock in one list; TPEx rows are marked 櫃. The list can be searched by code or name, sorted by price, change, change % or volume, and filtered with presets (全部, 自選, 強勢股, 弱勢股, 成交量). ★ adds a stock to the watchlist; tapping a row opens it in 個股分析.
-  - Below it: **類股熱力圖** (every listed and 上櫃 stock grouped by industry; area = turnover, colour = turnover-weighted change; tap an industry to see its stocks), **法人連續買賣超** (foreign investors and investment trusts buying or selling on consecutive days, from the last 10 trading days of TWSE's T86, each day kept in the browser once read) and **注意股・處置股** (TWSE's attention and disposition lists; also marked in the stock list and on the stock page). TPEx refuses other sites, so 上櫃 stocks are not on those lists.
+  - Below it: **法人連續買賣超** (foreign investors and investment trusts buying or selling on consecutive days, from the last 10 trading days of TWSE's T86, each day kept in the browser once read) and **注意股・處置股** (TWSE's attention and disposition lists; also marked in the stock list and on the stock page). TPEx refuses other sites, so 上櫃 stocks are not on those lists.
 - **分析**: four parts behind a 收盤 / 盤前 / 盤中 / 週回顧 switch: the AI close summary, the pre-market note, the midday note (by default the one that fits the hour) and the weekly review.
 - **股票**: the stock list with 自選1–5, 強勢股 and 弱勢股.
 - **個股分析** (opened from a stock): one stock.
@@ -36,7 +36,7 @@ index.html               Page shell and the tabs
 assets/twmain.js/.css    The app: data loading, 總覽, 自選股, 個股分析, charts, AI analysis
 assets/twlab.js          The 研究室 tab (uses helpers exposed by twmain.js as window.TWDash.api)
 assets/twui.css / twui.js  UI v3: glass shell (sidebar on wide screens, tabs on tablets, bottom bar on phones), light/dark from the device, drifting aurora tinted by the TAIEX, counting numbers, card tilt and sheen, loading skeletons
-tools/otc_list.py        Writes otc.json (上櫃 and 興櫃 stocks, plus every company's industry code for the heat map); the "OTC list" workflow publishes it on the `data` branch every 10 minutes in trading hours, because TPEx open data cannot be read by the page and refuses the Worker
+tools/otc_list.py        Writes otc.json (上櫃 and 興櫃 stocks, plus every company's industry code); the "OTC list" workflow publishes it on the `data` branch every 10 minutes in trading hours, because TPEx open data cannot be read by the page and refuses the Worker
 assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill (mobile)
 assets/twdash.css, twmarket.css, twglass.css, twtheme.css   Shared look: cards, chips, glass surfaces, theme
 ```

@@ -404,7 +404,6 @@
         <div class="dcard bd-down"><div class="bd-h"><h3>跌幅排行</h3></div><div class="bd-list"></div></div>
       </div>
       <div class="board board2">
-        <div class="dcard bd-heat"><div class="bd-h"><h3>類股熱力圖</h3><div class="hmsel"></div></div><div class="hm"></div></div>
         <div class="dcard bd-strk"><div class="bd-h"><h3>法人連續買賣超</h3><span class="sub bd-n"></span></div>
           <div class="chips">${[["f1", "外資連買"], ["f0", "外資連賣"], ["t1", "投信連買"], ["t0", "投信連賣"]].map(([k, t]) => `<button type="button" class="chip" data-stk="${k}" aria-pressed="${k === "f1"}">${t}</button>`).join("")}</div>
           <div class="bd-list"><p class="sub">載入中…</p></div></div>
@@ -475,7 +474,7 @@
     $(".wkgo", wkc).addEventListener("click", e => wkRun(e.currentTarget));
     pmLoad(); pmLoad(true); clLoad(); wkLoad(); instLoad();
     const dd = $(".bd-dist", box); dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; });
-    const hm = $(".hm", box); hm.addEventListener("pointermove", e => { if (!$(".hmcard", hm)) heatTip(e); heatFocus(e); }); hm.addEventListener("pointerleave", e => { const t = $(".hmtip", hm); if (t) t.hidden = true; heatFocus(e); }); setTimeout(alertSync, 2500); loadCharts(true);
+    const hm = $(".hm", box); hm && hm.addEventListener("pointermove", e => { if (!$(".hmcard", hm)) heatTip(e); heatFocus(e); }); hm && hm.addEventListener("pointerleave", e => { const t = $(".hmtip", hm); if (t) t.hidden = true; heatFocus(e); }); setTimeout(alertSync, 2500); loadCharts(true);
     box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
   }
   function rowsNow() {
@@ -1989,7 +1988,7 @@
 
   /* ---------- the command palette (Ctrl+K): any stock, any tab, light / dark ---------- */
   let pal = null;
-  const PAGES = [["dpOverview", "總覽", "大盤、熱力圖、法人、注意股"], ["dpPre", "分析", "AI 收盤摘要、盤前與盤中分析"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"]];
+  const PAGES = [["dpOverview", "總覽", "大盤、法人、注意股"], ["dpPre", "分析", "AI 收盤摘要、盤前與盤中分析"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"]];
   function palOpen() {
     if (pal) { $("input", pal).focus(); return; }
     pal = document.createElement("div"); pal.className = "pal"; pal.setAttribute("role", "dialog"); pal.setAttribute("aria-modal", "true"); pal.setAttribute("aria-label", "搜尋");
