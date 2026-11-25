@@ -260,9 +260,13 @@
     const P = Array.from({ length: N }, () => ({ x: rnd(0, W), y: rnd(0, H), r: rnd(0.6, 2.4), vx: rnd(-0.15, 0.15), vy: rnd(-0.35, -0.05), c: Math.floor(rnd(0, 3)), tw: rnd(0, 6.28) }));
     const S = [];   /* streaks: a jagged line that draws itself across the screen and fades */
     const streak = () => {
-      const up = root.dataset.mood === "down" ? Math.random() < 0.35 : Math.random() < 0.65, pts = [], y0 = rnd(H * 0.25, H * 0.8);
-      let y = y0; for (let x = -40; x <= W + 40; x += rnd(18, 40)) { y += rnd(-22, 22) + (up ? -4 : 4); pts.push([x, y]); }
-      S.push({ pts, t: 0, c: up ? 3 : 4 });
+      const up = root.dataset.mood === "down" ? Math.random() < 0.35 : Math.random() < 0.65, cs = [], w = rnd(9, 13);
+      let y = rnd(H * 0.3, H * 0.75);
+      for (let x = -20; x <= W + 20; x += w * 1.7) {
+        const o = y, c = o + rnd(-26, 26) + (up ? -4 : 4), h = Math.min(o, c) - rnd(2, 14), l = Math.max(o, c) + rnd(2, 14);
+        cs.push({ x, o, c, h, l }); y = c;
+      }
+      S.push({ cs, w, t: 0 });
     };
     let last = 0, next = 1500;
     const frame = now => {
@@ -281,14 +285,15 @@
       next -= dt; if (next <= 0 && S.length < 3) { streak(); next = rnd(2500, 6000); }
       for (let i = S.length - 1; i >= 0; i--) {
         const s = S[i]; s.t += dt / 2600; if (s.t >= 1.6) { S.splice(i, 1); continue; }
-        const n = Math.max(2, Math.floor(s.pts.length * Math.min(1, s.t))), fade = s.t > 1 ? 1 - (s.t - 1) / 0.6 : 1;
-        /* candle-like: every step is red where the price rises (the line goes up the screen) and green where it falls */
-        ctx.globalAlpha = 0.55 * fade; ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.shadowBlur = 14;
-        for (let k = 1; k < n; k++) {
-          const a = s.pts[k - 1], b = s.pts[k], col = pal[b[1] <= a[1] ? 3 : 4];
-          ctx.strokeStyle = col; ctx.shadowColor = col; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+        const n = Math.max(1, Math.floor(s.cs.length * Math.min(1, s.t))), fade = s.t > 1 ? 1 - (s.t - 1) / 0.6 : 1;
+        /* real candles: red body where the close is above the open, green where below, thin wicks for high / low */
+        ctx.globalAlpha = 0.6 * fade; ctx.lineWidth = 1.6; ctx.shadowBlur = 12;
+        for (let k = 0; k < n; k++) {
+          const q = s.cs[k], col = pal[q.c <= q.o ? 3 : 4], top = Math.min(q.o, q.c), hgt = Math.max(2, Math.abs(q.c - q.o));
+          ctx.strokeStyle = col; ctx.fillStyle = col; ctx.shadowColor = col;
+          ctx.beginPath(); ctx.moveTo(q.x, q.h); ctx.lineTo(q.x, q.l); ctx.stroke();
+          ctx.fillRect(q.x - s.w / 2, top, s.w, hgt);
         }
-        const [hx, hy] = s.pts[n - 1]; ctx.globalAlpha = fade; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(hx, hy, 2.6, 0, 6.283); ctx.fill();
         ctx.shadowBlur = 0;
       }
       ctx.globalAlpha = 1;

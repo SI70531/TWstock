@@ -76,6 +76,8 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .dtabs.dragging button.hot { background: color-mix(in oklch, var(--color-accent) 30%, transparent); }
 .dragging { cursor: grabbing; }
 
-/* index sparklines: rising steps red, falling steps green (candle-like), not one colour for the whole line */
-:root .ixcard svg.spark path.u { stroke: var(--color-up) !important; }
-:root .ixcard svg.spark path.d { stroke: var(--color-down) !important; }
+/* index mini charts are candlesticks: red bar = closed up, green = closed down */
+:root .ixcard svg.spark .cd { stroke-width: 1; vector-effect: non-scaling-stroke; stroke-linecap: butt; }
+:root .ixcard svg.spark .cd.u { stroke: var(--color-up); fill: var(--color-up); }
+:root .ixcard svg.spark .cd.d { stroke: var(--color-down); fill: var(--color-down); }
+:root .ixcard svg.spark line.cd { fill: none; }
