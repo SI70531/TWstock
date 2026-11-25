@@ -1,5 +1,5 @@
 /* TWstock interaction layer (assets/twplay.js): swipe hints, pull to refresh, row swipe actions,
-   press feedback, gyro tilt, rolling digits and the inline chart under ranking rows */
+   press feedback, rolling digits and the inline chart under ranking rows */
 
 /* press: a quick springy push */
 button, .btn, .chip, .ixcard, .bd-row, .sb-row, .wcard, .pal-it { transition-property: transform, background-color, color, border-color, box-shadow, opacity, filter; }

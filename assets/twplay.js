@@ -1,4 +1,4 @@
-/* TWstock interaction layer: gestures, touch feedback, gyro tilt and playable numbers / charts.
+/* TWstock interaction layer: gestures, touch feedback and playable numbers / charts.
    - swipe left / right on the page switches tabs (phones and tablets), the page follows the finger
    - pull down at the top refreshes quotes and the AI notes
    - swipe a row of the stock list left to add it to / remove it from a 自選 list
