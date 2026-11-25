@@ -27,7 +27,7 @@ let ENV = null;   /* the current request's bindings, so the data fetchers can re
 export default {
   async scheduled(event, env, ctx) {
     ENV = env;
-    if (event.cron === "* * * * *") ctx.waitUntil(Promise.all([watchTick(env, new Date(event.scheduledTime)).catch(() => {}), bellNotice(env, new Date(event.scheduledTime)).catch(() => {})]));
+    if (event.cron === "* * * * *") ctx.waitUntil(Promise.all([watchTick(env, new Date(event.scheduledTime)).catch(() => {}), bellNotice(env, new Date(event.scheduledTime)).catch(() => {}), closeRetry(env, new Date(event.scheduledTime)).catch(() => {})]));
     else if (event.cron === CLOSE_CRON) ctx.waitUntil(closeNote(env, true, false));
     else if (event.cron === MID_CRON) ctx.waitUntil((async () => {
       /* no midday note on an exchange holiday: today's TAIEX quote must be from today */
@@ -1029,6 +1029,16 @@ function closePrompt(day, D, news) {
 "HEADLINES (today):",
 (news.map(x => "- " + x.t + (x.src ? "（" + x.src + "）" : "")).join("\n") || "(none)"),
   ].join("\n");
+}
+/* the 15:30 run can fail (TWSE's day report not out yet, Gemini busy, or the free AI quota used up until it resets at midnight US Pacific,
+   16:00 or 15:00 Taipei): try again every 15 minutes until 18:00; if there is still none, say why on Telegram */
+async function closeRetry(env, now) {
+  const t = new Date(now.getTime() + 8 * 3600e3), wd = t.getUTCDay(), m = t.getUTCHours() * 60 + t.getUTCMinutes();
+  if (wd < 1 || wd > 5 || m < 15 * 60 + 45 || m > 18 * 60 || (m - (15 * 60 + 45)) % 15) return;
+  const day = t.toISOString().slice(0, 10), have = (await pmStore(env, "cget").catch(() => ({}))).note;
+  if (have && have.day === day) return;
+  const r = await closeNote(env, true, false).catch(e => ({ error: String(e && e.message || e) }));
+  if (r && r.error && m === 18 * 60 && !/沒有交易/.test(r.error)) await tgSend(env, "<b>收盤摘要沒有產生</b>\n" + hesc(r.error) + "\n\n可以到網站的盤前分析頁按「產生」再試。");
 }
 async function closeNote(env, notify, manual) {
   if (!env.GEMINI_KEY) return { error: "no GEMINI_KEY" };
