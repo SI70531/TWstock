@@ -10,6 +10,9 @@
      GET  /tw/close                  the latest close summary
      POST /tw/close/run                        write a close summary now (shares the pre-market limit)
      cron 05:30 Taipei on trading-day mornings: the pre-market note, sent to Telegram.
+     GET  /tw/midday                 the latest midday note (tomorrow's open, written during today's session)
+     POST /tw/midday/run                       write a midday note now (shares the pre-market limit)
+     cron 13:00 Taipei on trading days: the midday note for the next session, sent to Telegram.
      cron 15:30 Taipei on trading days: the AI close summary (and the owner's stocks newly on the attention / disposition lists), sent to Telegram.
      GET  /health                    does GEMINI_KEY work
    Secrets: GEMINI_KEY, TG_TOKEN (Telegram bot). Deployed by .github/workflows/worker.yml with tools/wrangler.toml.
@@ -26,6 +29,12 @@ export default {
     ENV = env;
     if (event.cron === "* * * * *") ctx.waitUntil(Promise.all([watchTick(env, new Date(event.scheduledTime)).catch(() => {}), bellNotice(env, new Date(event.scheduledTime)).catch(() => {})]));
     else if (event.cron === CLOSE_CRON) ctx.waitUntil(closeNote(env, true, false));
+    else if (event.cron === MID_CRON) ctx.waitUntil((async () => {
+      /* no midday note on an exchange holiday: today's TAIEX quote must be from today */
+      const x = (await twMis(["tse_t00.tw"]).catch(() => [])).find(r => r.c === "t00"), today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
+      if (x && x.d && x.d !== today) return;
+      await premarket(env, true, true);
+    })().catch(() => {}));
     else ctx.waitUntil(premarket(env, true));
   },
   async fetch(req, env) {
@@ -56,6 +65,7 @@ export default {
     if (url.pathname === "/tw/otc" && req.method === "GET") return twOtc(json, fail);
     if (url.pathname === "/tw/hist" && req.method === "GET") return twHist(url, json, fail);
     if (url.pathname === "/tw/premarket" && req.method === "GET") return json(await pmStore(env, "get"), 200, { "Cache-Control": "no-store" });
+    if (url.pathname === "/tw/midday" && req.method === "GET") return json(await pmStore(env, "mget"), 200, { "Cache-Control": "no-store" });
     if (url.pathname === "/tw/close" && req.method === "GET") return json(await pmStore(env, "cget"), 200, { "Cache-Control": "no-store" });
 
     /* everything below: no sign-in; the page's random device id (d) and the caller's IP address */
@@ -79,6 +89,12 @@ export default {
       const q = await guard(env, "pmrun", "ai", { hr: PM_HOUR, day: PM_DAY });
       if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached; try again later", { "Retry-After": String(q.aiWait || 60) });
       const r = await premarket(env, true);   /* a manual run is also sent to Telegram (useful as a test) */
+      return r.error ? (r.daily ? fail(429, "AI_DAILY", r.error) : fail(502, "AI_FAILED", r.error)) : json(r);
+    }
+    if (url.pathname === "/tw/midday/run" && req.method === "POST") {
+      const q = await guard(env, "pmrun", "ai", { hr: PM_HOUR, day: PM_DAY });
+      if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached; try again later", { "Retry-After": String(q.aiWait || 60) });
+      const r = await premarket(env, true, true);
       return r.error ? (r.daily ? fail(429, "AI_DAILY", r.error) : fail(502, "AI_FAILED", r.error)) : json(r);
     }
     if (url.pathname === "/tw/close/run" && req.method === "POST") {
@@ -480,6 +496,8 @@ export class Daily {
   async fetch(req) {
     const op = new URL(req.url).pathname.slice(1), st = this.state.storage, b = await req.json().catch(() => ({}));
     if (op === "cput") { const h = (await st.get("close")) || []; h.unshift(b.note); h.length = Math.min(h.length, 10); await st.put("close", h); return Response.json({ ok: true }); }
+    if (op === "mput") { const h = (await st.get("mid")) || []; h.unshift(b.note); h.length = Math.min(h.length, 10); await st.put("mid", h); return Response.json({ ok: true }); }
+    if (op === "mget") { const h = (await st.get("mid")) || []; return Response.json({ note: h[0] || null }); }
     if (op === "cget") { const h = (await st.get("close")) || []; return Response.json({ note: h[0] || null }); }
     if (op === "flags") { const was = (await st.get("flags")) || {}; if (b.set) await st.put("flags", b.set); return Response.json(was); }
     if (op === "put") { const h = (await st.get("hist")) || []; h.unshift(b.note); h.length = Math.min(h.length, 14); await st.put("hist", h); return Response.json({ ok: true }); }
@@ -540,13 +558,16 @@ async function pmInst() {
   } catch (e) {}
   return null;
 }
-function pmPrompt(day, madeAt, night, world, inst, news, cands) {
+function pmPrompt(day, madeAt, night, world, inst, news, cands, mid) {
   const list = (a, f) => (a && a.length ? a.map(f).join("\n") : "(none found)");
   return [
-"You are the pre-market desk of a Taiwan equity research team, writing for one private investor. It is now " + madeAt + " Taipei time. You are calling the open of the NEXT Taiwan trading session: 09:00 on " + day + " (" + WD[new Date(day + "T00:00:00Z").getUTCDay()] + ").",
+mid
+  ? "You are the midday desk of a Taiwan equity research team, writing for one private investor. It is now " + madeAt + " Taipei time, DURING today's Taiwan session (it closes at 13:30). You are calling the open of the NEXT trading session: 09:00 on " + day + " (" + WD[new Date(day + "T00:00:00Z").getUTCDay()] + "), not today's."
+  : "You are the pre-market desk of a Taiwan equity research team, writing for one private investor. It is now " + madeAt + " Taipei time. You are calling the open of the NEXT Taiwan trading session: 09:00 on " + day + " (" + WD[new Date(day + "T00:00:00Z").getUTCDay()] + ").",
 "Whenever you say 今日, 明日 or 今晚, name the date instead (for example 11/24 開盤), so the reader never has to guess which day you mean.",
 "Write everything in Traditional Chinese as used in Taiwan. Be concrete; no filler.",
 "",
+...(mid ? ["This note is written in the middle of today's session, so the US market and tonight's night session have not happened yet. Work from what is known now: today's TAIEX so far (DATA.today: level, change, high and low, how it moved through the morning), today's TAIEX futures day session, the previous US close, Asian markets and US index futures if present in DATA.world, yesterday's institutional flows and today's news. Say plainly what tonight's US session and night session would need to do to change the call. 'night' describes today's session so far and today's futures (not a night session); 'us' describes the last US close and what tonight's US session could bring. 'close' calls the close of " + day + ", and 'watch' lists what to check tonight and in the first 30 minutes of " + day + ". Anchor the gap on today's likely close (DATA.today) instead of a night future, and keep every range modest because the night has not traded yet.", ""] : []),
 "Weigh every factor that can move the Taiwan market at today's open: the TAIEX futures night session (it trades 15:00 to 05:00 and is the most direct signal of the open), the US close (S&P 500, Nasdaq, Philadelphia Semiconductor, TSMC ADR versus its Taiwan price, Nvidia), the VIX, US yields and the dollar, the NT dollar, oil, yesterday's institutional flows in Taiwan, and the news: Fed and US data, tariffs and export controls, geopolitics, big earnings, Taiwan policy.",
 "",
 "Rules:",
@@ -568,7 +589,8 @@ function pmPrompt(day, madeAt, night, world, inst, news, cands) {
 '"picks":[{"code":"2454","name":"聯發科","tag":"推薦|持股|自選","action":"分批買進","how":"...","split":"...","stop":"...","targets":["..."],"rr":"1 : 2.0","why":"...",',
 '"analysis":["技術：...","量能籌碼：...","消息：...","風險：..."],"days":[{"d":"11/25","view":"偏多|盤整|偏空","range":"price range","do":"what to do that day, e.g. 第一批 3,600 掛單 / 不動 / 第二批若站上 3,700"}]}],"picks_note":"one sentence on the candidates overall"}',
 "",
-"DATA.night (TAIEX futures, TAIFEX): " + JSON.stringify(night),
+...(mid ? ["DATA.today (TAIEX in today's session so far, TWSE): " + JSON.stringify(mid)] : []),
+"DATA.night (TAIEX futures, TAIFEX" + (mid ? "; during the day this is today's day session" : "") + "): " + JSON.stringify(night),
 "DATA.anchor: " + JSON.stringify(pmAnchor(night, world)),
 "DATA.days (the open day and the four trading days after it): " + JSON.stringify([day.slice(5).replace("-", "/").replace(/^0/, "").replace("/0", "/")].concat(nextDays(day, 4))),
 "DATA.world (Yahoo Finance, last price and % change from the previous close, time in Taipei): " + JSON.stringify(world),
@@ -645,19 +667,27 @@ function pmAnchor(night, world) {
   if (!tw || !q || !(q.last > 0)) return null;
   return { taiexClose: tw.last, nightFuture: q.last, diffPoints: Math.round(q.last - tw.last), diffPct: Math.round((q.last / tw.last - 1) * 10000) / 100, futureTime: q.time };
 }
-async function premarket(env, notify) {
+async function premarket(env, notify, isMid) {
   if (!env.GEMINI_KEY) return { error: "no GEMINI_KEY" };
-  const day = nextOpenDay(new Date()), madeAt = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
+  /* the midday note calls the session after today's: tomorrow, or Monday after a Friday */
+  const day = isMid ? nextOpenDay(new Date(Date.now() + 864e5 - (Date.now() + 8 * 3600e3) % 864e5)) : nextOpenDay(new Date()), madeAt = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
   const [night, world, inst, n1, n2, n3, cands] = await Promise.all([
     pmNight().catch(() => null), pmWorld().catch(() => []), pmInst().catch(() => null),
-    twHeadlines("台股 OR 台指期 OR 夜盤 when:1d", 10).catch(() => []),
+    twHeadlines(isMid ? "台股 OR 台指期 OR 盤中 when:1d" : "台股 OR 台指期 OR 夜盤 when:1d", 10).catch(() => []),
     twHeadlines("美股 OR 聯準會 OR 費半 OR 台積電ADR when:1d", 10).catch(() => []),
     twHeadlines("關稅 OR 出口管制 OR 地緣政治 OR 匯率 OR 輝達 when:1d", 8).catch(() => []),
     pmCandidates(env).catch(() => []),
   ]);
   const seen = new Set(), news = [...n1, ...n2, ...n3].filter(x => !seen.has(x.t) && seen.add(x.t)).sort((a, b) => b.at - a.at).slice(0, 24);
+  let today = null;
+  if (isMid) {
+    const x = (await twMis(["tse_t00.tw"]).catch(() => [])).find(r => r.c === "t00");
+    if (x && x.z > 0 && x.y > 0) today = { taiex: x.z, previousClose: x.y, changePoints: Math.round(x.z - x.y), changePct: Math.round((x.z / x.y - 1) * 10000) / 100, open: x.o, high: x.h, low: x.l, time: x.tm };
+    if (!today) { const q = (await twYahoo(["^TWII"]).catch(() => []))[0]; if (q && q.z > 0 && q.y > 0) today = { taiex: q.z, previousClose: q.y, changePoints: Math.round(q.z - q.y), changePct: Math.round((q.z / q.y - 1) * 10000) / 100, high: q.h, low: q.l }; }
+    if (!today) today = { note: "no live TAIEX quote right now" };
+  }
   /* Gemini answers 503 when Google is overloaded: wait and go round the models again (a few times for the 05:30 run) */
-  const prompt = pmPrompt(day, madeAt, night, world, inst, news, cands);
+  const prompt = pmPrompt(day, madeAt, night, world, inst, news, cands, today);
   let g = await geminiJson(env, prompt, 0.3, 0);
   for (let k = 1; g.error && [500, 502, 503, 504].includes(g.error.status) && k <= (notify ? 4 : 2); k++) {
     await new Promise(r => setTimeout(r, (notify ? 20000 : 4000) * k));
@@ -672,13 +702,13 @@ async function premarket(env, notify) {
     a.picks = a.picks.filter(x => x && cands.some(c => c.code === String(x.code))).map(x => Object.assign(x, { tag: tagOf(String(x.code)) || x.tag }))
       .sort((x, y) => (ord[x.tag] ?? 3) - (ord[y.tag] ?? 3));
   }
-  const note = { at: Date.now(), day, madeAt, analysis: a, data: { night, world, inst, candidates: cands.map(c => ({ code: c.code, name: c.name, tag: c.tag })) }, news: news.slice(0, 12).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
-  await pmStore(env, "put", { note });
-  if (notify) note.sent = await pmTelegram(env, a, day);
+  const note = { at: Date.now(), day, madeAt, mid: !!isMid, analysis: a, data: { today, night, world, inst, candidates: cands.map(c => ({ code: c.code, name: c.name, tag: c.tag })) }, news: news.slice(0, 12).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
+  await pmStore(env, isMid ? "mput" : "put", { note });
+  if (notify) note.sent = await pmTelegram(env, a, day, isMid);
   return note;
 }
 /* Telegram: the bot token is the TG_TOKEN secret; the chat is whoever first sent the bot a message (kept after that) */
-async function pmTelegram(env, a, day) {
+async function pmTelegram(env, a, day, isMid) {
   if (!env.TG_TOKEN) return "no TG_TOKEN";
   const api = m => "https://api.telegram.org/bot" + env.TG_TOKEN + "/" + m;
   let { chat } = await pmStore(env, "chat");
@@ -689,13 +719,14 @@ async function pmTelegram(env, a, day) {
   const esc = v => String(v == null ? "" : v).replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]);
   const ch = a.chances || {}, f = (Array.isArray(a.factors) ? a.factors : []).slice(0, 6);
   const text = [
+    ...(isMid ? ["<b>盤中分析</b>"] : []),
     `<b>預測 ${esc(day.slice(5).replace("-", "/"))}（${WD[new Date(day + "T00:00:00Z").getUTCDay()]}）台股開盤：${esc(a.call)}</b>（信心 ${esc(a.confidence || "—")}，${esc(a.gap || "")}）`,
     esc(a.headline || ""), "",
     `開高 ${esc(ch["開高"] || "—")}｜平盤 ${esc(ch["平盤"] || "—")}｜開低 ${esc(ch["開低"] || "—")}`,
     ...(a.close && a.close.call ? [`<b>收盤：${esc(a.close.call)}</b>（${esc(a.close.range || "")}）${esc(a.close.why || "")}`] : []), "",
-    `<b>夜盤</b> ${esc(a.night || "—")}`, `<b>美股</b> ${esc(a.us || "—")}`, "",
+    `<b>${isMid ? "今日盤勢" : "夜盤"}</b> ${esc(a.night || "—")}`, `<b>美股</b> ${esc(a.us || "—")}`, "",
     ...f.map(x => `${x.effect === "利多" ? "🔺" : x.effect === "利空" ? "🔻" : "▪️"} ${esc(x.name)}：${esc(x.note)}`), "",
-    `<b>開盤後盯</b> ${esc((a.watch || []).slice(0, 3).join("；"))}`,
+    `<b>${isMid ? "今晚與開盤後盯" : "開盤後盯"}</b> ${esc((a.watch || []).slice(0, 3).join("；"))}`,
     ...(Array.isArray(a.picks) && a.picks.length ? ["", "<b>推薦下單</b>", ...a.picks.map(x => `${/賣|減/.test(x.action) ? "🔻" : /觀望|續抱/.test(x.action) ? "▪️" : "🔺"} <b>${esc(x.name)}（${esc(x.code)}）${esc(x.action)}</b>　${esc(x.how || "")}\n　停損 ${esc(x.stop || "—")}｜目標 ${esc((x.targets || []).join("、") || "—")}｜${esc(x.rr || "")}`)] : []),
     `<a href="https://si70531.github.io/TWstock/">完整分析</a>｜AI 研究參考，不保證漲跌`,
   ].join("\n").slice(0, 4000);
@@ -936,7 +967,7 @@ async function bellNotice(env, now) {
 }
 
 /* ---------- the close summary: 15:30 Taipei on trading days (TWSE's daily report and the day's institutional flows are out by then) ---------- */
-const CLOSE_CRON = "30 7 * * MON-FRI";
+const CLOSE_CRON = "30 7 * * MON-FRI", MID_CRON = "0 5 * * MON-FRI";   /* 15:30 and 13:00 Taipei */
 const pctOf = (z, ch) => (z > 0 && ch != null && z - ch > 0 ? Math.round(ch / (z - ch) * 10000) / 100 : null);
 /* TWSE's daily report for one day: indices (sector indices included), turnover, breadth and every stock's close */
 async function twDayReport(ds) {

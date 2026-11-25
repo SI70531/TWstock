@@ -395,6 +395,8 @@
       <div class="dcard ixdetail" hidden></div>
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3></div>
         <button type="button" class="btn pmgo">分析</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert" hidden></p></div>
+      <div class="dcard pm md"><div class="aihead"><div><h3>AI 盤中分析</h3></div>
+        <button type="button" class="btn mdgo">分析</button></div><div class="mdout"><p class="sub">載入中…</p></div></div>
       <div class="dcard mstrip"></div>
       <div class="board">
         <div class="dcard bd-dist"><div class="bd-h"><h3>漲跌分布</h3><span class="sub bd-n"></span></div><div class="bd-bars"></div></div>
@@ -419,7 +421,7 @@
     const box = $("#dpOverview");
     $(".msearch", box).addEventListener("input", e => { VIEW.q = e.target.value.trim(); VIEW.dist = null; VIEW.shown = 50; paintTable(true); });
     root.addEventListener("click", e => {
-      if (!e.target.closest("#dpOverview, #dpPre, #dpList")) return;
+      if (!e.target.closest("#dpOverview, #dpPre, #dpMid, #dpList")) return;
       const p = e.target.closest("[data-preset]");
       if (p) {
         VIEW.q = ""; $("#dpList .msearch").value = ""; VIEW.dist = null;
@@ -435,6 +437,7 @@
       const tr = e.target.closest("tr[data-code]");
       if (tr) openStock(tr.dataset.code, tr);
       if (e.target.closest(".pmgo")) pmRun(e.target.closest(".pmgo"));
+      if (e.target.closest(".mdgo")) { pmRun(e.target.closest(".mdgo"), true); return; }
       if (e.target.closest(".clgo")) { clRun(e.target.closest(".clgo")); return; }
       if (e.target.closest(".hmback")) { heatZoom(null); return; }
       const hmt = e.target.closest(".hmt"); if (hmt) { if (hmt.dataset.code) openStock(hmt.dataset.code, hmt); else heatZoom(hmt); return; }
@@ -450,8 +453,8 @@
       if (e.target.closest(".ixclose")) { ixOpen(IXV.k); return; }
     });
     /* the pre-market note and the stock list each have their own tab */
-    $("#dpPre").appendChild($(".pm", box)); $("#dpPre").appendChild($(".cl", box)); $("#dpList").appendChild($(".mkt", box));
-    pmLoad(); clLoad();
+    $("#dpPre").appendChild($(".pm:not(.md)", box)); $("#dpPre").appendChild($(".cl", box)); $("#dpMid").appendChild($(".pm.md", box)); $("#dpList").appendChild($(".mkt", box));
+    pmLoad(); pmLoad(true); clLoad();
     const dd = $(".bd-dist", box); dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; });
     const hm = $(".hm", box); hm.addEventListener("pointermove", heatTip); hm.addEventListener("pointerleave", () => { const t = $(".hmtip", hm); if (t) t.hidden = true; }); setTimeout(alertSync, 2500); loadCharts(true);
     box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
@@ -1456,11 +1459,12 @@
   }
 
   /* ---------------- AI pre-market note (written by the Worker at 05:30, or on request) ---------------- */
-  function pmPaint(j, animate) {
-    if (j && j.note) { PMN = j.note; boardSig = boardSig ? "x" : ""; try { paintBoard(); } catch (e) {} }
-    const el = $("#dpPre .pmout"); if (!el) return;
+  /* mid: the midday note (written at 13:00 during the session, calling the next session) in its own tab */
+  function pmPaint(j, animate, mid) {
+    if (!mid && j && j.note) { PMN = j.note; boardSig = boardSig ? "x" : ""; try { paintBoard(); } catch (e) {} }
+    const el = $(mid ? "#dpMid .mdout" : "#dpPre .pmout"); if (!el) return;
     const n = j && j.note;
-    if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有分析，05:30 會自動產生。</p>`; return; }
+    if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有分析，${mid ? "13:00" : "05:30"} 會自動產生。</p>`; return; }
     const a = n.analysis, ch = a.chances || {}, li = arr => (Array.isArray(arr) ? arr : []).map(x => `<li>${esc(x)}</li>`).join(""), tn = /高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : "";
     const at = new Date(n.at).toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
     el.innerHTML = `
@@ -1468,32 +1472,32 @@
         <p class="ailead">${esc(a.headline || "")}</p>
         <div class="pmrow"><div class="pmseg"><h4>09:00 開盤</h4><div class="pmchance">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc(ch[k] || "—")}</b></div>`).join("")}</div></div>
         ${a.close && a.close.call ? `<div class="pmseg"><h4>13:30 收盤 <span class="aitag ${/紅/.test(a.close.call) ? "up" : /黑/.test(a.close.call) ? "down" : ""}">${esc(a.close.call)}</span> <span class="sub">${esc(a.close.range || "")}</span></h4><div class="pmchance">${["收紅", "平盤", "收黑"].map(k => `<div><span>${k}</span><b class="${k === "收紅" ? "up" : k === "收黑" ? "down" : ""}">${esc((a.close.chances || {})[k] || "—")}</b></div>`).join("")}</div>${a.close.why ? `<p class="pmcw">${esc(a.close.why)}</p>` : ""}</div>` : ""}</div></div>
-      <div class="aicols"><div class="lrise"><h4>夜盤</h4><p>${esc(a.night || "—")}</p></div><div class="lrise"><h4>美股與國際</h4><p>${esc(a.us || "—")}</p></div></div>
+      <div class="aicols"><div class="lrise"><h4>${mid ? "今日盤勢" : "夜盤"}</h4><p>${esc(a.night || "—")}</p></div><div class="lrise"><h4>美股與國際</h4><p>${esc(a.us || "—")}</p></div></div>
       ${Array.isArray(a.picks) && a.picks.length ? `<div class="pmpicks"><div class="pmph"><h4>推薦下單</h4><span class="sub">${esc(a.picks_note || "")}</span></div><div class="pmpgrid">${a.picks.map(x => { const t = /買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""; return `<button type="button" class="aiorder pmpick ${t ? "o-" + t : ""} lrise" data-pick="${esc(x.code)}">
         <div class="aiohead"><span class="ntag">${esc(x.tag || "")}</span><b class="pmpn">${esc(x.name || "")} <i>${esc(x.code)}</i></b><b class="${t}">${esc(x.action || "")}</b>${x.rr ? `<span class="sub">風險報酬 ${esc(x.rr)}</span>` : ""}</div>
         <p class="pmpw">${esc(x.why || "")}</p>${anaHTML(x.analysis)}
         <div class="aikv"><div><span>怎麼下</span><b>${esc(x.how || "—")}</b></div><div><span>分批</span><b>${esc(x.split || "—")}</b></div><div><span>停損</span><b>${esc(x.stop || "—")}</b></div><div><span>目標</span><b>${esc((Array.isArray(x.targets) ? x.targets : []).join("；") || "—")}</b></div></div>${planHTML(x.days)}</button>`; }).join("")}</div></div>` : ""}
       <div class="pmfac">${(Array.isArray(a.factors) ? a.factors : []).map(f => `<div class="pmf lrise"><span class="aitag ${f.effect === "利多" ? "up" : f.effect === "利空" ? "down" : ""}">${esc(f.effect || "")}</span><b>${esc(f.name)}</b><span class="sub">${esc(f.note)}</span></div>`).join("")}</div>
       <details class="pmmore"><summary>族群、關鍵點位、風險與開盤後要盯的事</summary>
-        <div class="aicols"><div><h4>可能領漲／落後</h4><ul>${li(a.sectors)}</ul><h4>關鍵點位</h4><p>${esc(a.levels || "—")}</p></div><div><h4>風險</h4><ul>${li(a.risks)}</ul><h4>09:00–09:30 要盯</h4><ul>${li(a.watch)}</ul></div></div>
+        <div class="aicols"><div><h4>可能領漲／落後</h4><ul>${li(a.sectors)}</ul><h4>關鍵點位</h4><p>${esc(a.levels || "—")}</p></div><div><h4>風險</h4><ul>${li(a.risks)}</ul><h4>${mid ? "今晚與開盤後要盯" : "09:00–09:30 要盯"}</h4><ul>${li(a.watch)}</ul></div></div>
         ${n.news && n.news.length ? `<h4>參考的新聞</h4><div class="newslist">${newsHTML(n.news, null)}</div>` : ""}</details>`;
     if (animate) rise($$(".lrise", el), 70);
   }
-  async function pmLoad() { try { pmPaint(await J(`${WORKER}/tw/premarket`), true); } catch (e) { const el = $("#dpPre .pmout"); if (el) el.innerHTML = `<p class="sub">盤前分析需要部署新版 Worker。</p>`; } }
-  async function pmRun(b) {
-    const el = $("#dpPre .pmout");
+  async function pmLoad(mid) { try { pmPaint(await J(`${WORKER}/tw/${mid ? "midday" : "premarket"}`), true, mid); } catch (e) { const el = $(mid ? "#dpMid .mdout" : "#dpPre .pmout"); if (el) el.innerHTML = `<p class="sub">${mid ? "盤中" : "盤前"}分析需要部署新版 Worker。</p>`; } }
+  async function pmRun(b, mid) {
+    const el = $(mid ? "#dpMid .mdout" : "#dpPre .pmout"), path = mid ? "midday" : "premarket";
     b.disabled = true; b.textContent = "分析中…";
     try {
-      const r = await fetch(WORKER + "/tw/premarket/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      const r = await fetch(WORKER + "/tw/" + path + "/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
-      pmPaint({ note: j }, true);
+      pmPaint({ note: j }, true, mid);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
     } catch (e) {
       /* a long run can outlast the connection even though the note was written: look for it before saying it failed */
       await new Promise(r => setTimeout(r, 4000));
-      try { const j = await J(`${WORKER}/tw/premarket`); if (j.note && Date.now() - j.note.at < 180000) { pmPaint(j, true); b.disabled = false; b.textContent = "分析"; return; } } catch (e2) {}
+      try { const j = await J(`${WORKER}/tw/${path}`); if (j.note && Date.now() - j.note.at < 180000) { pmPaint(j, true, mid); b.disabled = false; b.textContent = "分析"; return; } } catch (e2) {}
       el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連線中斷，請稍後重新整理。"}</p>`);
     }
     b.disabled = false; b.textContent = "分析";
@@ -1731,7 +1735,7 @@
 
   /* ---------- the command palette (Ctrl+K): any stock, any tab, light / dark ---------- */
   let pal = null;
-  const PAGES = [["dpOverview", "總覽", "大盤、熱力圖、法人、注意股"], ["dpPre", "盤前分析", "AI 盤前與收盤摘要"], ["dpList", "股票", "清單與自選1–5"], ["dpStock", "個股分析", "K 線、籌碼、AI 團隊"]];
+  const PAGES = [["dpOverview", "總覽", "大盤、熱力圖、法人、注意股"], ["dpPre", "盤前分析", "AI 盤前與收盤摘要"], ["dpMid", "盤中分析", "13:00 盤中預測隔天開盤"], ["dpList", "股票", "清單與自選1–5"], ["dpStock", "個股分析", "K 線、籌碼、AI 團隊"]];
   function palOpen() {
     if (pal) { $("input", pal).focus(); return; }
     pal = document.createElement("div"); pal.className = "pal"; pal.setAttribute("role", "dialog"); pal.setAttribute("aria-modal", "true"); pal.setAttribute("aria-label", "搜尋");
@@ -1786,8 +1790,8 @@
   function helpToggle() {
     if (help) { const el = help; help = null; el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120 }).onfinish = () => el.remove(); return; }
     help = document.createElement("div"); help.className = "pal"; help.setAttribute("role", "dialog"); help.setAttribute("aria-label", "快捷鍵");
-    const K = [["Ctrl", "K"], ["/"], ["1"], ["2"], ["3"], ["4"], ["↑", "↓"], ["Enter"], ["右鍵"], ["拖曳"], ["滾輪"], ["雙擊"], ["Esc"], ["?"]];
-    const T = ["搜尋股票、切換頁面或外觀", "跳到搜尋框", "總覽", "盤前分析", "股票", "個股分析", "在股票清單上下移動", "打開選到的股票", "任何股票：開啟、加自選、複製代號（手機長按）", "K 線：平移（開啟「趨勢線」時改成畫線）", "K 線：縮放", "K 線：還原", "關閉面板或選單", "顯示這張表"];
+    const K = [["Ctrl", "K"], ["/"], ["1"], ["2"], ["3"], ["4"], ["5"], ["↑", "↓"], ["Enter"], ["右鍵"], ["拖曳"], ["滾輪"], ["雙擊"], ["Esc"], ["?"]];
+    const T = ["搜尋股票、切換頁面或外觀", "跳到搜尋框", "總覽", "盤前分析", "盤中分析", "股票", "個股分析", "在股票清單上下移動", "打開選到的股票", "任何股票：開啟、加自選、複製代號（手機長按）", "K 線：平移（開啟「趨勢線」時改成畫線）", "K 線：縮放", "K 線：還原", "關閉面板或選單", "顯示這張表"];
     help.innerHTML = `<div class="pal-box keys"><div class="pal-in"><b>快捷鍵</b><button type="button" class="key-x" aria-label="關閉"><kbd>Esc</kbd></button></div><div class="pal-list">${K.map((k, i) => `<div class="key-row"><span>${k.map(x => `<kbd>${x}</kbd>`).join(" ")}</span><span>${T[i]}</span></div>`).join("")}</div></div>`;
     document.body.appendChild(help);
     help.addEventListener("pointerdown", e => { if (e.target === help) helpToggle(); });
@@ -1799,7 +1803,7 @@
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || pal) return;
     const t = e.target; if (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || "")) return;
     if (e.key === "?") { e.preventDefault(); helpToggle(); return; }
-    if (/^[1-4]$/.test(e.key) && !help) { e.preventDefault(); open(PAGES[+e.key - 1][0], true); }
+    if (/^[1-5]$/.test(e.key) && !help) { e.preventDefault(); open(PAGES[+e.key - 1][0], true); }
   });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) rtPoll(); });
   /* "/" jumps to the search box from anywhere: the stock page's own box there, the list's everywhere else */

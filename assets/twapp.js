@@ -4,6 +4,7 @@
   var ICONS = {
     dpOverview: '<path d="M3 12l9-8 9 8"/><path d="M5 10v10h14V10"/>',
     dpPre: '<path d="M12 3v2M5.6 5.6l1.4 1.4M3 12h2M19 12h2M17 7l1.4-1.4"/><path d="M7 16a5 5 0 0 1 10 0"/><path d="M3 20h18"/>',
+    dpMid: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
     dpList: '<path d="M4 6h16M4 12h16M4 18h10"/>',
     dpWatch: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
     dpStock: '<path d="M6 4v4M6 12v8M12 6v10M18 3v5M18 12v9"/>',

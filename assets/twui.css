@@ -280,7 +280,7 @@ p.skel, div.skel.block { min-height: 64px; }
 .bd-ch div { display: grid; gap: 2px; padding: 8px; border-radius: 10px; background: var(--glass-2); border: 1px solid var(--glass-line); }
 .bd-ch span { font-size: 11px; color: var(--color-muted); } .bd-ch b { font: 600 var(--text-md)/1 var(--font-outlier); }
 /* the pre-market and watch pages no longer leave a half-empty screen */
-#dpPre.on { align-content: start; }
+#dpPre.on, #dpMid.on { align-content: start; }
 .wgrid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)) !important; }
 
 /* ---------- 8. full-on effects: flowing borders, rainbow titles, neon figures (the backdrop particles are a canvas from twui.js) ---------- */
