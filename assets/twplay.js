@@ -3,7 +3,6 @@
    - pull down at the top refreshes quotes and the AI notes
    - swipe a row of the stock list left to add it to / remove it from a 自選 list
    - press feedback on buttons and cards, with a short vibration where the device supports it
-   - cards tilt with the device (gyroscope) on phones and tablets, as they do with the mouse on a computer
    - numbers roll digit by digit when a quote changes; rows of the ranking lists open a small inline chart
    Reads the dashboard through window.TWDash.api and drives it only by clicking its own controls. */
 (function () {
@@ -119,37 +118,6 @@
     }, { passive: true });
   }
 
-  /* ---------- 5. gyroscope tilt on phones and tablets ---------- */
-  const TILT = ".ixcard, .wcard, .pmf, .aiteam > .dcard, .lcard, .snap, .mcell, .aiorder, .pmchance > div, .dcard.pm, .dcard.cl, .bd-heat, .bd-up, .bd-down, .bd-dist";
-  function gyro() {
-    if (!touchy || !("DeviceOrientationEvent" in window)) return;
-    let base = null, live = [], raf = 0, last = null;
-    const io = new IntersectionObserver(es => es.forEach(x => { x.target.classList.toggle("gyin", x.isIntersecting); }), { threshold: 0.05 });
-    const watch = () => $$(TILT).forEach(el => { if (!el.dataset.gy) { el.dataset.gy = "1"; el.classList.add("tilt", "gyro"); io.observe(el); } });
-    watch(); new MutationObserver(() => { clearTimeout(watch.t); watch.t = setTimeout(watch, 300); }).observe(document.body, { childList: true, subtree: true });
-    const paint = () => {
-      raf = 0; if (!last) return;
-      if (!base) base = last;
-      /* the resting angle drifts slowly toward how the phone is held, so only movement tilts the cards */
-      base = { b: base.b + (last.b - base.b) * 0.02, g: base.g + (last.g - base.g) * 0.02 };
-      const rx = Math.max(-7, Math.min(7, (last.b - base.b) * 0.35)), ry = Math.max(-7, Math.min(7, (last.g - base.g) * 0.35));
-      live = $$(".gyro.gyin");
-      live.forEach(el => {
-        if (el.classList.contains("tilting")) return;
-        el.style.setProperty("--rx", (-rx).toFixed(2) + "deg"); el.style.setProperty("--ry", ry.toFixed(2) + "deg");
-        el.style.setProperty("--mx", (50 + ry * 6).toFixed(1) + "%"); el.style.setProperty("--my", (50 + rx * 6).toFixed(1) + "%");
-      });
-      document.documentElement.classList.toggle("gyshine", Math.abs(rx) + Math.abs(ry) > 0.8);
-    };
-    const on = e => { if (e.beta == null) return; last = { b: e.beta, g: e.gamma }; if (!raf) raf = requestAnimationFrame(paint); };
-    const start = () => addEventListener("deviceorientation", on, { passive: true });
-    /* iOS asks once, after a tap */
-    if (typeof DeviceOrientationEvent.requestPermission === "function") {
-      const ask = () => { DeviceOrientationEvent.requestPermission().then(s => { if (s === "granted") start(); }).catch(() => {}); removeEventListener("touchend", ask); };
-      addEventListener("touchend", ask, { once: true });
-    } else start();
-  }
-
   /* ---------- 6. numbers roll digit by digit when a quote changes ---------- */
   function rollNumbers() {
     const SEL = ".mclock .sb-ix b, .side .sb-ix b, .hmc-p b";
@@ -210,7 +178,7 @@
 
   function boot() {
     A = window.TWDash && window.TWDash.api;
-    pressFeel(); rollNumbers(); rowPeek(); gyro();
+    pressFeel(); rollNumbers(); rowPeek();
     if (touchy) { swipeTabs(); pullRefresh(); swipeRows(); }
   }
   if (window.TWDash) boot(); else document.addEventListener("twdash:ready", boot, { once: true });

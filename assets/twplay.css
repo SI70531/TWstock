@@ -35,10 +35,6 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .rowact.del { background: color-mix(in oklch, var(--color-down) 70%, transparent); }
 .rowact.go.add { background: var(--color-accent); } .rowact.go.del { background: var(--color-down); }
 
-/* gyro tilt: the cards follow the device, slowly and softly */
-.tilt.gyro:not(.tilting) { transition: transform .25s ease-out; }
-.gyshine .tilt.gyro.gyin::after { opacity: .55; }
-
 /* digits roll when a number changes */
 .rd { display: inline-grid; height: 1.2em; overflow: hidden; vertical-align: bottom; line-height: 1.2em; }
 .rd i { font-style: normal; grid-area: 1 / 1; }
