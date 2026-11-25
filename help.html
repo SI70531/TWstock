@@ -26,27 +26,27 @@
   </script>
   <title>說明 | TWstock</title>
   <link rel="stylesheet" href="https://si70531.github.io/EZexams/assets/fonts/fonts.css">
-  <link rel="stylesheet" href="./assets/tokens.css?v=20261126g">
-  <link rel="stylesheet" href="./assets/twconsole.css?v=20261126g">
+  <link rel="stylesheet" href="./assets/twconsole.css?v=20261126h">
+  <link rel="stylesheet" href="./assets/twui.css?v=20261126h">
   <style>
-    body { margin: 0; background: var(--color-paper); color: var(--color-ink); }
-    .faq { max-width: 760px; margin: 0 auto; padding: 24px 18px 80px; }
+    .faq { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 24px 18px 80px; }
     .top { display: flex; justify-content: space-between; align-items: center; }
     .top a { color: var(--color-ink); text-decoration: none; }
-    .home { padding: 8px 16px; border: 1.5px solid var(--glass-line-2, #888); border-radius: 12px; }
+    .home { padding: 8px 16px; border: 1px solid var(--glass-line-2); border-radius: 12px; background: var(--glass); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
     h1 { font-size: clamp(30px, 6vw, 44px); margin: 28px 0 8px; }
-    h2 { font-size: 22px; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--color-ink); }
-    details { border: 1.5px solid var(--glass-line-2, #888); border-radius: 10px; padding: 10px 16px; margin: 10px 0; }
+    h2 { max-width: none; font-size: 22px; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--color-ink); }
+    details { padding: 10px 16px; margin: 10px 0; }
     summary { cursor: pointer; font-weight: 600; }
     details p { margin: 8px 0 2px; color: var(--color-ink-2); line-height: 1.7; }
   </style>
 </head>
 <body>
+<div class="aurora" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
 <main class="faq">
   <div class="top"><a href="./"><b>TWstock</b> 台股研究</a><a class="home" href="./">回首頁</a></div>
   <h1>說明</h1>
   <p style="color:var(--color-muted)">先看看下面的問題。</p>
-  <h2>分頁怎麼用</h2><details><summary>三個分頁各是什麼？</summary><p>「總覽」看大盤、熱力圖與重點；「分析」放收盤、盤前、盤中三份 AI 分析；「股票」有自選股、強勢股等清單，點任一檔股票就會打開它的個股分析。</p></details><details><summary>怎麼加入自選股？</summary><p>在股票清單中把該列向左滑（手機）或使用該列的星號，就會加入自選股。</p></details><h2>AI 分析</h2><details><summary>什麼時候會自動分析？</summary><p>盤前分析在交易日前一晚 05:30（台北時間）左右自動產生；盤中分析在交易日 13:00；收盤摘要在 15:30 收盤後自動產生，不需要也沒有按鈕。三份都會同步傳到 Telegram。</p></details><details><summary>為什麼「盤中」不能按？</summary><p>盤中分析只在交易日 09:00–13:30 可手動執行；非開盤時間、連假或休市日會顯示無法分析。</p></details><details><summary>分析失敗或顯示額度用完？</summary><p>AI 使用的是免費額度，各模型每天有上限，約在台北時間下午 3、4 點重置。稍後再試，或等下一次自動分析。</p></details><h2>資料與外觀</h2><details><summary>資料從哪裡來？</summary><p>行情與報表來自證交所公開資料，新聞來自 Google 新聞。資料可能有延遲或缺漏，請以券商與證交所為準。</p></details><details><summary>可以換深色或淺色嗎？</summary><p>可以。按右上角的圖示，選「系統」、「淺色」或「深色」；選「系統」會跟隨裝置設定。</p></details><details><summary>這是投資建議嗎？</summary><p>不是。本站僅供個人研究與參考，AI 分析可能出錯，投資請自行判斷並承擔風險。</p></details>
+  <h2>分頁怎麼用</h2><details class="dcard"><summary>三個分頁各是什麼？</summary><p>「總覽」看大盤、熱力圖與重點；「分析」放收盤、盤前、盤中三份 AI 分析；「股票」有自選股、強勢股等清單，點任一檔股票就會打開它的個股分析。</p></details><details class="dcard"><summary>怎麼加入自選股？</summary><p>在股票清單中把該列向左滑（手機）或使用該列的星號，就會加入自選股。</p></details><h2>AI 分析</h2><details class="dcard"><summary>什麼時候會自動分析？</summary><p>盤前分析在交易日前一晚 05:30（台北時間）左右自動產生；盤中分析在交易日 13:00；收盤摘要在 15:30 收盤後自動產生，不需要也沒有按鈕。三份都會同步傳到 Telegram。</p></details><details class="dcard"><summary>為什麼「盤中」不能按？</summary><p>盤中分析只在交易日 09:00–13:30 可手動執行；非開盤時間、連假或休市日會顯示無法分析。</p></details><details class="dcard"><summary>分析失敗或顯示額度用完？</summary><p>AI 使用的是免費額度，各模型每天有上限，約在台北時間下午 3、4 點重置。稍後再試，或等下一次自動分析。</p></details><h2>資料與外觀</h2><details class="dcard"><summary>資料從哪裡來？</summary><p>行情與報表來自證交所公開資料，新聞來自 Google 新聞。資料可能有延遲或缺漏，請以券商與證交所為準。</p></details><details class="dcard"><summary>可以換深色或淺色嗎？</summary><p>可以。按右上角的圖示，選「系統」、「淺色」或「深色」；選「系統」會跟隨裝置設定。</p></details><details class="dcard"><summary>這是投資建議嗎？</summary><p>不是。本站僅供個人研究與參考，AI 分析可能出錯，投資請自行判斷並承擔風險。</p></details>
 </main>
 </body>
 </html>
