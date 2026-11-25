@@ -1512,7 +1512,16 @@
       const svg = $(`.ixcard[data-k="${i.k}"] .spark`), d = CH[i.k + ":tick"]; if (!svg || !d || d.pts.length < 2) return;
       const ys = d.pts.map(p => p[1]), base = ok(d.prev) ? d.prev : ys[0], lo = Math.min(base, ...ys), hi = Math.max(base, ...ys), span = hi - lo || 1, n = ys.length - 1;
       const Y = v => (26 - (v - lo) / span * 24).toFixed(1);
-      $("path", svg).setAttribute("d", ys.map((y, k) => `${k ? "L" : "M"}${(k / n * 76).toFixed(1)},${Y(y)}`).join(""));
+      /* like candles: thin the day to ~32 steps and colour every step by whether it rose (紅) or fell (綠) from the one before */
+      const N = Math.min(32, n), pts = []; for (let k = 0; k <= N; k++) { const j = Math.round(k / N * n); pts.push([j / n * 76, ys[j]]); }
+      const run = { u: "", d: "" }; let last = null;
+      for (let k = 1; k < pts.length; k++) {
+        const c = pts[k][1] >= pts[k - 1][1] ? "u" : "d", a = pts[k - 1], b2 = pts[k];
+        if (c !== last) run[c] += `M${a[0].toFixed(1)},${Y(a[1])}`;
+        run[c] += `L${b2[0].toFixed(1)},${Y(b2[1])}`; last = c;
+      }
+      $$("path", svg).forEach(x => x.remove());
+      ["d", "u"].forEach(c => { const e = document.createElementNS("http://www.w3.org/2000/svg", "path"); e.setAttribute("class", c); e.setAttribute("d", run[c]); svg.appendChild(e); });
       const b = $(".spbase", svg); b.setAttribute("y1", Y(base)); b.setAttribute("y2", Y(base));
       svg.setAttribute("class", "spark " + (ys[n] >= base ? "up" : "down"));
     });
@@ -1819,10 +1828,8 @@
   }
   function drawSpark() {
     $$(".ixcard .spark").forEach((svg, i) => {
-      const b = $(".spbase", svg), p = $("path", svg); if (!p || !p.getAttribute("d")) return;
-      if (b) b.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 150 + i * 80, fill: "backwards" });
-      const L = p.getTotalLength(); p.style.strokeDasharray = L;
-      p.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 900, delay: 400 + i * 80, easing: "ease-out", fill: "backwards" });
+      if (!$("path", svg)) return;
+      svg.animate([{ clipPath: "inset(-4px 100% -4px 0)" }, { clipPath: "inset(-4px -4px -4px 0)" }], { duration: 900, delay: 400 + i * 80, easing: "ease-out", fill: "backwards" });
     });
   }
 
