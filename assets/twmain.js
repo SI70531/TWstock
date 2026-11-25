@@ -876,13 +876,20 @@
   }
   let MD_HOLIDAY = false;
   setInterval(mdGate, 30000);
+  function anaMark(bar, snap) {
+    const b = $("[aria-selected=true]", bar), hl = $("i", bar); if (!b || !hl || !b.offsetWidth) return;
+    if (snap) { hl.style.transition = "none"; }
+    hl.style.width = b.offsetWidth + "px"; hl.style.transform = `translateX(${b.offsetLeft}px)`;
+    if (snap) { void hl.offsetWidth; hl.style.transition = ""; }
+  }
   function anaSub(k, animate) {
     const pre = $("#dpPre"), bar = $(".anasub", pre); if (!bar) return;
     const prev = ANA; ANA = k;
     try { if (animate) sessionStorage.setItem("twana", k); } catch (e) {}
     const bs = $$("[data-sub]", bar), b = bs.find(x => x.dataset.sub === k) || bs[1];
     bs.forEach(x => x.setAttribute("aria-selected", String(x === b)));
-    const hl = $("i", bar); requestAnimationFrame(() => { hl.style.width = b.offsetWidth + "px"; hl.style.transform = `translateX(${b.offsetLeft}px)`; });
+    anaMark(bar);
+    if (!bar._ro && window.ResizeObserver) { bar._ro = new ResizeObserver(() => anaMark(bar, true)); bar._ro.observe(bar); } /* the bar has no size while 分析 is hidden: place the highlight again once it shows */
     const order = ["cl", "pm", "md"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
     $$(".dcard[data-sub]", pre).forEach(c => {
       const on = c.dataset.sub === k; c.hidden = !on;
