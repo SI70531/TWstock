@@ -495,12 +495,20 @@ export class Daily {
   constructor(state) { this.state = state; }
   async fetch(req) {
     const op = new URL(req.url).pathname.slice(1), st = this.state.storage, b = await req.json().catch(() => ({}));
-    if (op === "cput") { const h = (await st.get("close")) || []; h.unshift(b.note); h.length = Math.min(h.length, 10); await st.put("close", h); return Response.json({ ok: true }); }
-    if (op === "mput") { const h = (await st.get("mid")) || []; h.unshift(b.note); h.length = Math.min(h.length, 10); await st.put("mid", h); return Response.json({ ok: true }); }
-    if (op === "mget") { const h = (await st.get("mid")) || []; return Response.json({ note: h[0] || null }); }
-    if (op === "cget") { const h = (await st.get("close")) || []; return Response.json({ note: h[0] || null }); }
+    /* each note kind keeps its newest note under its own key and a short list of older ones without their data:
+       one value may hold at most 128 KiB, and ten full notes in one list grew past that, so the newest note was never saved */
+    const KIND = { put: "hist", cput: "close", mput: "mid" }, GETK = { cget: "close", mget: "mid" };
+    if (KIND[op]) {
+      const k = KIND[op], old = (await st.get("last:" + k)) || ((await st.get(k)) || [])[0] || null;
+      const slim = x => x && { at: x.at, day: x.day, call: x.analysis && x.analysis.call };
+      const h = ((await st.get("list:" + k)) || []).filter(Boolean);
+      if (old) h.unshift(slim(old));
+      try { await st.put("last:" + k, b.note); await st.put("list:" + k, h.slice(0, 14)); } catch (e) { return Response.json({ ok: false, error: String(e && e.message || e) }); }
+      if (await st.get(k)) await st.delete(k);
+      return Response.json({ ok: true });
+    }
+    if (GETK[op]) return Response.json({ note: (await st.get("last:" + GETK[op])) || ((await st.get(GETK[op])) || [])[0] || null });
     if (op === "flags") { const was = (await st.get("flags")) || {}; if (b.set) await st.put("flags", b.set); return Response.json(was); }
-    if (op === "put") { const h = (await st.get("hist")) || []; h.unshift(b.note); h.length = Math.min(h.length, 14); await st.put("hist", h); return Response.json({ ok: true }); }
     if (op === "chat") { if (b.set) await st.put("chat", b.set); return Response.json({ chat: (await st.get("chat")) || null, offset: (await st.get("off")) || 0 }); }
     if (op === "off") { await st.put("off", b.off || 0); return Response.json({ ok: true }); }
     /* the alert list belongs to the first device that sent one (the site owner); other devices are ignored.
@@ -514,8 +522,8 @@ export class Daily {
     if (op === "wl") return Response.json((await st.get("wl")) || { watch: [], hold: [] });
     if (op === "bell") { const k = "bell:" + b.kind, was = await st.get(k); if (was === b.day) return Response.json({ first: false }); await st.put(k, b.day); return Response.json({ first: true }); }
     if (op === "state") { if (b.set) await st.put("al", b.set); return Response.json((await st.get("al")) || {}); }
-    const h = (await st.get("hist")) || [];
-    return Response.json({ note: h[0] || null, history: h.slice(1, 7).map(x => ({ at: x.at, day: x.day, call: x.analysis && x.analysis.call })) });
+    const last = (await st.get("last:hist")) || ((await st.get("hist")) || [])[0] || null, list = (await st.get("list:hist")) || ((await st.get("hist")) || []).slice(1).map(x => ({ at: x.at, day: x.day, call: x.analysis && x.analysis.call }));
+    return Response.json({ note: last, history: list.slice(0, 6) });
   }
 }
 /* night-session TAIEX futures (MarketType "1"), or the futures exchange's after-hours daily report */
@@ -703,7 +711,8 @@ async function premarket(env, notify, isMid) {
       .sort((x, y) => (ord[x.tag] ?? 3) - (ord[y.tag] ?? 3));
   }
   const note = { at: Date.now(), day, madeAt, mid: !!isMid, analysis: a, data: { today, night, world, inst, candidates: cands.map(c => ({ code: c.code, name: c.name, tag: c.tag })) }, news: news.slice(0, 12).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
-  await pmStore(env, isMid ? "mput" : "put", { note });
+  const saved = await pmStore(env, isMid ? "mput" : "put", { note }).catch(e => ({ error: String(e && e.message || e) }));
+  if (!saved || !saved.ok) note.saveError = (saved && saved.error) || "not saved";
   if (notify) note.sent = await pmTelegram(env, a, day, isMid);
   return note;
 }
@@ -1079,7 +1088,8 @@ async function closeNote(env, notify, manual) {
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const t2 = String(g.text || ""), i = t2.indexOf("{"), j = t2.lastIndexOf("}"); try { a = JSON.parse(t2.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e2) { a = null; } }
   if (!a || !a.headline) return { error: "AI 的回答不完整，再按一次" };
   const note = { at: Date.now(), day, analysis: a, data: { taiex: rep.taiex, turnoverYi: rep.turnoverYi, breadth: rep.breadth, sectors: rep.sectors, institutions: inst || [], mine: D.mine }, news: news.slice(0, 10).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
-  await pmStore(env, "cput", { note });
+  const saved = await pmStore(env, "cput", { note }).catch(e => ({ error: String(e && e.message || e) }));
+  if (!saved || !saved.ok) note.saveError = (saved && saved.error) || "not saved";
   /* the owner's stocks newly on the attention or disposition list: each one is told once (forgotten 10 days after it was last seen) */
   const was = await pmStore(env, "flags").catch(() => ({})), keep = {}, newly = [], cut = new Date(Date.now() + 8 * 3600e3 - 10 * 864e5).toISOString().slice(0, 10);
   Object.entries(was || {}).forEach(([k, v]) => { if (typeof v === "string" && v >= cut) keep[k] = v; });

@@ -799,7 +799,13 @@
       clPaint({ note: j }, true);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
-    } catch (e) { el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${esc(e.message)}</p>`); }
+      if (j.saveError) el.insertAdjacentHTML("afterbegin", `<p class="sub warn">這份摘要沒有存到伺服器，其他裝置看不到：${esc(j.saveError)}</p>`);
+    } catch (e) {
+      /* a long run can outlast the connection even though the summary was written and sent: look for it before saying it failed */
+      await new Promise(r => setTimeout(r, 4000));
+      try { const j = await J(`${WORKER}/tw/close`); if (j.note && Date.now() - j.note.at < 300000) { clPaint(j, true); b.disabled = false; b.textContent = "產生"; return; } } catch (e2) {}
+      el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連線中斷，請稍後重新整理。"}</p>`);
+    }
     b.disabled = false; b.textContent = "產生";
   }
 
@@ -1805,7 +1811,7 @@
     if (e.key === "?") { e.preventDefault(); helpToggle(); return; }
     if (/^[1-5]$/.test(e.key) && !help) { e.preventDefault(); open(PAGES[+e.key - 1][0], true); }
   });
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) rtPoll(); });
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { rtPoll(); pmLoad(); pmLoad(true); clLoad(); } });
   /* "/" jumps to the search box from anywhere: the stock page's own box there, the list's everywhere else */
   document.addEventListener("keydown", e => {
     if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || e.target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName || "")) return;
