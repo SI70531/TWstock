@@ -1927,6 +1927,7 @@
   window.TWDash = { replay: () => open(cur, false),
     /* shared with the 研究室 tab (assets/twlab.js) */
     api: { DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
+      refresh: () => Promise.all([rtPoll(), pmLoad(), pmLoad(true), clLoad()]).then(() => open(cur, true)),
       store, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
   document.dispatchEvent(new Event("twdash:ready"));
 
