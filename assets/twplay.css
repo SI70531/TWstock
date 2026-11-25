@@ -62,7 +62,7 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .anasub button { position: relative; z-index: 1; flex: 1; height: 38px; border: 0; border-radius: 999px; background: none; color: var(--color-muted); font-size: var(--text-sm); font-weight: 700; cursor: pointer; transition: color .25s; }
 .anasub button[aria-selected="true"] { color: var(--color-ink); }
 .anasub > i { position: absolute; left: 0; top: 4px; bottom: 4px; border-radius: 999px; background: color-mix(in oklch, var(--color-accent) 28%, transparent); border: 1px solid color-mix(in oklch, var(--color-accent) 50%, transparent); box-shadow: 0 6px 16px -8px var(--color-accent); transition: transform .45s cubic-bezier(.2,.9,.3,1.2), width .45s cubic-bezier(.2,.9,.3,1.2); }
-#dpPre > .dcard[hidden] { display: none !important; }
+#dpPre > .dcard[hidden], #dpList > .dcard[hidden] { display: none !important; }
 
 /* press and drag a switch (twplay.js dragSeg) */
 .apppill, .anasub, .hmseg, .dtabs { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
@@ -103,3 +103,23 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .askq { display: inline-block; max-width: 100%; padding: 8px 14px; border-radius: 16px 16px 4px 16px; background: color-mix(in oklch, var(--color-accent) 22%, transparent); }
 .aska { margin-top: 8px; line-height: 1.7; }
 .aska p { margin: 0 0 6px; }
+
+/* 股票 tab: switch, 選股器, 營收, 族群 */
+.lsub { max-width: 460px; margin-bottom: 8px; }
+.scform { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 6px 0 12px; }
+.scform label { display: flex; flex-direction: column; gap: 4px; font-size: var(--text-xs); color: var(--color-muted); }
+.scform select { height: 40px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--glass-line-2); background: var(--glass-2); color: var(--color-ink); font: inherit; font-size: var(--text-sm); }
+.instrow .rr { text-align: right; white-space: nowrap; }
+.instrow .rr i { font-style: normal; margin-left: 6px; }
+.rv .rvseg { margin: 4px 0 8px; }
+.rvnote { margin: 0 0 8px; }
+.gpg { border-radius: 14px; margin-bottom: 8px; background: var(--glass-2); border: 1px solid var(--glass-line); overflow: hidden; }
+.gphead { display: grid; grid-template-columns: 7.5em 1fr auto auto; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: 0; background: none; color: var(--color-ink); font: inherit; cursor: pointer; text-align: left; font-variant-numeric: tabular-nums; }
+.gphead em { font-style: normal; font-size: var(--text-xs); color: var(--color-muted); min-width: 4.5em; text-align: right; }
+.gpname { font-weight: 600; }
+.gpbar { height: 8px; border-radius: 99px; background: color-mix(in oklch, var(--color-ink) 8%, transparent); overflow: hidden; }
+.gpbar i { display: block; height: 100%; border-radius: 99px; background: currentColor; }
+.gpmem { display: none; flex-wrap: wrap; gap: 8px; padding: 0 14px 14px; }
+.gpg.open .gpmem { display: flex; }
+.gpmem button { display: inline-flex; gap: 8px; align-items: center; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--glass-line-2); background: var(--glass); color: var(--color-ink); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.gpmem i { font-style: normal; font-variant-numeric: tabular-nums; }
