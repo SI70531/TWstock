@@ -197,7 +197,3 @@ a.nrow:hover .ntext { text-decoration: underline; }
 @keyframes wlpop { from { opacity: 0; transform: translateY(-4px) scale(.97); } }
 
 .wlbtn.arm { padding: 0 10px; font-size: 13px; white-space: nowrap; color: #fff; background: #d64545; border-color: #d64545; animation: wlpop .18s ease-out; }
-
-/* index sparklines: rising steps red, falling steps green (candle-like), not one colour for the whole line */
-:root .ixcard svg.spark path.u { stroke: var(--color-up); }
-:root .ixcard svg.spark path.d { stroke: var(--color-down); }
