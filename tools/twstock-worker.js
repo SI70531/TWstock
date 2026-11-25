@@ -18,6 +18,11 @@
      POST /tw/ask {d, code, name, q, facts}    one question about one stock, answered by the AI from the page's numbers and headlines
      GET  /tw/week                   the latest weekly review; POST /tw/week/run writes one now (shares the pre-market limit)
      cron 09:00 Taipei on Saturdays: the weekly review of the market, sent to Telegram.
+     GET  /tw/world                  US indices, SOX, FX, oil, US 10-year yield (Yahoo Finance)
+     GET  /tw/futchip                TAIFEX: net open interest of the TAIEX future by foreign investors / trusts / dealers (and a short history)
+     GET  /tw/margin?c=2330          margin / short balances of one stock, the last ~8 trading days (TWSE MI_MARGN)
+     GET  /tw/holders?c=2330         shareholding distribution of one stock (TDCC weekly open data)
+     GET  /tw/pe?c=2330&m=24         daily P/E, yield, P/B of one stock over the last m months (TWSE BWIBBU)
      GET  /health                    does GEMINI_KEY work
    Secrets: GEMINI_KEY, TG_TOKEN (Telegram bot). Deployed by .github/workflows/worker.yml with tools/wrangler.toml.
    Google does not offer Gemini in Hong Kong, so the Gemini call goes through the GeminiRelay Durable Object in North America. */
@@ -74,6 +79,11 @@ export default {
     if (url.pathname === "/tw/close" && req.method === "GET") return json(await pmStore(env, "cget"), 200, { "Cache-Control": "no-store" });
     if (url.pathname === "/tw/week" && req.method === "GET") return json(await pmStore(env, "wget"), 200, { "Cache-Control": "no-store" });
     if (url.pathname === "/tw/instrank" && req.method === "GET") return twInstRank(json, fail);
+    if (url.pathname === "/tw/world" && req.method === "GET") return twWorldRoute(json, fail);
+    if (url.pathname === "/tw/futchip" && req.method === "GET") return twFutChip(env, json, fail);
+    if (url.pathname === "/tw/margin" && req.method === "GET") return twMargin(url, json, fail);
+    if (url.pathname === "/tw/holders" && req.method === "GET") return twHolders(url, json, fail);
+    if (url.pathname === "/tw/pe" && req.method === "GET") return twPe(url, json, fail);
 
     /* everything below: no sign-in; the page's random device id (d) and the caller's IP address */
     let bodyText = null, dev = "";
@@ -143,7 +153,7 @@ const twClip = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().
 /* TWSE market information system: one request carries many symbols (tse_2330.tw|tse_t00.tw|…) */
 /* TWSE and TAIFEX often refuse servers in the US (where this Worker runs), so their requests go out from a Durable Object
    placed in Asia (locationHint "apac"); when that fails, the request is made directly */
-const TW_HOSTS = ["mis.twse.com.tw", "www.twse.com.tw", "openapi.twse.com.tw", "mis.taifex.com.tw", "openapi.taifex.com.tw", "www.tpex.org.tw"];
+const TW_HOSTS = ["mis.twse.com.tw", "www.twse.com.tw", "openapi.twse.com.tw", "mis.taifex.com.tw", "openapi.taifex.com.tw", "www.tpex.org.tw", "openapi.tdcc.com.tw"];
 async function twFetch(url, init) {
   init = init || {};
   if (ENV && ENV.ASIA && TW_HOSTS.includes(new URL(url).hostname)) {
@@ -528,6 +538,7 @@ export class Daily {
       return Response.json({ ok: true });
     }
     if (GETK[op]) return Response.json({ note: (await st.get("last:" + GETK[op])) || ((await st.get(GETK[op])) || [])[0] || null });
+    if (op === "kv") { if (b.set !== undefined) await st.put("kv:" + b.k, b.set); return Response.json({ v: (await st.get("kv:" + b.k)) || null }); }
     if (op === "flags") { const was = (await st.get("flags")) || {}; if (b.set) await st.put("flags", b.set); return Response.json(was); }
     if (op === "chat") { if (b.set) await st.put("chat", b.set); return Response.json({ chat: (await st.get("chat")) || null, offset: (await st.get("off")) || 0 }); }
     if (op === "off") { await st.put("off", b.off || 0); return Response.json({ ok: true }); }
@@ -1068,6 +1079,109 @@ function closePrompt(day, D, news) {
 }
 /* the 15:30 run can fail (TWSE's day report not out yet, Gemini busy, or the free AI quota used up until it resets at midnight US Pacific,
    16:00 or 15:00 Taipei): try again every 15 minutes until 18:00; if there is still none, say why on Telegram */
+/* ---------- more market data for the page ---------- */
+const taipeiDays = (n, from) => { const out = []; let d = new Date((from || Date.now()) + 8 * 3600e3); while (out.length < n) { if (d.getUTCDay() % 6) out.push(d.toISOString().slice(0, 10).replace(/-/g, "")); d = new Date(d.getTime() - 864e5); } return out; };
+const codeOf = url => { const c = String(url.searchParams.get("c") || "").trim().toUpperCase(); return /^[0-9A-Z]{4,6}$/.test(c) ? c : ""; };
+
+/* US indices, SOX, FX, oil and the 10-year yield (the same list the pre-market note reads) */
+async function twWorldRoute(json, fail) {
+  const rows = await twCached("worldrows", 300000, () => pmWorld()).catch(() => []);
+  if (!rows.length) return fail(502, "NO_DATA", "國際行情暫時讀不到");
+  return json({ at: Date.now(), rows }, 200, { "Cache-Control": "public, max-age=120" });
+}
+
+/* the TAIEX future: net open interest of foreign investors, investment trusts and dealers (TAIFEX open data, latest day), kept day by day */
+async function twFutChip(env, json, fail) {
+  const day = await twCached("futchip", 600000, async () => {
+    const a = await (await twFetch("https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
+    const rows = (Array.isArray(a) ? a : []).filter(r => /^(TX|臺股期貨|台股期貨)$/.test(String(r.ContractCode || r.ContractName || "").trim()));
+    if (!rows.length) return null;
+    const date = String(rows[0].Date || "").trim(), g = { f: null, t: null, d: null };
+    rows.forEach(r => {
+      const it = String(r.Item || ""), k = /外資|陸資/.test(it) ? "f" : /投信/.test(it) ? "t" : /自營/.test(it) ? "d" : null; if (!k || String(r.Date || "").trim() !== date) return;
+      g[k] = { long: twNum(r["OpenInterest(Long)"]), short: twNum(r["OpenInterest(Short)"]), net: twNum(r["OpenInterest(Net)"]) };
+    });
+    return { date: date.length === 8 ? date.slice(0, 4) + "-" + date.slice(4, 6) + "-" + date.slice(6) : date, ...g };
+  }).catch(() => null);
+  if (!day || !day.date) { twCache.delete("futchip"); return fail(502, "NO_DATA", "期交所的三大法人期貨未平倉暫時讀不到"); }
+  let hist = [];
+  try {
+    const was = await pmStore(env, "kv", { k: "futchip" }).then(r => r.v).catch(() => null);
+    hist = Array.isArray(was) ? was : [];
+    const pt = { d: day.date, f: day.f && day.f.net, t: day.t && day.t.net, dl: day.d && day.d.net };
+    if (!hist.length || hist[hist.length - 1].d !== day.date) { hist.push(pt); hist = hist.slice(-30); await pmStore(env, "kv", { k: "futchip", set: hist }); }
+  } catch (e) {}
+  return json({ ...day, history: hist }, 200, { "Cache-Control": "public, max-age=300" });
+}
+
+/* margin / short balances: TWSE MI_MARGN returns every stock for one day, so each past day is kept for a day */
+async function twMarginDay(ds) {
+  return twCached("margin:" + ds, 12 * 3600e3, async () => {
+    const j = await (await twFetch(`https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN?date=${ds}&selectType=STOCK&response=json`, { headers: { "User-Agent": TW_UA } })).json();
+    const t = Array.isArray(j.tables) ? j.tables.find(x => x && Array.isArray(x.data) && Array.isArray(x.fields) && x.fields[0] === "代號") : null;
+    if (j.stat !== "OK" || !t) return null;
+    const m = {}; t.data.forEach(r => { const c = String(r[0]).trim(); if (/^[0-9A-Z]{4,6}$/.test(c)) m[c] = [twNum(r[5]), twNum(r[6]), twNum(r[11]), twNum(r[12])]; });   /* 融資 前日, 今日; 融券 前日, 今日 (lots) */
+    return m;
+  });
+}
+async function twMargin(url, json, fail) {
+  const c = codeOf(url); if (!c) return fail(400, "BAD_CODE", "Bad stock code");
+  const rows = [];
+  for (const ds of taipeiDays(14)) {
+    if (rows.length >= 8) break;
+    let m = null; try { m = await twMarginDay(ds); } catch (e) { twCache.delete("margin:" + ds); }
+    if (!m) { twCache.delete("margin:" + ds); continue; }
+    const r = m[c]; if (!r) continue;
+    rows.unshift({ d: ds.slice(0, 4) + "-" + ds.slice(4, 6) + "-" + ds.slice(6), fin: r[1], finChg: r[1] - r[0], sht: r[3], shtChg: r[3] - r[2] });
+  }
+  if (!rows.length) return fail(404, "NO_DATA", "這檔沒有融資融券資料（或證交所還沒公布）");
+  return json({ code: c, rows }, 200, { "Cache-Control": "public, max-age=600" });
+}
+
+/* shareholding distribution (集保戶股權分散表): one big weekly file, read once and searched as text */
+async function twHolders(url, json, fail) {
+  const c = codeOf(url); if (!c) return fail(400, "BAD_CODE", "Bad stock code");
+  const text = await twCached("tdcc", 6 * 3600e3, async () => { const r = await twFetch("https://openapi.tdcc.com.tw/v1/opendata/1-5", { headers: { "User-Agent": TW_UA, Accept: "application/json" } }); if (!r.ok) throw new Error("TDCC " + r.status); return r.text(); }).catch(() => null);
+  if (!text) { twCache.delete("tdcc"); return fail(502, "NO_DATA", "集保的股權分散表暫時讀不到"); }
+  const at = text.indexOf('"證券代號":"' + c + '"'); if (at < 0) return fail(404, "NO_DATA", "集保沒有這檔的股權分散資料");
+  const from = text.lastIndexOf("{", at), seg = text.slice(from, from + 17 * 260), lv = [];
+  let date = "";
+  for (const m of seg.matchAll(/\{[^{}]*\}/g)) {
+    let o; try { o = JSON.parse(m[0]); } catch (e) { continue; }
+    if (String(o["證券代號"]).trim() !== c) continue;
+    if (!date) { const k = Object.keys(o).find(x => x.includes("資料日期")); date = k ? String(o[k]) : ""; }
+    lv.push({ lv: +o["持股分級"], people: twNum(o["人數"]), shares: twNum(o["股數"]), pct: twNum(o["占集保庫存數比例%"]) });
+  }
+  const L = lv.filter(x => x.lv >= 1 && x.lv <= 15); if (L.length < 10) return fail(404, "NO_DATA", "集保沒有這檔的股權分散資料");
+  const sum = (a, b, k) => Math.round(L.filter(x => x.lv >= a && x.lv <= b).reduce((t, x) => t + (x[k] || 0), 0) * 100) / 100;
+  return json({ code: c, date: date.length === 8 ? date.slice(0, 4) + "-" + date.slice(4, 6) + "-" + date.slice(6) : date, levels: L, big1000: sum(15, 15, "pct"), big400: sum(12, 15, "pct"), small10: sum(1, 3, "pct"), bigPeople: sum(12, 15, "people"), totalPeople: sum(1, 15, "people") }, 200, { "Cache-Control": "public, max-age=3600" });
+}
+
+/* daily P/E, dividend yield and P/B of one stock (TWSE BWIBBU, one request per month) */
+async function twPeMonth(c, ym) {
+  const done = ym < new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7).replace("-", "");
+  return twCached("pe:" + c + ":" + ym, done ? 24 * 3600e3 : 1800e3, async () => {
+    const j = await (await twFetch(`https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU?date=${ym}01&stockNo=${c}&response=json`, { headers: { "User-Agent": TW_UA } })).json();
+    if (j.stat !== "OK" || !Array.isArray(j.data) || !Array.isArray(j.fields)) return [];
+    const F = j.fields, iD = F.findIndex(x => String(x).includes("日期")), iP = F.findIndex(x => String(x).includes("本益比")), iY = F.findIndex(x => String(x).includes("殖利率")), iB = F.findIndex(x => String(x).includes("淨值比"));
+    return j.data.map(r => { const m = String(r[iD]).match(/(\d+)\D+(\d+)\D+(\d+)/); if (!m) return null; const y = +m[1] < 1911 ? +m[1] + 1911 : +m[1];
+      return [y + "-" + String(m[2]).padStart(2, "0") + "-" + String(m[3]).padStart(2, "0"), iP >= 0 ? twNum(r[iP]) : null, iY >= 0 ? twNum(r[iY]) : null, iB >= 0 ? twNum(r[iB]) : null]; }).filter(Boolean);
+  });
+}
+async function twPe(url, json, fail) {
+  const c = codeOf(url); if (!c) return fail(400, "BAD_CODE", "Bad stock code");
+  const n = Math.max(3, Math.min(36, parseInt(url.searchParams.get("m"), 10) || 24)), yms = [];
+  let d = new Date(Date.now() + 8 * 3600e3);
+  for (let k = 0; k < n; k++) { yms.unshift(d.toISOString().slice(0, 7).replace("-", "")); d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1)); }
+  const out = [];
+  for (let i = 0; i < yms.length; i += 4) {
+    const part = await Promise.all(yms.slice(i, i + 4).map(ym => twPeMonth(c, ym).catch(() => { twCache.delete("pe:" + c + ":" + ym); return []; })));
+    part.forEach(a => out.push(...a));
+  }
+  if (!out.length) return fail(404, "NO_DATA", "證交所沒有這檔的本益比資料（ETF 或虧損的公司沒有）");
+  return json({ code: c, rows: out }, 200, { "Cache-Control": "public, max-age=1800" });
+}
+
 /* ---------- institutional net buying / selling ranking (TWSE T86), the latest trading day that has one ---------- */
 async function twInstRank(json, fail) {
   const out = await twCached("instrank", 600000, async () => {
