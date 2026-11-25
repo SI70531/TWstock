@@ -440,7 +440,13 @@
       if (e.target.closest(".mdgo")) { pmRun(e.target.closest(".mdgo"), true); return; }
       if (e.target.closest(".clgo")) { clRun(e.target.closest(".clgo")); return; }
       if (e.target.closest(".hmback")) { heatZoom(null); return; }
-      const hmt = e.target.closest(".hmt"); if (hmt) { if (hmt.dataset.code) openStock(hmt.dataset.code, hmt); else heatZoom(hmt); return; }
+      const hv = e.target.closest(".hmseg [data-hv]");
+      if (hv) { const k = hv.closest(".hmseg").dataset.hk; if (HEAT[k] !== hv.dataset.hv) { HEAT[k] = hv.dataset.hv; heatCardClose($("#dpOverview .hm")); paintHeat(false); } return; }
+      const hcg = e.target.closest(".hmc-go"); if (hcg) { const c = hcg.closest(".hmcard"); openStock(c.dataset.code, c); return; }
+      if (e.target.closest(".hmc-x")) { heatCardClose($("#dpOverview .hm")); return; }
+      if (e.target.closest(".hmcard")) return;
+      const hmt = e.target.closest(".hmt"); if (hmt) { heatRipple(hmt, e); if (hmt.dataset.code) heatCard(hmt); else setTimeout(() => heatZoom(hmt), 160); return; }
+      if (e.target.closest(".hm")) { heatCardClose($("#dpOverview .hm")); return; }
       const sk = e.target.closest("[data-stk]"); if (sk) { STRK.tab = sk.dataset.stk; paintStreak(true); return; }
       const dc = e.target.closest("[data-dist]");
       if (dc) { VIEW.q = ""; $("#dpList .msearch").value = ""; VIEW.dist = +dc.dataset.dist; VIEW.key = "vol"; VIEW.dir = -1; VIEW.shown = 50; open("dpList", true); paintTable(true); return; }
@@ -456,7 +462,7 @@
     $("#dpPre").appendChild($(".pm:not(.md)", box)); $("#dpPre").appendChild($(".cl", box)); $("#dpMid").appendChild($(".pm.md", box)); $("#dpList").appendChild($(".mkt", box));
     pmLoad(); pmLoad(true); clLoad();
     const dd = $(".bd-dist", box); dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; });
-    const hm = $(".hm", box); hm.addEventListener("pointermove", heatTip); hm.addEventListener("pointerleave", () => { const t = $(".hmtip", hm); if (t) t.hidden = true; }); setTimeout(alertSync, 2500); loadCharts(true);
+    const hm = $(".hm", box); hm.addEventListener("pointermove", e => { if (!$(".hmcard", hm)) heatTip(e); heatFocus(e); }); hm.addEventListener("pointerleave", e => { const t = $(".hmtip", hm); if (t) t.hidden = true; heatFocus(e); }); setTimeout(alertSync, 2500); loadCharts(true);
     box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
   }
   function rowsNow() {
@@ -572,7 +578,7 @@
     "14": "建材營造", "15": "航運", "16": "觀光餐旅", "17": "金融保險", "18": "貿易百貨", "19": "綜合", "20": "其他", "21": "化學", "22": "生技醫療", "23": "油電燃氣", "24": "半導體",
     "25": "電腦週邊", "26": "光電", "27": "通信網路", "28": "電子零組件", "29": "電子通路", "30": "資訊服務", "31": "其他電子", "32": "文化創意", "33": "農業科技", "34": "電子商務",
     "35": "綠能環保", "36": "數位雲端", "37": "運動休閒", "38": "居家生活", "80": "管理股票", "91": "存託憑證" };
-  const HEAT = { sel: null, sig: "", w: 0 };
+  const HEAT = { sel: null, sig: "", w: 0, f: "all", sort: "val" };   /* f: all | up | down; sort: val (turnover) | pct (change) */
   /* squarified treemap: values sorted largest first → [x, y, w, h] for each */
   function squarify(vals, W, H) {
     const total = vals.reduce((a, b) => a + b, 0), out = new Array(vals.length);
@@ -606,26 +612,50 @@
     if (!INDMAP) { hm.innerHTML = `<p class="sub hmwait">${DB.live ? "產業分類還沒發布，稍後會出現。" : "示意資料模式下沒有熱力圖。"}</p>`; return; }
     const groups = heatGroups(), g = HEAT.sel && groups.find(x => x.id === HEAT.sel); HEAT.groups = groups;
     if (HEAT.sel && !g) HEAT.sel = null;
-    const items = g ? g.list.slice().sort((a, b) => b.price * b.vol - a.price * a.vol).slice(0, 60).map(s => ({ key: s.code, name: s.name, val: s.price * s.vol * 1000, pct: s.pct, sub: fmt(s.price, dig(s.price)) }))
+    let items = g ? g.list.slice().sort((a, b) => b.price * b.vol - a.price * a.vol).slice(0, 60).map(s => ({ key: s.code, name: s.name, val: s.price * s.vol * 1000, pct: s.pct, sub: fmt(s.price, dig(s.price)) }))
       : groups.map(x => ({ key: x.id, name: x.name, val: x.val, pct: x.pct, sub: `${x.list.length} 檔` }));
+    if (HEAT.f !== "all") items = items.filter(i => (HEAT.f === "up" ? i.pct > 0 : i.pct < 0));
+    items.sort(HEAT.sort === "pct" ? (a, b) => (HEAT.f === "down" ? a.pct - b.pct : b.pct - a.pct) : (a, b) => b.val - a.val);
     const W = hm.clientWidth || 800, H = hm.clientHeight || 380;
-    const sig = (HEAT.sel || "") + W + ":" + items.map(i => i.key + (i.pct || 0).toFixed(2) + Math.round(i.val / 1e7)).join();
+    const sig = (HEAT.sel || "") + HEAT.f + HEAT.sort + W + ":" + items.map(i => i.key + (i.pct || 0).toFixed(2) + Math.round(i.val / 1e7)).join();
     if (!animate && sig === HEAT.sig) return; HEAT.sig = sig;
     const R = squarify(items.map(i => i.val), W, H), lim = g ? 7 : 3.5;
-    head.innerHTML = g ? `<button type="button" class="chip hmback">← 全部類股</button><b>${esc(g.name)}</b><span class="sub">${g.list.length} 檔・<em class="${tone(g.pct)}">${pct(g.pct)}</em>・上漲 ${g.up}／下跌 ${g.dn}</span>`
-      : `<span class="sub">面積 = 成交金額，顏色 = 漲跌幅（紅漲綠跌）；點類股看個股</span>`;
+    const seg = (k, opts) => `<span class="hmseg" data-hk="${k}">${opts.map(([v, l]) => `<button type="button" data-hv="${v}" aria-pressed="${HEAT[k] === v}">${l}</button>`).join("")}<i></i></span>`;
+    const ctl = seg("f", [["all", "全部"], ["up", "只看漲"], ["down", "只看跌"]]) + seg("sort", [["val", "依成交值"], ["pct", "依漲跌幅"]]);
+    head.innerHTML = (g ? `<button type="button" class="chip hmback">← 全部類股</button><b>${esc(g.name)}</b><span class="sub">${g.list.length} 檔・<em class="${tone(g.pct)}">${pct(g.pct)}</em>・上漲 ${g.up}／下跌 ${g.dn}</span>`
+      : `<span class="sub">面積 = 成交金額，顏色 = 漲跌幅</span>`) + `<span class="hmctl">${ctl}</span>`;
+    requestAnimationFrame(() => $$(".hmseg", head).forEach(segMark));
+    if (!items.length) { hm.innerHTML = `<p class="sub hmwait">${HEAT.f === "up" ? "目前沒有上漲的" : "目前沒有下跌的"}${g ? "個股" : "類股"}。</p>`; return; }
     const tiles = items.map((it, i) => {
       const r = R[i] || [0, 0, 0, 0], a = clamp(Math.abs(it.pct || 0) / lim, 0.08, 1) * 0.9, sz = r[2] < 58 || r[3] < 30 ? " xs" : r[2] < 96 || r[3] < 48 ? " sm" : "";
       return { it, cls: `hmt ${tone(it.pct)}${sz}`, st: `left:${(r[0] / W * 100).toFixed(3)}%;top:${(r[1] / H * 100).toFixed(3)}%;width:${(r[2] / W * 100).toFixed(3)}%;height:${(r[3] / H * 100).toFixed(3)}%;--a:${a.toFixed(3)}` };
     });
-    /* the same tiles as before (a live update): move and recolour them in place, so they glide to their new size */
+    /* tiles already on the map (a live update, a filter or a re-sort): move and recolour them in place so they glide to their new place;
+       new ones fade in, gone ones fade out, and a tile whose change moved flashes and pulses */
     const old = new Map($$(".hmt", hm).map(t => [t.dataset.k, t]));
-    if (!animate && old.size === items.length && items.every(i => old.has(i.key))) {
-      tiles.forEach(({ it, cls, st }) => { const t = old.get(it.key); t.setAttribute("style", st); t.className = cls; $("span", t).textContent = pct(it.pct); t.title = it.name + " " + pct(it.pct); });
+    const level = g ? "s" : "g";
+    if (!animate && old.size && hm.dataset.level === level) {
+      const keep = new Set();
+      tiles.forEach(({ it, cls, st }, i) => {
+        let t = old.get(it.key);
+        if (!t) {
+          hm.insertAdjacentHTML("beforeend", `<button type="button" class="${cls}" data-k="${esc(it.key)}"${g ? ` data-code="${esc(it.key)}"` : ""} style="${st}"><b>${esc(it.name)}</b><span>${pct(it.pct)}</span><i>${esc(it.sub)}</i></button>`);
+          t = hm.lastElementChild; t.dataset.p = (it.pct || 0).toFixed(2);
+          t.animate([{ opacity: 0, transform: "scale(.5)" }, { opacity: 1, transform: "none" }], { duration: 420, delay: 120 + Math.min(i, 20) * 15, easing: "cubic-bezier(.2,.9,.3,1.2)", fill: "backwards" });
+        } else {
+          const was = +t.dataset.p, now = +(it.pct || 0).toFixed(2);
+          t.setAttribute("style", st); t.className = cls; $("span", t).textContent = pct(it.pct); $("i", t).textContent = it.sub;
+          if (Number.isFinite(was) && now !== was) heatFlash(t, now > was);
+          t.dataset.p = now;
+        }
+        t.title = it.name + " " + pct(it.pct); keep.add(it.key);
+      });
+      old.forEach((t, k) => { if (keep.has(k)) return; t.style.pointerEvents = "none"; t.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.4)" }], { duration: 300, easing: "ease-in", fill: "forwards" }).onfinish = () => t.remove(); });
       return;
     }
+    hm.dataset.level = level;
     const keepTip = $(".hmtip", hm);
-    hm.innerHTML = tiles.map(({ it, cls, st }) => `<button type="button" class="${cls}" data-k="${esc(it.key)}"${g ? ` data-code="${esc(it.key)}"` : ""} style="${st}" title="${esc(it.name)} ${pct(it.pct)}"><b>${esc(it.name)}</b><span>${pct(it.pct)}</span><i>${esc(it.sub)}</i></button>`).join("");
+    hm.innerHTML = tiles.map(({ it, cls, st }) => `<button type="button" class="${cls}" data-k="${esc(it.key)}" data-p="${(it.pct || 0).toFixed(2)}"${g ? ` data-code="${esc(it.key)}"` : ""} style="${st}" title="${esc(it.name)} ${pct(it.pct)}"><b>${esc(it.name)}</b><span>${pct(it.pct)}</span><i>${esc(it.sub)}</i></button>`).join("");
     if (keepTip) { keepTip.hidden = true; hm.appendChild(keepTip); }
     if (animate) $$(".hmt", hm).forEach((t, i) => t.animate([{ opacity: 0, transform: "scale(.6)" }, { opacity: 1, transform: "none" }], { duration: 480, delay: Math.min(i, 30) * 22, easing: "cubic-bezier(.2,.9,.3,1.2)", fill: "backwards" }));
   }
@@ -650,6 +680,7 @@
   }
   function heatZoom(tile) {
     const hm = $("#dpOverview .hm"); if (!hm) return;
+    $(".hmcard", hm) && $(".hmcard", hm).remove(); hm.classList.remove("focus");
     const hr = hm.getBoundingClientRect(), from = HEAT.sel;
     const box = el => { const r = el.getBoundingClientRect(); return { x: r.left - hr.left, y: r.top - hr.top, w: r.width, h: r.height, bg: getComputedStyle(el).backgroundColor }; };
     const veil = (b, grow) => {
@@ -667,6 +698,61 @@
       if (t) { const b = box(t); veil(b, false); }
       fadeIn(120);
     }
+  }
+  /* a live change: the tile flashes brighter and pulses once, with a small arrow for the direction */
+  function heatFlash(t, up) {
+    t.animate([{ filter: "brightness(1.9) saturate(1.4)", transform: "scale(1.06)" }, { filter: "none", transform: "none" }], { duration: 900, easing: "cubic-bezier(.2,.8,.3,1)" });
+    const a = document.createElement("em"); a.className = "hmarw " + (up ? "up" : "down"); a.textContent = up ? "▲" : "▼"; t.appendChild(a);
+    a.animate([{ opacity: 0, transform: `translateY(${up ? 6 : -6}px)` }, { opacity: 1, transform: "none", offset: .25 }, { opacity: 0, transform: `translateY(${up ? -8 : 8}px)` }], { duration: 1400, easing: "ease-out" }).onfinish = () => a.remove();
+  }
+  /* the sliding highlight behind the pressed button of a filter / sort switch */
+  function segMark(sg) {
+    const b = $("[aria-pressed=true]", sg), hl = $("i", sg); if (!b || !hl) return;
+    hl.style.width = b.offsetWidth + "px"; hl.style.transform = `translateX(${b.offsetLeft}px)`;
+  }
+  /* hover focus: the tile under the pointer lifts and glows, the rest dim */
+  function heatFocus(e) {
+    const hm = e.currentTarget, t = e.target.closest && e.target.closest(".hmt");
+    const was = $(".hmt.on", hm); if (was === t) return;
+    if (was) was.classList.remove("on");
+    if (t) t.classList.add("on");
+    hm.classList.toggle("focus", !!t);
+  }
+  /* a tap: a ripple spreads from the finger; a 類股 then zooms in, a stock opens a small card */
+  function heatRipple(t, e) {
+    const r = t.getBoundingClientRect(), d = document.createElement("span"), R = Math.hypot(r.width, r.height) * 1.2;
+    d.className = "hmrip"; d.style.left = ((e && e.clientX ? e.clientX : r.left + r.width / 2) - r.left) + "px"; d.style.top = ((e && e.clientY ? e.clientY : r.top + r.height / 2) - r.top) + "px";
+    t.appendChild(d);
+    d.animate([{ width: "0px", height: "0px", opacity: .55 }, { width: R + "px", height: R + "px", opacity: 0 }], { duration: 650, easing: "cubic-bezier(.2,.8,.3,1)" }).onfinish = () => d.remove();
+  }
+  function heatCard(t) {
+    const hm = t.closest(".hm"), s = DB.by.get(t.dataset.code); if (!s) return;
+    let c = $(".hmcard", hm);
+    if (c && c.dataset.code === s.code) { heatCardClose(hm); return; }
+    if (!c) { c = document.createElement("div"); c.className = "hmcard"; hm.appendChild(c); }
+    const tip = $(".hmtip", hm); if (tip) tip.hidden = true;
+    const d = dig(s.price), tn = tone(s.chg), lo = s.low, hi = s.high, rng = hi > lo;
+    const P = v => clamp((v - lo) / (hi - lo) * 100, 0, 100).toFixed(1) + "%";
+    c.dataset.code = s.code;
+    c.innerHTML = `<button type="button" class="hmc-x" aria-label="關閉">×</button>
+      <div class="hmc-h"><b>${esc(s.name)}</b><i>${esc(s.code)}</i>${flagTag(s.code)}</div>
+      <div class="hmc-p"><b class="${tn}">${fmt(s.price, d)}</b><span class="${tn}">${s.chg > 0 ? "▲" : s.chg < 0 ? "▼" : ""}${fmt(Math.abs(s.chg || 0), d)}（${pct(s.pct)}）</span></div>
+      ${rng ? `<div class="hmc-r"><span>${fmt(lo, d)}</span><div class="hmc-bar"><i class="hmc-fill ${tn}" style="--from:${ok(s.prev) ? P(Math.max(lo, Math.min(hi, s.prev))) : "0%"};--to:${P(s.price)}"></i>${ok(s.open) ? `<i class="hmc-o" style="left:${P(s.open)}" title="開盤"></i>` : ""}<i class="hmc-dot ${tn}" style="left:${P(s.price)}"></i></div><span>${fmt(hi, d)}</span></div>` : ""}
+      <div class="hmc-kv"><span>成交量</span><b>${fmt(s.vol)} 張</b><span>成交金額</span><b>${fmt(s.price * s.vol / 1e5, 1)} 億</b>${ok(s.open) ? `<span>開盤</span><b>${fmt(s.open, d)}</b>` : ""}${ok(s.prev) ? `<span>昨收</span><b>${fmt(s.prev, d)}</b>` : ""}</div>
+      <button type="button" class="btn hmc-go">看個股 →</button>`;
+    /* beside the tile, inside the map */
+    const hr = hm.getBoundingClientRect(), tr = t.getBoundingClientRect(), w = c.offsetWidth, h = c.offsetHeight;
+    let x = tr.right - hr.left + 8; if (x + w > hr.width - 6) x = tr.left - hr.left - w - 8; if (x < 6) x = clamp(tr.left - hr.left + tr.width / 2 - w / 2, 6, hr.width - w - 6);
+    const y = clamp(tr.top - hr.top + tr.height / 2 - h / 2, 6, Math.max(6, hr.height - h - 6));
+    c.style.left = x + "px"; c.style.top = y + "px";
+    c.animate([{ opacity: 0, transform: "scale(.85) translateY(6px)", filter: "blur(4px)" }, { opacity: 1, transform: "none", filter: "none" }], { duration: 320, easing: "cubic-bezier(.16,1,.3,1)" });
+    const f = $(".hmc-fill", c); if (f) f.animate([{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }], { duration: 600, delay: 120, easing: "ease-out", fill: "backwards" });
+    const dt = $(".hmc-dot", c); if (dt) dt.animate([{ transform: "translate(-50%, -50%) scale(0)" }, { transform: "translate(-50%, -50%) scale(1.4)", offset: .7 }, { transform: "translate(-50%, -50%) scale(1)" }], { duration: 420, delay: 600, fill: "backwards" });
+    $$(".hmt.picked", hm).forEach(x => x.classList.remove("picked")); t.classList.add("picked");
+  }
+  function heatCardClose(hm) {
+    const c = $(".hmcard", hm); $$(".hmt.picked", hm).forEach(x => x.classList.remove("picked"));
+    if (c) c.animate([{ opacity: 1 }, { opacity: 0, transform: "scale(.9)" }], { duration: 160 }).onfinish = () => c.remove();
   }
   let heatRT = 0;
   addEventListener("resize", () => { clearTimeout(heatRT); heatRT = setTimeout(() => { const hm = $("#dpOverview .hm"); if (hm && hm.clientWidth !== HEAT.w) { HEAT.w = hm.clientWidth; HEAT.sig = ""; paintHeat(false); } }, 200); });
