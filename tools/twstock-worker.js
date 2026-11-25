@@ -584,7 +584,7 @@ mid
 "- Keep it SHORT and plain, for reading on a phone: every sentence under about 35 Chinese characters, headline under 25, each list at most 3 items. No jargon where a plain word works.",
 "- TSMC ADR: one ADR is 5 shares; if you compare it with the Taiwan price, say that you need the exchange rate and use the one in DATA.",
 "- For EVERY pick also give 'analysis': 3 or 4 short points labelled 技術, 量能籌碼, 消息 and 風險, each one sentence from that stock's numbers and the headlines; and 'days': a conservative plan for each of the trading days in DATA.days (open day first), with the likely view, a price range anchored on next5d (p10 to p90 over five days, so a single day is narrower) and what to do that day. For 分批買進 the days must say when each batch is bought and under which condition, and when to stop adding.",
-"- 'picks': one entry for EVERY stock in DATA.candidates, none left out: all 推薦 first, then all 持股, then all 自選, best first within each group. tag says why it is a candidate (推薦 = screened here as a stock worth ordering today: liquid, in an uptrend with close above MA20 above MA60, sitting near MA20 rather than stretched, RSI not overbought; 持股 = the user holds it; 自選 = on the user's watchlist). For a 推薦 stock the action is 買進 or 分批買進 with a limit price at or just above its support (MA20, the lower Bollinger band or a recent low), unless tonight's factors make buying it today clearly unwise, then 觀望 and why says what would change that. For each give one concrete order like a trader would: action is exactly one of 買進, 分批買進, 觀望, 續抱, 減碼, 賣出 (for a 持股 choose among 續抱, 分批買進 as adding, 減碼, 賣出); how = order type and price (限價 or after a close above a named level), split = how to split the order, stop = the stop price and which level it is, targets = one or two target prices with the level they come from, rr = risk-reward like 1 : 2.0, why = one or two sentences tying the stock to tonight's factors. Every price must come from that candidate's numbers (ma5/ma20/ma60, bollinger, 20/60-day highs and lows, last close) or be a round number near them, and say which. If a stock is not worth buying today its action is 觀望 (or 續抱 / 減碼 / 賣出 for a 持股) and why says what would change that; say in picks_note how many are worth acting on.",
+"- 'picks': one entry for EVERY stock in DATA.candidates, none left out: all 推薦 first, then all 追蹤, then all 持股, then all 自選, best first within each group. tag says why it is a candidate (推薦 = screened here as a stock worth ordering today: liquid, in an uptrend with close above MA20 above MA60, sitting near MA20 rather than stretched, RSI not overbought; 追蹤 = always analysed for the user: 0050 (Yuanta Taiwan 50 ETF), 2330 TSMC and 2454 MediaTek, give the same full order and plan, 買進 / 分批買進 / 觀望 as the numbers support; 持股 = the user holds it; 自選 = on the user's watchlist). For a 推薦 stock the action is 買進 or 分批買進 with a limit price at or just above its support (MA20, the lower Bollinger band or a recent low), unless tonight's factors make buying it today clearly unwise, then 觀望 and why says what would change that. For each give one concrete order like a trader would: action is exactly one of 買進, 分批買進, 觀望, 續抱, 減碼, 賣出 (for a 持股 choose among 續抱, 分批買進 as adding, 減碼, 賣出); how = order type and price (限價 or after a close above a named level), split = how to split the order, stop = the stop price and which level it is, targets = one or two target prices with the level they come from, rr = risk-reward like 1 : 2.0, why = one or two sentences tying the stock to tonight's factors. Every price must come from that candidate's numbers (ma5/ma20/ma60, bollinger, 20/60-day highs and lows, last close) or be a round number near them, and say which. If a stock is not worth buying today its action is 觀望 (or 續抱 / 減碼 / 賣出 for a 持股) and why says what would change that; say in picks_note how many are worth acting on.",
 "- Nobody can know the open for sure. Give the more likely direction for today's open, a rough gap range in TAIEX points, and chances that add up to about 100%. Say what would prove the call wrong in the first 30 minutes.",
 "- Be CONSERVATIVE in every estimate (the user asked for this): when unsure, lean toward the smaller move, the nearer price level and the lower confidence. Gap and close ranges stay close to what DATA.anchor and recent days support, chances are never above about 70%, confidence is 高 only when the night session, the US close and the news all point the same way, picks use the nearest stop and the nearest target, and 觀望 is a fine answer.",
 "- Anchor the gap on DATA.anchor: the night-session TAIEX future versus the last TAIEX close. The gap is normally within a few hundred points of that difference and almost never beyond ±3% of the TAIEX; never give a range wider than the data supports.",
@@ -595,7 +595,7 @@ mid
 '"close":{"call":"收紅|平盤|收黑","range":"例如 36,500–36,900","chances":{"收紅":"約 50%","平盤":"約 20%","收黑":"約 30%"},"why":"one short sentence"},',
 '"night":"what the night session did and what it implies","us":"the US close and what matters for Taiwan","factors":[{"name":"factor","effect":"利多|利空|中性","note":"one or two sentences"}],',
 '"sectors":["sectors or big names likely to lead or lag, with the reason"],"levels":"TAIEX levels to watch, only from DATA","risks":["..."],"watch":["what to check between 09:00 and 09:30, and events later today"],',
-'"picks":[{"code":"2454","name":"聯發科","tag":"推薦|持股|自選","action":"分批買進","how":"...","split":"...","stop":"...","targets":["..."],"rr":"1 : 2.0","why":"...",',
+'"picks":[{"code":"2454","name":"聯發科","tag":"推薦|追蹤|持股|自選","action":"分批買進","how":"...","split":"...","stop":"...","targets":["..."],"rr":"1 : 2.0","why":"...",',
 '"analysis":["技術：...","量能籌碼：...","消息：...","風險：..."],"days":[{"d":"11/25","view":"偏多|盤整|偏空","range":"price range","do":"what to do that day, e.g. 第一批 3,600 掛單 / 不動 / 第二批若站上 3,700"}]}],"picks_note":"one sentence on the candidates overall"}',
 "",
 ...(mid ? ["DATA.today (TAIEX in today's session so far, TWSE): " + JSON.stringify(mid)] : []),
@@ -621,6 +621,7 @@ function nextOpenDay(now) {
 }
 /* candidates for the pre-market picks: stocks recommended for an order today (screened below), the owner's holdings and watchlist;
    each with a few numbers from about a year of Yahoo Taiwan daily bars */
+const PM_FIXED = ["0050", "2330", "2454"];
 async function pmCandidates(env) {
   /* every holding and every watchlist stock, plus up to 12 liquid stocks to screen for an order (35 chart requests in all, within the Worker's request limit).
      First cut on yesterday's close only: price 10 or more, 2,000 lots or more, a day's move between -3% and +4% (no chasing limit-ups),
@@ -636,8 +637,10 @@ async function pmCandidates(env) {
     const o = await (await fetch("https://raw.githubusercontent.com/SI70531/TWstock/data/otc.json", { headers: { "User-Agent": TW_UA } })).json();
     (o.list || []).forEach(x => { if (!mkt.has(x[0])) mkt.set(x[0], "TWO"); const p = x[2] > 0 && x[3] != null ? x[3] / (x[2] - x[3]) * 100 : 0; if (x[8] === "otc" && /^\d{4}$/.test(x[0]) && p > -3 && p < 4 && x[7] >= 2000 && x[2] >= 10) strong.push({ c: x[0], val: x[2] * x[7] * 1000, n: x[1] }); });
   } catch (e) {}
-  const pick = strong.sort((a, b) => b.val - a.val).map(x => x.c).filter(c => !hold.includes(c) && !watch.includes(c)).slice(0, Math.max(0, Math.min(12, 35 - hold.length - watch.length)));
-  const list = [...hold.map(c => [c, "持股"]), ...watch.map(c => [c, "自選"]), ...pick.map(c => [c, "推薦"])];
+  /* always analysed, whatever the screen says: 0050, TSMC and MediaTek (as 持股 instead when the user holds one) */
+  const fixed = PM_FIXED.filter(c => !hold.includes(c));
+  const pick = strong.sort((a, b) => b.val - a.val).map(x => x.c).filter(c => !hold.includes(c) && !watch.includes(c) && !PM_FIXED.includes(c)).slice(0, Math.max(0, Math.min(12, 35 - hold.length - watch.length - fixed.length)));
+  const list = [...hold.map(c => [c, "持股"]), ...fixed.map(c => [c, "追蹤"]), ...watch.map(c => [c, "自選"]), ...pick.map(c => [c, "推薦"])];
   const r2 = v => (Number.isFinite(v) ? Math.round(v * 100) / 100 : null);
   const out = await Promise.all(list.map(async ([code, tag]) => {
     try {
@@ -708,7 +711,7 @@ async function premarket(env, notify, isMid) {
   if (!a) { const t = String(g.text || "").replace(/^```(?:json)?|```$/g, "").trim(), i = t.indexOf("{"), j = t.lastIndexOf("}"); try { a = JSON.parse(t.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e) { a = null; } }
   if (!a || !a.call) return { error: "AI 的回答不完整，再按一次" };
   if (Array.isArray(a.picks)) {
-    const ord = { 推薦: 0, 持股: 1, 自選: 2 }, tagOf = c => (cands.find(x => x.code === c) || {}).tag;
+    const ord = { 推薦: 0, 追蹤: 1, 持股: 2, 自選: 3 }, tagOf = c => (cands.find(x => x.code === c) || {}).tag;
     a.picks = a.picks.filter(x => x && cands.some(c => c.code === String(x.code))).map(x => Object.assign(x, { tag: tagOf(String(x.code)) || x.tag }))
       .sort((x, y) => (ord[x.tag] ?? 3) - (ord[y.tag] ?? 3));
   }
