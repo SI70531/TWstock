@@ -398,6 +398,10 @@
       <div class="dcard pm md"><div class="aihead"><div><h3>AI 盤中分析</h3></div>
         <button type="button" class="btn mdgo">分析</button><span class="sub mdclosed" hidden>非開盤時間，盤中無法分析</span></div><div class="mdout"><p class="sub">載入中…</p></div></div>
       <div class="dcard mstrip"></div>
+      <div class="board board3">
+        <div class="dcard wd"><div class="bd-h"><h3>國際行情</h3><span class="sub wdn"></span></div><div class="wdout"><p class="sub">載入中…</p></div></div>
+        <div class="dcard ft"><div class="bd-h"><h3>期貨籌碼</h3><span class="sub ftn">台指期 未平倉淨口數</span></div><div class="ftout"><p class="sub">載入中…</p></div></div>
+      </div>
       <div class="board">
         <div class="dcard bd-dist"><div class="bd-h"><h3>漲跌分布</h3><span class="sub bd-n"></span></div><div class="bd-bars"></div></div>
         <div class="dcard bd-up"><div class="bd-h"><h3>漲幅排行</h3></div><div class="bd-list"></div></div>
@@ -476,7 +480,7 @@
     $(".lsub", dl).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) lstSub(b.dataset.sub, true); });
     lstSub((() => { try { return sessionStorage.getItem("twlst") || "ls"; } catch (e) { return "ls"; } })(), false);
     $(".wkgo", wkc).addEventListener("click", e => wkRun(e.currentTarget));
-    pmLoad(); pmLoad(true); clLoad(); wkLoad(); instLoad();
+    pmLoad(); pmLoad(true); clLoad(); wkLoad(); wdLoad(); ftLoad();
     const dd = $(".bd-dist", box); dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; });
     const hm = $(".hm", box); hm && hm.addEventListener("pointermove", e => { if (!$(".hmcard", hm)) heatTip(e); heatFocus(e); }); hm && hm.addEventListener("pointerleave", e => { const t = $(".hmtip", hm); if (t) t.hidden = true; heatFocus(e); }); setTimeout(alertSync, 2500); loadCharts(true);
     box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
@@ -1127,6 +1131,78 @@
     if (animate) rise($$(".instrow", el), 25);
   }
 
+  /* ---------------- 國際行情 and 期貨籌碼 on 總覽 (through the Worker) ---------------- */
+  async function wdLoad() {
+    const el = $("#dpOverview .wdout"); if (!el) return;
+    try {
+      const j = await J(`${WORKER}/tw/world`), rows = j.rows || [];
+      if (!rows.length) throw 0;
+      const dg = r => (/殖利率/.test(r.name) ? 3 : r.last >= 1000 ? 0 : 2);
+      el.innerHTML = `<div class="wdgrid">${rows.map(r => `<div class="wdcell"><span>${esc(r.name)}</span><b>${fmt(r.last, dg(r))}</b><i class="${/VIX/.test(r.name) ? tone(-r.changePct) : tone(r.changePct)}">${r.changePct == null ? "—" : pct(r.changePct)}</i></div>`).join("")}</div>`;
+      const t = rows.map(r => r.asOfTaipei).filter(Boolean).sort().pop(); $("#dpOverview .wdn").textContent = t ? t.slice(5).replace("-", "/") + " 更新" : "";
+    } catch (e) { el.innerHTML = `<p class="sub">國際行情需要部署新版 Worker，或暫時讀不到。</p>`; }
+  }
+  async function ftLoad() {
+    const el = $("#dpOverview .ftout"); if (!el) return;
+    try {
+      const j = await J(`${WORKER}/tw/futchip`), who = [["f", "外資"], ["t", "投信"], ["d", "自營商"]];
+      const mx = Math.max(1, ...who.map(([k]) => Math.abs((j[k] || {}).net || 0)));
+      const h = (j.history || []).filter(x => Number.isFinite(x.f));
+      let spark = "";
+      if (h.length >= 2) {
+        const v = h.map(x => x.f), lo = Math.min(...v, 0), hi = Math.max(...v, 0), sp = hi - lo || 1, Y = y => (34 - (y - lo) / sp * 30).toFixed(1);
+        spark = `<div class="ftspark"><span>外資淨部位 近 ${h.length} 天</span><svg viewBox="0 0 120 38" preserveAspectRatio="none"><line x1="0" x2="120" y1="${Y(0)}" y2="${Y(0)}"/><polyline points="${v.map((y, i) => `${(i / (v.length - 1) * 120).toFixed(1)},${Y(y)}`).join(" ")}"/></svg></div>`;
+      }
+      el.innerHTML = who.map(([k, l]) => { const x = j[k]; if (!x || x.net == null) return ""; return `<div class="ftrow"><span>${l}</span><span class="ftbar"><i class="${tone(x.net)}" style="width:${Math.max(3, Math.abs(x.net) / mx * 100).toFixed(0)}%"></i></span><b class="${tone(x.net)}">${x.net > 0 ? "+" : ""}${x.net.toLocaleString("zh-TW")}</b><em>多 ${(x.long || 0).toLocaleString("zh-TW")}／空 ${(x.short || 0).toLocaleString("zh-TW")}</em></div>`; }).join("") + spark + `<p class="sub ftfoot">${esc(String(j.date).slice(5).replace("-", "/"))} 收盤後，單位：口。淨口數為正代表偏多、為負代表偏空。</p>`;
+    } catch (e) { el.innerHTML = `<p class="sub">期貨籌碼需要部署新版 Worker，或期交所暫時讀不到。</p>`; }
+  }
+  setInterval(() => { if (!document.hidden && cur === "dpOverview") wdLoad(); }, 300000);
+
+  /* ---------------- stock page: 融資融券, 股權分散, 本益比河流圖 ---------------- */
+  const XT = new Map();
+  const xtGet = (kind, code, q) => { const k = kind + ":" + code; if (!XT.has(k)) XT.set(k, J(`${WORKER}/tw/${kind}?c=${encodeURIComponent(code)}${q || ""}`).catch(e => { XT.delete(k); throw e; })); return XT.get(k); };
+  function stockExtras(code, tok) {
+    const box = $("#dpStock"), put = (cls, html, note) => { if (tok !== chartTok || code !== CODE) return; const c = $("." + cls, box); if (!c) return; $(".sxout", c).innerHTML = html; $(".sxn", c).textContent = note || ""; };
+    const miss = m => `<p class="sub">${m}</p>`, s0 = DB.by.get(code);
+    ["smg", "shd", "spe"].forEach(c => put(c, miss("載入中…")));
+    if (!s0 || !/^\d{4,6}[A-Z]?$/.test(code)) return;
+    xtGet("margin", code).then(j => {
+      const r = (j.rows || []).slice().reverse(), sg = v => (v > 0 ? "+" : "") + Number(v).toLocaleString("zh-TW");
+      put("smg", `<div class="mgtbl"><div class="mgh"><span>日期</span><span>融資餘額</span><span>增減</span><span>融券餘額</span><span>增減</span><span>券資比</span></div>${r.map(x => `<div><span>${esc(x.d.slice(5).replace("-", "/"))}</span><span>${x.fin.toLocaleString("zh-TW")}</span><span class="${tone(x.finChg)}">${sg(x.finChg)}</span><span>${x.sht.toLocaleString("zh-TW")}</span><span class="${tone(x.shtChg)}">${sg(x.shtChg)}</span><span>${x.fin > 0 ? (x.sht / x.fin * 100).toFixed(1) + "%" : "—"}</span></div>`).join("")}</div>`, "單位：張");
+    }, () => put("smg", miss("沒有融資融券資料（ETF 或沒有信用交易的股票沒有），或需要部署新版 Worker。")));
+    xtGet("holders", code).then(j => {
+      const L = j.levels || [], g = (a, b) => Math.round(L.filter(x => x.lv >= a && x.lv <= b).reduce((t, x) => t + (x.pct || 0), 0) * 100) / 100;
+      const bands = [["10 張以下", g(1, 3)], ["10–50 張", g(4, 8)], ["50–200 張", g(9, 10)], ["200–400 張", g(11, 11)], ["400–1,000 張", g(12, 14)], ["1,000 張以上", g(15, 15)]], mx = Math.max(1, ...bands.map(b => b[1]));
+      put("shd", `<div class="hdtiles"><div><span>千張大戶持股</span><b>${j.big1000.toFixed(2)}%</b></div><div><span>400 張以上</span><b>${j.big400.toFixed(2)}%</b></div><div><span>10 張以下散戶</span><b>${j.small10.toFixed(2)}%</b></div><div><span>股東人數</span><b>${Number(j.totalPeople).toLocaleString("zh-TW")}</b></div></div>${bands.map(([n, v]) => `<div class="hdrow"><span>${n}</span><span class="hdbar"><i style="width:${Math.max(2, v / mx * 100).toFixed(0)}%"></i></span><b>${v.toFixed(2)}%</b></div>`).join("")}`, String(j.date).slice(5).replace("-", "/") + " 週資料");
+    }, () => put("shd", miss("集保沒有這檔的股權分散資料，或需要部署新版 Worker。")));
+    peRiver(code, tok, put);
+  }
+  async function peRiver(code, tok, put) {
+    const miss = m => `<p class="sub">${m}</p>`;
+    try {
+      const j = await xtGet("pe", code, "&m=12"), pes = (j.rows || []).filter(r => r[1] > 0);
+      if (pes.length < 30) { put("spe", miss("這檔沒有本益比（ETF、虧損或剛上市的公司沒有）。")); return; }
+      const px = new Map(); let ms = monthsBack(12);
+      for (let i = 0; i < ms.length; i++) {
+        if (tok !== chartTok) return;
+        const key = `twh:${code}:${ms[i]}`, cached = i > 0 && store.get(key, null);
+        let rows = []; try { rows = await histMonth(code, ms[i], i > 0); } catch (e) {}
+        rows.forEach(r => px.set(String(r[0]).replace(/\D/g, ""), r[4]));
+        if (!cached && i < ms.length - 1) await wait(500);
+      }
+      const pts = pes.map(r => ({ d: r[0].replace(/-/g, ""), pe: r[1], p: px.get(r[0].replace(/-/g, "")) })).filter(x => x.p > 0).map(x => ({ ...x, eps: x.p / x.pe }));
+      if (pts.length < 30) { put("spe", miss("股價資料還不夠，畫不出河流圖。")); return; }
+      const sorted = pts.map(x => x.pe).sort((a, b) => a - b), q = f => sorted[Math.min(sorted.length - 1, Math.floor(f * (sorted.length - 1)))];
+      const lv = [[.1, "低"], [.3, ""], [.5, "中"], [.7, ""], [.9, "高"]].map(([f, n]) => ({ f, n, m: q(f) }));
+      const all = pts.flatMap(x => [x.p, ...lv.map(l => l.m * x.eps)]), lo = Math.min(...all) * .97, hi = Math.max(...all) * 1.03, W = 640, H = 230, X = i => 8 + i / (pts.length - 1) * (W - 16), Y = v => 8 + (hi - v) / (hi - lo) * (H - 24);
+      const cur = pts[pts.length - 1], rank = Math.round(sorted.filter(v => v <= cur.pe).length / sorted.length * 100);
+      const cols = ["#4aa3a0", "#79b58a", "#c9a64a", "#d58b4f", "#cc5b52"];
+      put("spe", `<svg class="river" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="本益比河流圖">${lv.map((l, k) => `<polyline fill="none" stroke="${cols[k]}" stroke-width="1.4" opacity=".85" points="${pts.map((x, i) => `${X(i).toFixed(1)},${Y(l.m * x.eps).toFixed(1)}`).join(" ")}"/>`).join("")}<polyline class="rvline" fill="none" stroke-width="2.2" points="${pts.map((x, i) => `${X(i).toFixed(1)},${Y(x.p).toFixed(1)}`).join(" ")}"/></svg>
+        <div class="rvleg">${lv.map((l, k) => `<span><i style="background:${cols[k]}"></i>${l.m.toFixed(1)} 倍${l.n ? "（" + l.n + "）" : ""}</span>`).join("")}<span><i class="rvk"></i>股價</span></div>
+        <p class="sub">目前本益比 ${cur.pe.toFixed(1)} 倍，在近 12 個月的區間裡高過約 ${rank}% 的日子。每條線是「近 12 個月這個本益比 × 當時每股盈餘」，只是歷史參考，不代表會漲或跌。</p>`, `${pts.length} 個交易日`);
+    } catch (e) { put("spe", miss("本益比資料暫時讀不到，或需要部署新版 Worker。")); }
+  }
+
   /* ---------------- 問 AI (one question about the stock that is open) ---------------- */
   const ASK = { code: "" };
   async function askRun(q) {
@@ -1414,7 +1490,10 @@
         <div class="askchips">${["最近為什麼漲／跌？", "現在適合進場嗎？", "法人在買還是在賣？", "最大的風險是什麼？"].map(q => `<button type="button" class="chip" data-q="${q}">${q}</button>`).join("")}</div>
         <form class="askform"><input class="askin" type="text" maxlength="200" placeholder="問這檔股票任何問題" autocomplete="off" aria-label="問 AI"><button type="submit" class="aigo">問</button></form>
         <div class="askout"></div>
-      </div>`;
+      </div>
+      <div class="dcard sx smg"><div class="aihead"><div><h3>融資融券</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
+      <div class="dcard sx shd"><div class="aihead"><div><h3>股權分散（集保）</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
+      <div class="dcard sx spe"><div class="aihead"><div><h3>本益比河流圖</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>`;
     const box = $("#dpStock"), inp = $(".ssearch", box), sug = $(".ssug", box);
     chartInput($(".cbox", box), box);
     inp.addEventListener("input", () => {
@@ -1586,7 +1665,7 @@
     rtPoll();
     paintFund(); loadFund().then(() => { if (tok === chartTok) { paintFund(); } });
     loadChip().then(() => { if (tok === chartTok) paintFund(); });
-    loadNews(code);
+    loadNews(code); stockExtras(code, tok);
     const cs = await loadHist(code, () => { if (tok === chartTok) drawChart(false); });
     if (tok !== chartTok) return;
     if (!cs) { $(".cbox", box).innerHTML = `<p class="mempty">這檔的歷史資料暫時讀不到，請稍後再試。</p>`; $(".snaplist", box).innerHTML = `<p class="sub">沒有歷史資料。</p>`; return; }

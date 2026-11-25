@@ -8,6 +8,9 @@ Three tabs: **總覽**, **分析** and **股票**. A stock's own page (個股分
 
 - **總覽**: four indices (TAIEX, front-month TAIEX futures, electronics, finance), a market strip (turnover, net buying of foreign investors / investment trusts / dealers, advancers and decliners) and every TWSE-listed and TPEx (上櫃) stock in one list; TPEx rows are marked 櫃. The list can be searched by code or name, sorted by price, change, change % or volume, and filtered with presets (全部, 自選, 強勢股, 弱勢股, 成交量). ★ adds a stock to the watchlist; tapping a row opens it in 個股分析.
   - Below it: **法人連續買賣超** (foreign investors and investment trusts buying or selling on consecutive days, from the last 10 trading days of TWSE's T86, each day kept in the browser once read) and **注意股・處置股** (TWSE's attention and disposition lists; also marked in the stock list and on the stock page). TPEx refuses other sites, so 上櫃 stocks are not on those lists.
+- **股票** has a switch: 清單 (the stock list and 自選 lists), 選股 (a screener: yield, P/E, monthly revenue growth, today's move, volume, latest institutional buying), 營收 (monthly revenue ranking by year-on-year or month-on-month growth), 族群 (about 15 hand-made concept groups with their average move today) and 法人 (net buyers and sellers).
+- **總覽** also shows 國際行情 (US indices, SOX, FX, oil, the US 10-year yield) and 期貨籌碼 (net open interest of the TAIEX future held by foreign investors, trusts and dealers).
+- The stock page adds 融資融券 (margin and short balances, last 8 trading days), 股權分散 (TDCC weekly shareholding distribution) and 本益比河流圖 (price against bands of its own 12-month P/E range).
 - **分析**: four parts behind a 收盤 / 盤前 / 盤中 / 週回顧 switch: the AI close summary, the pre-market note, the midday note (by default the one that fits the hour) and the weekly review.
 - **股票**: the stock list with 自選1–5, 強勢股 and 弱勢股.
 - **個股分析** (opened from a stock): one stock.
