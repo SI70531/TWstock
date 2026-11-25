@@ -272,8 +272,9 @@ async function twYahoo(codes) {
   return out;
 }
 /* headlines from Google News (RSS search); q may carry "when:14d" to keep them recent */
-async function twHeadlines(q, n) {
-  const r = await fetch("https://news.google.com/rss/search?q=" + encodeURIComponent(q) + "&hl=zh-TW&gl=TW&ceid=TW:zh-Hant", { headers: { "User-Agent": TW_UA } });
+/* us: the US English edition of Google News (Reuters, Bloomberg, CNBC, WSJ, AP and the rest), for US news that moves Taiwan */
+async function twHeadlines(q, n, us) {
+  const r = await fetch("https://news.google.com/rss/search?q=" + encodeURIComponent(q) + (us ? "&hl=en-US&gl=US&ceid=US:en" : "&hl=zh-TW&gl=TW&ceid=TW:zh-Hant"), { headers: { "User-Agent": TW_UA } });
   if (!r.ok) return [];
   const xml = await r.text(), items = [];
   const un = v => v.replace(/<!\[CDATA\[|\]\]>/g, "").replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, "&").trim();
@@ -679,14 +680,15 @@ async function premarket(env, notify, isMid) {
   if (!env.GEMINI_KEY) return { error: "no GEMINI_KEY" };
   /* the midday note calls the session after today's: tomorrow, or Monday after a Friday */
   const day = isMid ? nextOpenDay(new Date(Date.now() + 864e5 - (Date.now() + 8 * 3600e3) % 864e5)) : nextOpenDay(new Date()), madeAt = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 16).replace("T", " ");
-  const [night, world, inst, n1, n2, n3, cands] = await Promise.all([
+  const [night, world, inst, n1, n2, n3, cands, n4] = await Promise.all([
     pmNight().catch(() => null), pmWorld().catch(() => []), pmInst().catch(() => null),
     twHeadlines(isMid ? "台股 OR 台指期 OR 盤中 when:1d" : "台股 OR 台指期 OR 夜盤 when:1d", 10).catch(() => []),
     twHeadlines("美股 OR 聯準會 OR 費半 OR 台積電ADR when:1d", 10).catch(() => []),
     twHeadlines("關稅 OR 出口管制 OR 地緣政治 OR 匯率 OR 輝達 when:1d", 8).catch(() => []),
     pmCandidates(env).catch(() => []),
+    twHeadlines("Fed OR \"Wall Street\" OR Nvidia OR TSMC OR tariff OR \"export controls\" OR Treasury when:1d", 10, true).catch(() => []),
   ]);
-  const seen = new Set(), news = [...n1, ...n2, ...n3].filter(x => !seen.has(x.t) && seen.add(x.t)).sort((a, b) => b.at - a.at).slice(0, 24);
+  const seen = new Set(), news = [...n1, ...n2, ...n3, ...n4].filter(x => !seen.has(x.t) && seen.add(x.t)).sort((a, b) => b.at - a.at).slice(0, 24);
   let today = null;
   if (isMid) {
     const x = (await twMis(["tse_t00.tw"]).catch(() => [])).find(r => r.c === "t00");
@@ -809,11 +811,13 @@ async function watchTick(env, now) {
 }
 async function watchNews(env, codes, S) {
   const seen = new Set(S.seen || []), fresh = [], cut = Date.now() - 90 * 60000;
-  const [a, b] = await Promise.all([
+  const [a, b, c, d] = await Promise.all([
     twHeadlines("台股 OR 台指期 OR 台積電 OR 美股 OR 聯準會 when:1h", 12).catch(() => []),
     twHeadlines("關稅 OR 出口管制 OR 地緣政治 OR 輝達 OR 半導體 when:1h", 10).catch(() => []),
+    twHeadlines("Fed OR Powell OR \"rate cut\" OR CPI OR \"jobs report\" OR Treasury yields OR \"stock market\" OR Nasdaq when:1h", 12, true).catch(() => []),
+    twHeadlines("tariff OR \"export controls\" OR Nvidia OR TSMC OR semiconductor OR Taiwan OR China OR Trump when:1h", 12, true).catch(() => []),
   ]);
-  [...a, ...b].forEach(x => { if (x.at >= cut && !seen.has(x.t)) { seen.add(x.t); fresh.push({ k: "news", t: x.t, src: x.src, u: x.u }); } });
+  [...a, ...b, ...c, ...d].forEach(x => { if (x.at >= cut && !seen.has(x.t)) { seen.add(x.t); fresh.push({ k: "news", t: x.t, src: x.src, u: x.u }); } });
   if (codes.length) {
     const all = await twCached("ann", 600000, async () => { const r = await twFetch("https://openapi.twse.com.tw/v1/opendata/t187ap04_L", { headers: { "User-Agent": TW_UA, Accept: "application/json" } }); return r.ok ? await r.json() : []; }).catch(() => []);
     const pick = (o, sub) => { const k = Object.keys(o).find(x => x.includes(sub)); return k ? o[k] : ""; };
@@ -829,7 +833,8 @@ async function watchNews(env, codes, S) {
     "The investor holds or watches these TWSE codes: " + (codes.join(", ") || "(none)") + ".",
     "The investor finds frequent alerts annoying, so the bar is very high. Pick ONLY a truly major, unexpected event that is likely to move the whole Taiwan market by more than about 1%, or one of those stocks by more than about 3%, today: a surprise Fed or central-bank decision, new tariffs or export controls actually announced, a war, attack or major disaster, a trading halt, a sudden executive departure, a capital reduction or a big earnings shock in a company announcement.",
     "Do NOT pick: ordinary good or bad news, expansion plans, subsidies or tax incentives, factory progress, product launches, analyst views, market commentary or summaries of how the market moved, foreign-investor buying or selling, rumours, follow-ups to news already known, or anything already priced in. When in doubt, leave it out. Almost always the answer is none; at most one item.",
-    "Write in Traditional Chinese as used in Taiwan. Use only what the titles say; do not invent details.",
+    "Some headlines are from US English news (Fed, US data, US policy, US tech companies): a major US event that will clearly move Taiwan stocks counts just as much as Taiwan news, under the same high bar.",
+    "Write in Traditional Chinese as used in Taiwan (translate English titles). Use only what the titles say; do not invent details.",
     'Return ONE JSON object: {"alerts":[{"n":item number,"title":"short title","impact":"利多|利空|不確定","why":"one sentence: what it means for Taiwan stocks or which holding"}]} — an empty list when nothing matters.',
     "",
     fresh.map((x, i) => `${i + 1}. [${x.k === "ann" ? "公司重大訊息" : "新聞"}] ${x.t}${x.src ? "（" + x.src + "）" : ""}${x.body ? " — " + x.body : ""}`).join("\n"),
