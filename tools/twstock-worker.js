@@ -92,12 +92,17 @@ export default {
       return r.error ? (r.daily ? fail(429, "AI_DAILY", r.error) : fail(502, "AI_FAILED", r.error)) : json(r);
     }
     if (url.pathname === "/tw/midday/run" && req.method === "POST") {
+      /* only while the day session is open: weekdays 09:00–13:30 Taipei, and not on an exchange holiday (today's TAIEX quote must be from today) */
+      const t = new Date(Date.now() + 8 * 3600e3), m = t.getUTCHours() * 60 + t.getUTCMinutes(), wd = t.getUTCDay();
+      if (wd < 1 || wd > 5 || m < 9 * 60 || m > 13 * 60 + 30) return fail(409, "MARKET_CLOSED", "非開盤時間，盤中無法分析");
+      const x = (await twMis(["tse_t00.tw"]).catch(() => [])).find(r => r.c === "t00");
+      if (x && x.d && x.d !== t.toISOString().slice(0, 10).replace(/-/g, "")) return fail(409, "MARKET_CLOSED", "今天沒有開盤，不做盤中分析");
       const q = await guard(env, "pmrun", "ai", { hr: PM_HOUR, day: PM_DAY });
       if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached; try again later", { "Retry-After": String(q.aiWait || 60) });
       const r = await premarket(env, true, true);
       return r.error ? (r.daily ? fail(429, "AI_DAILY", r.error) : fail(502, "AI_FAILED", r.error)) : json(r);
     }
-    if (url.pathname === "/tw/close/run" && req.method === "POST") {
+    if (url.pathname === "/tw/close/run" && req.method === "POST") {   /* no button on the site any more (the summary is written after the close); kept for testing */
       const q = await guard(env, "pmrun", "ai", { hr: PM_HOUR, day: PM_DAY });
       if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached; try again later", { "Retry-After": String(q.aiWait || 60) });
       const r = await closeNote(env, true, true);

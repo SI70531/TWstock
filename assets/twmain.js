@@ -396,7 +396,7 @@
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3></div>
         <button type="button" class="btn pmgo">分析</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert" hidden></p></div>
       <div class="dcard pm md"><div class="aihead"><div><h3>AI 盤中分析</h3></div>
-        <button type="button" class="btn mdgo">分析</button></div><div class="mdout"><p class="sub">載入中…</p></div></div>
+        <button type="button" class="btn mdgo">分析</button><span class="sub mdclosed" hidden>非開盤時間，盤中無法分析</span></div><div class="mdout"><p class="sub">載入中…</p></div></div>
       <div class="dcard mstrip"></div>
       <div class="board">
         <div class="dcard bd-dist"><div class="bd-h"><h3>漲跌分布</h3><span class="sub bd-n"></span></div><div class="bd-bars"></div></div>
@@ -410,7 +410,7 @@
           <div class="bd-list"><p class="sub">載入中…</p></div></div>
         <div class="dcard bd-flag"><div class="bd-h"><h3>注意股・處置股</h3><span class="sub bd-n"></span></div><div class="bd-list"><p class="sub">載入中…</p></div><p class="sub fl-foot">證交所公告的上市股票；處置股交易受限制（分盤撮合，可能要預收款券）。</p></div>
       </div>
-      <div class="dcard cl"><div class="aihead"><div><h3>AI 收盤摘要</h3></div><button type="button" class="btn clgo">產生</button></div><div class="clout"><p class="sub">載入中…</p></div></div>
+      <div class="dcard cl"><div class="aihead"><div><h3>AI 收盤摘要</h3></div></div><div class="clout"><p class="sub">載入中…</p></div></div>
       <div class="dcard mkt">
         <div class="mbar"><input class="msearch msfull" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
           <div class="chips">${PRESETS.map(([k, t]) => `<button type="button" class="chip" data-preset="${k}" aria-pressed="${k === VIEW.preset}">${t}</button>`).join("")}</div>
@@ -466,7 +466,7 @@
     clc.dataset.sub = "cl"; pmc.dataset.sub = "pm"; mdc.dataset.sub = "md";
     pre.appendChild(clc); pre.appendChild(pmc); pre.appendChild(mdc);
     $(".anasub", pre).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) anaSub(b.dataset.sub, true); });
-    anaSub(anaDefault(), false); $("#dpList").appendChild($(".mkt", box));
+    anaSub(anaDefault(), false); mdGate(); $("#dpList").appendChild($(".mkt", box));
     pmLoad(); pmLoad(true); clLoad();
     const dd = $(".bd-dist", box); dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; });
     const hm = $(".hm", box); hm.addEventListener("pointermove", e => { if (!$(".hmcard", hm)) heatTip(e); heatFocus(e); }); hm.addEventListener("pointerleave", e => { const t = $(".hmtip", hm); if (t) t.hidden = true; heatFocus(e); }); setTimeout(alertSync, 2500); loadCharts(true);
@@ -867,6 +867,15 @@
     if (wd === 0 || wd === 6) return "cl";
     return m < 9 * 60 ? "pm" : m < 14 * 60 ? "md" : "cl";
   }
+  /* 盤中 can only be analysed while the day session is open (weekdays 09:00–13:30; the Worker also refuses on exchange holidays) */
+  function mdOpenNow() { const t = new Date(Date.now() + 8 * 3600e3), m = t.getUTCHours() * 60 + t.getUTCMinutes(), wd = t.getUTCDay(); return wd >= 1 && wd <= 5 && m >= 9 * 60 && m <= 13 * 60 + 30; }
+  function mdGate() {
+    const b = $("#dpPre .mdgo"), n = $("#dpPre .mdclosed"); if (!b || !n) return;
+    const open = mdOpenNow() && !MD_HOLIDAY; if (b.disabled && b.textContent !== "分析") return;   /* a run in progress */
+    b.hidden = !open; n.hidden = open; if (!open) n.textContent = MD_HOLIDAY ? "今天沒有開盤，不做盤中分析" : "非開盤時間，盤中無法分析";
+  }
+  let MD_HOLIDAY = false;
+  setInterval(mdGate, 30000);
   function anaSub(k, animate) {
     const pre = $("#dpPre"), bar = $(".anasub", pre); if (!bar) return;
     const prev = ANA; ANA = k;
@@ -1615,6 +1624,7 @@
     try {
       const r = await fetch(WORKER + "/tw/" + path + "/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       const j = await r.json().catch(() => null);
+      if (mid && j && j.error && j.error.status === "MARKET_CLOSED") { MD_HOLIDAY = true; b.disabled = false; b.textContent = "分析"; mdGate(); return; }
       if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
       pmPaint({ note: j }, true, mid);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
