@@ -15,7 +15,9 @@
   function init() {
     var tabs = document.querySelector('.dtabs');
     if (!tabs || document.querySelector('.apppill')) return;
-    var real = Array.prototype.filter.call(tabs.querySelectorAll('button[role="tab"]'), Boolean);
+    var all = Array.prototype.slice.call(tabs.querySelectorAll('button[role="tab"]'));
+    /* a hidden tab (個股分析) has no button of its own: it lights the tab it belongs under (data-under) */
+    var real = all.filter(function (t) { return !t.hidden; });
     if (!real.length) return;
 
     var nav = document.createElement('nav');
@@ -38,7 +40,9 @@
     document.body.appendChild(nav);
 
     function place() {
-      var idx = real.findIndex(function (t) { return t.getAttribute('aria-selected') === 'true'; });
+      var sel = all.find(function (t) { return t.getAttribute('aria-selected') === 'true'; });
+      var key = sel ? (sel.hidden ? sel.dataset.under : sel.dataset.p) : '';
+      var idx = real.findIndex(function (t) { return t.dataset.p === key; });
       if (idx < 0) idx = 0;
       items.forEach(function (b, i) { b.setAttribute('aria-current', i === idx ? 'true' : 'false'); });
       var target = items[idx];
@@ -49,7 +53,7 @@
     }
 
     var mo = new MutationObserver(place);
-    real.forEach(function (t) { mo.observe(t, { attributes: true, attributeFilter: ['aria-selected'] }); });
+    all.forEach(function (t) { mo.observe(t, { attributes: true, attributeFilter: ['aria-selected'] }); });
     window.addEventListener('resize', place);
     place();
   }

@@ -30,7 +30,7 @@
 
   /* ---------- shell ---------- */
   function buildShell() {
-    const tabs = $$('.dtabs button[role="tab"]'); if (!tabs.length || $(".side")) return;
+    const allTabs = $$('.dtabs button[role="tab"]'), tabs = allTabs.filter(t => !t.hidden); if (!tabs.length || $(".side")) return;
     /* sidebar */
     const side = document.createElement("aside");
     side.className = "side"; side.setAttribute("aria-label", "側欄");
@@ -44,10 +44,11 @@
       const r = e.target.closest(".sb-row"); if (r && A) A.openStock(r.dataset.code);
     });
     const place = () => {
-      const i = Math.max(0, tabs.findIndex(t => t.getAttribute("aria-selected") === "true"));
+      const sel = allTabs.find(t => t.getAttribute("aria-selected") === "true"), key = sel ? (sel.hidden ? sel.dataset.under : sel.dataset.p) : "";
+      const i = Math.max(0, tabs.findIndex(t => t.dataset.p === key));
       $$("nav button", side).forEach((b, k) => b.setAttribute("aria-current", String(k === i)));
       const hl = $(".sb-hl", side), btn = $$("nav button", side)[i]; if (btn) hl.style.transform = `translateY(${btn.offsetTop}px)`;
-      const tt = $(".topbar .tb-title h2"); if (tt) tt.textContent = tabs[i].textContent.trim();
+      const tt = $(".topbar .tb-title h2"); if (tt) tt.textContent = (sel && sel.hidden ? sel : tabs[i]).textContent.trim();
     };
     new MutationObserver(place).observe($(".dtabs"), { subtree: true, attributes: true, attributeFilter: ["aria-selected"] });
 

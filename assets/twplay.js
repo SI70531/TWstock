@@ -14,8 +14,8 @@
   const buzz = ms => { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} };
 
   /* ---------- tabs in order, and which one is on ---------- */
-  const tabs = () => $$('.dtabs button[role="tab"]');
-  const curIdx = () => Math.max(0, tabs().findIndex(t => t.getAttribute("aria-selected") === "true"));
+  const tabs = () => $$('.dtabs button[role="tab"]').filter(t => !t.hidden);
+  const curIdx = () => { const s = $('.dtabs button[aria-selected="true"]'), k = s ? (s.hidden ? s.dataset.under : s.dataset.p) : ""; return Math.max(0, tabs().findIndex(t => t.dataset.p === k)); };
   const panelOn = () => $(".dpanel.on") || $(".dpanel:not([hidden])");
 
   /* ---------- 1. swipe between tabs ---------- */
