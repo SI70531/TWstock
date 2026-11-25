@@ -411,6 +411,10 @@
         <div class="dcard bd-flag"><div class="bd-h"><h3>注意股・處置股</h3><span class="sub bd-n"></span></div><div class="bd-list"><p class="sub">載入中…</p></div><p class="sub fl-foot">證交所公告的上市股票；處置股交易受限制（分盤撮合，可能要預收款券）。</p></div>
       </div>
       <div class="dcard cl"><div class="aihead"><div><h3>AI 收盤摘要</h3></div></div><div class="clout"><p class="sub">載入中…</p></div></div>
+      <div class="dcard wk"><div class="aihead"><div><h3>AI 週回顧</h3></div><button type="button" class="btn wkgo" hidden>產生</button></div><div class="wkout"><p class="sub">載入中…</p></div></div>
+      <div class="dcard inst"><div class="aihead"><div><h3>法人買賣超排行</h3></div><span class="sub instday"></span></div>
+        <div class="hmseg instseg" role="group" aria-label="法人">${[["a", "三大法人"], ["f", "外資"], ["t", "投信"], ["d", "自營商"]].map(([k, l]) => `<button type="button" data-g="${k}" aria-pressed="${k === "a"}">${l}</button>`).join("")}<i></i></div>
+        <div class="instout"><p class="sub">載入中…</p></div></div>
       <div class="dcard mkt">
         <div class="mbar"><input class="msearch msfull" type="search" placeholder="搜尋代號或名稱" aria-label="搜尋股票" autocomplete="off">
           <div class="chips">${PRESETS.map(([k, t]) => `<button type="button" class="chip" data-preset="${k}" aria-pressed="${k === VIEW.preset}">${t}</button>`).join("")}</div>
@@ -461,13 +465,15 @@
     /* the pre-market note and the stock list each have their own tab */
     /* 分析: one tab with three parts (收盤摘要, 盤前分析, 盤中分析), one shown at a time */
     const pre = $("#dpPre");
-    pre.insertAdjacentHTML("beforeend", `<div class="anasub" role="tablist" aria-label="分析">${[["cl", "收盤"], ["pm", "盤前"], ["md", "盤中"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
-    const pmc = $(".pm:not(.md)", box), mdc = $(".pm.md", box), clc = $(".cl", box);
-    clc.dataset.sub = "cl"; pmc.dataset.sub = "pm"; mdc.dataset.sub = "md";
-    pre.appendChild(clc); pre.appendChild(pmc); pre.appendChild(mdc);
+    pre.insertAdjacentHTML("beforeend", `<div class="anasub" role="tablist" aria-label="分析">${[["cl", "收盤"], ["pm", "盤前"], ["md", "盤中"], ["wk", "週回顧"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
+    const pmc = $(".pm:not(.md)", box), mdc = $(".pm.md", box), clc = $(".cl", box), wkc = $(".wk", box);
+    clc.dataset.sub = "cl"; pmc.dataset.sub = "pm"; mdc.dataset.sub = "md"; wkc.dataset.sub = "wk";
+    pre.appendChild(clc); pre.appendChild(pmc); pre.appendChild(mdc); pre.appendChild(wkc);
     $(".anasub", pre).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) anaSub(b.dataset.sub, true); });
-    anaSub(anaDefault(), false); mdGate(); $("#dpList").appendChild($(".mkt", box));
-    pmLoad(); pmLoad(true); clLoad();
+    anaSub(anaDefault(), false); mdGate();
+    const instc = $(".inst", box); $("#dpList").appendChild(instc); $("#dpList").appendChild($(".mkt", box)); instInit(instc);
+    $(".wkgo", wkc).addEventListener("click", e => wkRun(e.currentTarget));
+    pmLoad(); pmLoad(true); clLoad(); wkLoad(); instLoad();
     const dd = $(".bd-dist", box); dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; });
     const hm = $(".hm", box); hm.addEventListener("pointermove", e => { if (!$(".hmcard", hm)) heatTip(e); heatFocus(e); }); hm.addEventListener("pointerleave", e => { const t = $(".hmtip", hm); if (t) t.hidden = true; heatFocus(e); }); setTimeout(alertSync, 2500); loadCharts(true);
     box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
@@ -890,7 +896,7 @@
     bs.forEach(x => x.setAttribute("aria-selected", String(x === b)));
     anaMark(bar);
     if (!bar._ro && window.ResizeObserver) { bar._ro = new ResizeObserver(() => anaMark(bar, true)); bar._ro.observe(bar); } /* the bar has no size while 分析 is hidden: place the highlight again once it shows */
-    const order = ["cl", "pm", "md"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
+    const order = ["cl", "pm", "md", "wk"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
     $$(".dcard[data-sub]", pre).forEach(c => {
       const on = c.dataset.sub === k; c.hidden = !on;
       if (on && animate) { c.animate([{ opacity: 0, transform: `translateX(${dir * 40}px)` }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.16,1,.3,1)" }); rise($$(".lrise", c), 50, 120); }
@@ -939,6 +945,90 @@
       el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連線中斷，請稍後重新整理。"}</p>`);
     }
     b.disabled = false; b.textContent = "產生";
+  }
+
+  /* ---------------- AI 週回顧 (written by the Worker on Saturday 09:00, or on request when the last one is old) ---------------- */
+  function wkPaint(j, animate) {
+    const el = $("#dpPre .wkout"), go = $("#dpPre .wkgo"); if (!el) return;
+    const n = j && j.note;
+    if (go) go.hidden = !!(n && n.analysis && Date.now() - n.at < 6 * 864e5);
+    if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有週回顧，每週六早上 09:00 會自動產生。</p>`; return; }
+    const a = n.analysis, d = n.data || {}, W = d.week || {}, li = arr => (Array.isArray(arr) ? arr : []).map(x => `<li>${esc(x)}</li>`).join("");
+    const t = /紅/.test(a.call || "") ? "up" : /黑/.test(a.call || "") ? "down" : "", md = x => String(x).slice(5).replace("-", "/");
+    el.innerHTML = `
+      <div class="aisum lrise"><div class="aiverdict"><span class="aitag ${t}">${esc(a.call || "")}</span><b class="pmday">${md(n.from)}–${md(n.day)} 週回顧</b></div>
+        <p class="ailead">${esc(a.headline || "")}</p>
+        <div class="clnums">${W.toClose ? `<div><span>加權指數</span><b class="${tone(W.changePct)}">${fmt(W.toClose, 2)}</b><i class="${tone(W.changePct)}">本週 ${pct(W.changePct)}</i></div>` : ""}${W.high ? `<div><span>本週高／低</span><b>${fmt(W.high, 0)} / ${fmt(W.low, 0)}</b></div>` : ""}</div>
+        <p>${esc(a.market || "")}</p></div>
+      ${(d.days || []).length ? `<div class="lrise"><h4>每日收盤</h4><div class="wkdays">${d.days.map(x => `<div><span>${esc(String(x.day).replace("-", "/"))}</span><b>${fmt(x.close, 0)}</b><i class="${tone(x.pct)}">${pct(x.pct)}</i></div>`).join("")}</div></div>` : ""}
+      <div class="aicols"><div class="lrise"><h4>強勢</h4><ul>${li(a.lead)}</ul></div><div class="lrise"><h4>弱勢</h4><ul>${li(a.lag)}</ul></div></div>
+      ${a.flows ? `<div class="lrise"><h4>法人</h4><p>${esc(a.flows)}</p></div>` : ""}
+      ${Array.isArray(a.risks) && a.risks.length ? `<div class="lrise"><h4>風險</h4><ul>${li(a.risks)}</ul></div>` : ""}
+      ${Array.isArray(a.next) && a.next.length ? `<div class="lrise"><h4>下週要盯</h4><ul>${li(a.next)}</ul></div>` : ""}
+      ${n.news && n.news.length ? `<details class="pmmore"><summary>參考的新聞</summary><div class="newslist">${newsHTML(n.news, null)}</div></details>` : ""}`;
+    if (animate) rise($$(".lrise", el), 70);
+  }
+  async function wkLoad() { try { wkPaint(await J(`${WORKER}/tw/week`), true); } catch (e) { const el = $("#dpPre .wkout"); if (el) el.innerHTML = `<p class="sub">週回顧需要部署新版 Worker。</p>`; } }
+  async function wkRun(b) {
+    const el = $("#dpPre .wkout"); $$(".runmsg", el).forEach(x => x.remove());
+    b.disabled = true; b.textContent = "整理中…";
+    try {
+      const r = await fetch(WORKER + "/tw/week/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
+      wkPaint({ note: j }, true);
+    } catch (e) {
+      await new Promise(r => setTimeout(r, 4000));
+      try { const j = await J(`${WORKER}/tw/week`); if (j.note && Date.now() - j.note.at < 300000) { wkPaint(j, true); b.disabled = false; b.textContent = "產生"; return; } } catch (e2) {}
+      el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連線中斷，請稍後重新整理。"}</p>`);
+    }
+    b.disabled = false; b.textContent = "產生";
+  }
+
+  /* ---------------- 法人買賣超排行 (TWSE T86 through the Worker) ---------------- */
+  const INST = { g: "a", data: null };
+  function instInit(card) {
+    const seg = $(".instseg", card);
+    seg.addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (!b) return; $$("[data-g]", seg).forEach(x => x.setAttribute("aria-pressed", String(x === b))); INST.g = b.dataset.g; segMark(seg); instPaint(true); });
+    if (window.ResizeObserver) new ResizeObserver(() => segMark(seg)).observe(seg);
+    card.addEventListener("click", e => { const r = e.target.closest(".instrow"); if (r) openStock(r.dataset.code, r); });
+  }
+  async function instLoad() {
+    const el = $("#dpList .instout"); if (!el) return;
+    try { INST.data = await J(`${WORKER}/tw/instrank`); } catch (e) { el.innerHTML = `<p class="sub">法人買賣超需要部署新版 Worker，或證交所還沒有資料。</p>`; return; }
+    instPaint(true);
+  }
+  function instPaint(animate) {
+    const card = $("#dpList .inst"), D = INST.data; if (!card || !D) return;
+    const el = $(".instout", card), g = (D.groups || {})[INST.g] || { buy: [], sell: [] };
+    $(".instday", card).textContent = String(D.day).slice(5).replace("-", "/") + "・單位：張";
+    const col = (title, arr, cls) => `<div class="instcol"><h4>${title}</h4>${arr.length ? arr.map(([c, n, v]) => `<button type="button" class="instrow" data-code="${esc(c)}"><span class="nm"><b>${esc(n)}</b><em>${esc(c)}</em></span><span class="${cls}">${v > 0 ? "+" : ""}${Number(v).toLocaleString("zh-TW")}</span></button>`).join("") : `<p class="sub">沒有資料</p>`}</div>`;
+    el.innerHTML = `<div class="instcols">${col("買超", g.buy, "up")}${col("賣超", g.sell, "down")}</div>`;
+    if (animate) rise($$(".instrow", el), 25);
+  }
+
+  /* ---------------- 問 AI (one question about the stock that is open) ---------------- */
+  const ASK = { code: "" };
+  async function askRun(q) {
+    const box = $("#dpStock"), out = $(".askout", box), inp = $(".askin", box), go = $(".askform .aigo", box), code = CODE, s = DB.by.get(code), cs = barsOf(code);
+    q = String(q || "").trim(); if (q.length < 2) return;
+    if (!s || !cs || cs.length < 30) { out.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">這檔的歷史資料還不夠，無法回答。</p>`); return; }
+    if (!DB.live) { out.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">目前是示意資料，連上證交所後才能問。</p>`); return; }
+    if (ASK.code !== code) { out.innerHTML = ""; ASK.code = code; }
+    $$(".runmsg", out).forEach(x => x.remove());
+    const item = document.createElement("div"); item.className = "askitem";
+    item.innerHTML = `<div class="askq">${esc(q)}</div><div class="aska"><div class="aiwait"><i></i><i></i><i></i></div></div>`;
+    out.insertBefore(item, out.firstChild); inp.value = ""; go.disabled = true;
+    try {
+      await Promise.all([loadFund(), loadChip()]);
+      const r = await fetch(WORKER + "/tw/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ d: DEVICE, code, name: s.name, q, facts: facts(cs) }) });
+      const j = await r.json().catch(() => null);
+      if (!r.ok || !j || !j.a) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
+      $(".aska", item).innerHTML = `<p>${esc(j.a)}</p>${j.news && j.news.length ? `<details class="pmmore"><summary>參考的新聞</summary><div class="newslist">${newsHTML(j.news, null)}</div></details>` : ""}`;
+    } catch (e) {
+      $(".aska", item).innerHTML = `<p class="sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連不到 AI 服務，請稍後再試。"}</p>`;
+    }
+    go.disabled = false;
   }
 
   /* ---------------- 自選股 ---------------- */
@@ -1198,6 +1288,12 @@
         <p class="sub aimsg"></p><div class="aiout"></div>
         
         <details class="slab"><summary>研究工具（自動交給 AI）</summary><div id="dpLab" class="on"></div></details>
+      </div>
+      <div class="dcard sask">
+        <div class="aihead"><div><h3>問 AI</h3></div></div>
+        <div class="askchips">${["最近為什麼漲／跌？", "現在適合進場嗎？", "法人在買還是在賣？", "最大的風險是什麼？"].map(q => `<button type="button" class="chip" data-q="${q}">${q}</button>`).join("")}</div>
+        <form class="askform"><input class="askin" type="text" maxlength="200" placeholder="問這檔股票任何問題" autocomplete="off" aria-label="問 AI"><button type="submit" class="aigo">問</button></form>
+        <div class="askout"></div>
       </div>`;
     const box = $("#dpStock"), inp = $(".ssearch", box), sug = $(".ssug", box);
     chartInput($(".cbox", box), box);
@@ -1208,6 +1304,8 @@
       sug.innerHTML = hits.map(s => `<button type="button" data-code="${esc(s.code)}"><b>${esc(s.name)}</b><span>${esc(s.code)}</span><em class="${tone(s.chg)}">${fmt(s.price, dig(s.price))}</em></button>`).join("");
     });
     inp.addEventListener("keydown", e => { if (e.key === "Enter") { const b = $("button", sug); if (b) b.click(); } });
+    $(".askform", box).addEventListener("submit", e => { e.preventDefault(); askRun($(".askin", box).value); });
+    $(".askchips", box).addEventListener("click", e => { const c = e.target.closest("[data-q]"); if (c) askRun(c.dataset.q); });
     box.addEventListener("click", e => {
       if (e.target.closest("#dpLab")) return;                 /* the research tools handle their own clicks */
       const s = e.target.closest(".ssug button"); if (s) { inp.value = ""; sug.hidden = true; setStock(s.dataset.code, true); navPush(); return; }

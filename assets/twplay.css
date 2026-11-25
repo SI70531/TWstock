@@ -81,3 +81,25 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 :root .ixcard svg.spark .cd.u { stroke: var(--color-up); fill: var(--color-up); }
 :root .ixcard svg.spark .cd.d { stroke: var(--color-down); fill: var(--color-down); }
 :root .ixcard svg.spark line.cd { fill: none; }
+
+/* 週回顧, 法人買賣超排行, 問 AI */
+.wkdays { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: 8px; }
+.wkdays > div { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 12px; background: var(--glass-2); border: 1px solid var(--glass-line); font-variant-numeric: tabular-nums; }
+.wkdays span { font-size: var(--text-xs); color: var(--color-muted); }
+.wkdays i { font-style: normal; font-size: var(--text-xs); }
+.inst .instseg { margin: 4px 0 10px; }
+.instcols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 560px) { .instcols { grid-template-columns: 1fr; } }
+.instcol h4 { margin: 0 0 6px; font-size: var(--text-sm); color: var(--color-muted); }
+.instrow { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 10px; background: none; color: var(--color-ink); font: inherit; text-align: left; cursor: pointer; font-variant-numeric: tabular-nums; }
+.instrow:hover { background: var(--glass-2); }
+.instrow .nm { display: flex; flex-direction: column; min-width: 0; }
+.instrow .nm b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.instrow .nm em { font-style: normal; font-size: var(--text-xs); color: var(--color-muted); }
+.sask .askchips { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 10px; }
+.askform { display: flex; gap: 8px; }
+.askin { flex: 1; min-width: 0; height: 42px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--glass-line-2); background: var(--glass-2); color: var(--color-ink); font: inherit; }
+.askitem { margin-top: 14px; }
+.askq { display: inline-block; max-width: 100%; padding: 8px 14px; border-radius: 16px 16px 4px 16px; background: color-mix(in oklch, var(--color-accent) 22%, transparent); }
+.aska { margin-top: 8px; line-height: 1.7; }
+.aska p { margin: 0 0 6px; }

@@ -14,6 +14,10 @@
      POST /tw/midday/run                       write a midday note now (shares the pre-market limit)
      cron 13:00 Taipei on trading days: the midday note for the next session, sent to Telegram.
      cron 15:30 Taipei on trading days: the AI close summary (and the owner's stocks newly on the attention / disposition lists), sent to Telegram.
+     GET  /tw/instrank               today's (or the latest) institutional net buying / selling ranking from TWSE T86
+     POST /tw/ask {d, code, name, q, facts}    one question about one stock, answered by the AI from the page's numbers and headlines
+     GET  /tw/week                   the latest weekly review; POST /tw/week/run writes one now (shares the pre-market limit)
+     cron 09:00 Taipei on Saturdays: the weekly review of the market, sent to Telegram.
      GET  /health                    does GEMINI_KEY work
    Secrets: GEMINI_KEY, TG_TOKEN (Telegram bot). Deployed by .github/workflows/worker.yml with tools/wrangler.toml.
    Google does not offer Gemini in Hong Kong, so the Gemini call goes through the GeminiRelay Durable Object in North America. */
@@ -29,6 +33,7 @@ export default {
     ENV = env;
     if (event.cron === "* * * * *") ctx.waitUntil(Promise.all([watchTick(env, new Date(event.scheduledTime)).catch(() => {}), bellNotice(env, new Date(event.scheduledTime)).catch(() => {}), closeRetry(env, new Date(event.scheduledTime)).catch(() => {})]));
     else if (event.cron === CLOSE_CRON) ctx.waitUntil(closeNote(env, true, false));
+    else if (event.cron === WEEK_CRON) ctx.waitUntil(weekNote(env, true, false).catch(() => {}));
     else if (event.cron === MID_CRON) ctx.waitUntil((async () => {
       /* no midday note on an exchange holiday: today's TAIEX quote must be from today */
       const x = (await twMis(["tse_t00.tw"]).catch(() => [])).find(r => r.c === "t00"), today = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
@@ -67,6 +72,8 @@ export default {
     if (url.pathname === "/tw/premarket" && req.method === "GET") return json(await pmStore(env, "get"), 200, { "Cache-Control": "no-store" });
     if (url.pathname === "/tw/midday" && req.method === "GET") return json(await pmStore(env, "mget"), 200, { "Cache-Control": "no-store" });
     if (url.pathname === "/tw/close" && req.method === "GET") return json(await pmStore(env, "cget"), 200, { "Cache-Control": "no-store" });
+    if (url.pathname === "/tw/week" && req.method === "GET") return json(await pmStore(env, "wget"), 200, { "Cache-Control": "no-store" });
+    if (url.pathname === "/tw/instrank" && req.method === "GET") return twInstRank(json, fail);
 
     /* everything below: no sign-in; the page's random device id (d) and the caller's IP address */
     let bodyText = null, dev = "";
@@ -79,6 +86,13 @@ export default {
     const who = dev ? "d" + dev : "ip" + ip;
 
     if (url.pathname === "/tw/analyze" && req.method === "POST") return twAnalyze(env, who, ip, bodyText, json, fail);
+    if (url.pathname === "/tw/ask" && req.method === "POST") return twAsk(env, ip, bodyText, json, fail);
+    if (url.pathname === "/tw/week/run" && req.method === "POST") {
+      const q = await guard(env, "pmrun", "ai", { hr: PM_HOUR, day: PM_DAY });
+      if (q.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached; try again later", { "Retry-After": String(q.aiWait || 60) });
+      const r = await weekNote(env, true, true);
+      return r.error ? (r.daily ? fail(429, "AI_DAILY", r.error) : fail(502, "AI_FAILED", r.error)) : json(r);
+    }
     if (url.pathname === "/tw/alerts/sync" && req.method === "POST") {
       let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
       if (!dev) return fail(400, "BAD_DEVICE", "No device id");
@@ -503,7 +517,7 @@ export class Daily {
     const op = new URL(req.url).pathname.slice(1), st = this.state.storage, b = await req.json().catch(() => ({}));
     /* each note kind keeps its newest note under its own key and a short list of older ones without their data:
        one value may hold at most 128 KiB, and ten full notes in one list grew past that, so the newest note was never saved */
-    const KIND = { put: "hist", cput: "close", mput: "mid" }, GETK = { cget: "close", mget: "mid" };
+    const KIND = { put: "hist", cput: "close", mput: "mid", wput: "week" }, GETK = { cget: "close", mget: "mid", wget: "week" };
     if (KIND[op]) {
       const k = KIND[op], old = (await st.get("last:" + k)) || ((await st.get(k)) || [])[0] || null;
       const slim = x => x && { at: x.at, day: x.day, call: x.analysis && x.analysis.call };
@@ -989,7 +1003,7 @@ async function bellNotice(env, now) {
 }
 
 /* ---------- the close summary: 15:30 Taipei on trading days (TWSE's daily report and the day's institutional flows are out by then) ---------- */
-const CLOSE_CRON = "30 7 * * MON-FRI", MID_CRON = "0 5 * * MON-FRI";   /* 15:30 and 13:00 Taipei */
+const CLOSE_CRON = "30 7 * * MON-FRI", MID_CRON = "0 5 * * MON-FRI", WEEK_CRON = "0 1 * * SAT";   /* 15:30 and 13:00 Taipei */
 const pctOf = (z, ch) => (z > 0 && ch != null && z - ch > 0 ? Math.round(ch / (z - ch) * 10000) / 100 : null);
 /* TWSE's daily report for one day: indices (sector indices included), turnover, breadth and every stock's close */
 async function twDayReport(ds) {
@@ -1054,6 +1068,133 @@ function closePrompt(day, D, news) {
 }
 /* the 15:30 run can fail (TWSE's day report not out yet, Gemini busy, or the free AI quota used up until it resets at midnight US Pacific,
    16:00 or 15:00 Taipei): try again every 15 minutes until 18:00; if there is still none, say why on Telegram */
+/* ---------- institutional net buying / selling ranking (TWSE T86), the latest trading day that has one ---------- */
+async function twInstRank(json, fail) {
+  const out = await twCached("instrank", 600000, async () => {
+    let d = new Date(Date.now() + 8 * 3600e3);
+    for (let k = 0; k < 8; k++, d = new Date(d.getTime() - 864e5)) {
+      if (d.getUTCDay() % 6 === 0) continue;
+      const ds = d.toISOString().slice(0, 10).replace(/-/g, "");
+      try {
+        const j = await (await twFetch(`https://www.twse.com.tw/rwd/zh/fund/T86?date=${ds}&selectType=ALLBUT0999&response=json`, { headers: { "User-Agent": TW_UA } })).json();
+        if (j.stat !== "OK" || !Array.isArray(j.data) || !j.data.length || !Array.isArray(j.fields)) continue;
+        const F = j.fields, ix = f => F.findIndex(x => String(x).includes(f));
+        const iC = ix("證券代號"), iN = ix("證券名稱"), iF = ix("外陸資買賣超") >= 0 ? ix("外陸資買賣超") : ix("外資買賣超"), iT = ix("投信買賣超"), iD = F.findIndex(x => String(x).trim() === "自營商買賣超股數"), iA = ix("三大法人買賣超");
+        if (iC < 0 || iA < 0) continue;
+        const lots = v => Math.round((twNum(v) || 0) / 1000);
+        const rows = j.data.map(r => ({ c: String(r[iC]).trim(), n: String(r[iN]).trim(), f: iF >= 0 ? lots(r[iF]) : 0, t: iT >= 0 ? lots(r[iT]) : 0, d: iD >= 0 ? lots(r[iD]) : 0, a: lots(r[iA]) })).filter(x => /^[0-9A-Z]{4,6}$/.test(x.c));
+        const top = key => ({
+          buy: rows.filter(x => x[key] > 0).sort((a, b) => b[key] - a[key]).slice(0, 10).map(x => [x.c, x.n, x[key]]),
+          sell: rows.filter(x => x[key] < 0).sort((a, b) => a[key] - b[key]).slice(0, 10).map(x => [x.c, x.n, x[key]]),
+        });
+        return { day: ds.slice(0, 4) + "-" + ds.slice(4, 6) + "-" + ds.slice(6), unit: "張", groups: { f: top("f"), t: top("t"), d: top("d"), a: top("a") } };
+      } catch (e) {}
+    }
+    return null;
+  }).catch(() => null);
+  if (!out) { twCache.delete("instrank"); return fail(502, "NO_DATA", "證交所的三大法人買賣超還沒有資料"); }
+  return json(out, 200, { "Cache-Control": "public, max-age=300" });
+}
+
+/* ---------- 問 AI: one question about one stock ---------- */
+async function twAsk(env, ip, bodyText, json, fail) {
+  if (!env.GEMINI_KEY) return fail(500, "INTERNAL", "The Worker has no GEMINI_KEY secret yet");
+  let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
+  const code = String((b && b.code) || "").trim(), name = twClip(b && b.name, 20) || code, q = twClip(String((b && b.q) || "").replace(/\s+/g, " ").trim(), 200);
+  if (!/^[0-9A-Z]{4,6}$/.test(code)) return fail(400, "BAD_CODE", "Bad stock code");
+  if (q.length < 2) return fail(400, "BAD_QUESTION", "請輸入問題");
+  let facts; try { facts = JSON.stringify(b.facts || {}); } catch (e) { facts = "{}"; }
+  if (facts.length > 12000) facts = facts.slice(0, 12000);
+  const lim = await guard(env, "ip:" + ip, "ai", { hr: AI_HOUR, day: AI_DAY });
+  if (lim.blocked) return fail(429, "RESOURCE_EXHAUSTED", "Limit reached for this connection; try again later", { "Retry-After": String(lim.aiWait || 60) });
+  const news = await twHeadlines(name + " " + code + " when:14d", 10).catch(() => []);
+  const day = t => (t ? new Date(t).toISOString().slice(0, 10) : "");
+  const prompt = [
+    "You are a Taiwan equity analyst answering ONE question from a private investor about " + name + " (" + code + ").",
+    "Answer in Traditional Chinese as used in Taiwan: direct answer first, then the reason, at most 6 short sentences (about 200 Chinese characters).",
+    "Use ONLY the numbers in DATA and the headlines below. Never invent a price, ratio, date or event; if DATA cannot answer the question, say what is missing. When a headline matters, name it briefly.",
+    "Nobody can know the future price: say what is more likely and what would prove it wrong; never promise a result. Be conservative.",
+    "If the question is not about this stock or the market, politely say you only answer questions about this stock.",
+    'Return ONE JSON object and nothing else: {"a":"your answer"}',
+    "",
+    "QUESTION: " + q,
+    "",
+    "DATA (prices in NT$, volume in lots of 1,000 shares): " + facts,
+    "",
+    "HEADLINES (last 14 days, newest first):",
+    news.length ? news.map(x => "- " + day(x.at) + " " + x.t + (x.src ? "（" + x.src + "）" : "")).join("\n") : "(none found)",
+  ].join("\n");
+  const g = await geminiJson(env, prompt, 0.3, 0);
+  if (g.error) return fail(g.error.status === 429 ? 429 : 502, g.error.daily ? "AI_DAILY" : "AI_FAILED", g.error.daily ? "AI 今天的額度用完了" : aiWhy(g.error.status), g.error.status === 429 && !g.error.daily ? { "Retry-After": "60" } : undefined);
+  let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = String(g.text || "").match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
+  if (!a || !a.a) return fail(502, "AI_FAILED", "AI 的回答不完整，再問一次");
+  return json({ at: Date.now(), q, a: String(a.a), news: news.slice(0, 4).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) });
+}
+
+/* ---------- weekly review (Saturday 09:00 Taipei): the week's five trading days, written by the AI ---------- */
+function weekPrompt(from, to, D, news) {
+  const day = t => (t ? new Date(t).toISOString().slice(0, 10) : "");
+  return [
+    "You are the market strategist of a Taiwan equity research desk writing the WEEKLY REVIEW for one private investor. Write in Traditional Chinese as used in Taiwan. Be concrete and short; no filler.",
+    "Taiwan colours: red = up, green = down. Use ONLY the numbers in DATA; never invent a level, ratio or event. Headlines are only titles: do not claim details a title does not state.",
+    "DATA.days are the trading days of the week (TAIEX close, change %, turnover in NT$ 100 million, institutional net buying in NT$ 100 million per group). DATA.week has the week's change and range; DATA.sectors the sector moves compounded over the week.",
+    "Nobody can know the future: for next week say what to watch and what would change the view; never promise a result. Be conservative.",
+    'Return ONE JSON object and nothing else: {"call":"本週收紅|本週收黑|本週盤整","headline":"one sentence under 30 Chinese characters","market":"2 or 3 sentences: how the week went and why","lead":["strong sectors with the reason, max 3"],"lag":["weak sectors with the reason, max 3"],"flows":"one or two sentences on foreign / trust / dealer flows over the week","risks":["max 3"],"next":["what to watch next week, max 4 items, include dates only if a headline states them"]}',
+    "",
+    "WEEK: " + from + " to " + to,
+    "DATA: " + JSON.stringify(D),
+    "",
+    "HEADLINES (last 7 days, newest first):",
+    news.length ? news.map(x => "- " + day(x.at) + " " + x.t + (x.src ? "（" + x.src + "）" : "")).join("\n") : "(none found)",
+  ].join("\n");
+}
+async function weekNote(env, notify, manual) {
+  if (!env.GEMINI_KEY) return { error: "no GEMINI_KEY" };
+  const days = []; let d = new Date(Date.now() + 8 * 3600e3);
+  while (days.length < 5) { if (d.getUTCDay() % 6) days.unshift(d.toISOString().slice(0, 10)); d = new Date(d.getTime() - 864e5); }
+  const reps = await Promise.all(days.map(async day => { const ds = day.replace(/-/g, ""); const [rep, inst] = await Promise.all([twDayReport(ds).catch(() => null), twInstDay(ds).catch(() => null)]); return rep && rep.taiex ? { day, rep, inst } : null; }));
+  const ok = reps.filter(Boolean);
+  if (ok.length < 2) return { error: "這個星期的收盤資料不足，或這週大多沒有交易" };
+  const first = ok[0].rep.taiex, last = ok[ok.length - 1].rep.taiex, prev = first.z / (1 + (first.pct || 0) / 100);
+  const weekPct = Math.round((last.z / prev - 1) * 10000) / 100, closes = ok.map(x => x.rep.taiex.z);
+  const sec = new Map(); ok.forEach(x => x.rep.sectors.forEach(r => sec.set(r.name, (sec.get(r.name) || 1) * (1 + r.pct / 100))));
+  const secs = [...sec].map(([name, m]) => ({ name, pct: Math.round((m - 1) * 10000) / 100 })).sort((a, b) => b.pct - a.pct);
+  const D = {
+    week: { fromClose: Math.round(prev * 100) / 100, toClose: last.z, changePct: weekPct, high: Math.max(...closes), low: Math.min(...closes) },
+    days: ok.map(x => ({ day: x.day.slice(5), close: x.rep.taiex.z, pct: x.rep.taiex.pct, turnoverYi: x.rep.turnoverYi, inst: x.inst || [] })),
+    sectors: { lead: secs.slice(0, 5), lag: secs.slice(-5).reverse() },
+  };
+  const [n1, n2] = await Promise.all([twHeadlines("台股 OR 加權指數 OR 外資 when:7d", 10).catch(() => []), twHeadlines("美股 OR 聯準會 OR 關稅 OR 半導體 when:7d", 8).catch(() => [])]);
+  const seen = new Set(), news = [...n1, ...n2].filter(x => !seen.has(x.t) && seen.add(x.t)).sort((a, b) => b.at - a.at).slice(0, 14);
+  const prompt = weekPrompt(ok[0].day, ok[ok.length - 1].day, D, news);
+  let g = await geminiJson(env, prompt, 0.3, 0);
+  for (let k = 1; g.error && [500, 502, 503, 504].includes(g.error.status) && k <= (manual ? 2 : 4); k++) {
+    await new Promise(r => setTimeout(r, (manual ? 4000 : 20000) * k));
+    g = await geminiJson(env, prompt, 0.3, k);
+  }
+  if (g.error) return { error: g.error.daily ? "AI 今天的額度用完了" : aiWhy(g.error.status), daily: !!g.error.daily };
+  let a = null; try { a = JSON.parse(g.text); } catch (e) { const t2 = String(g.text || ""), i = t2.indexOf("{"), j = t2.lastIndexOf("}"); try { a = JSON.parse(t2.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e2) { a = null; } }
+  if (!a || !a.headline) return { error: "AI 的回答不完整，再按一次" };
+  const note = { at: Date.now(), day: ok[ok.length - 1].day, from: ok[0].day, analysis: a, data: { week: D.week, days: D.days, sectors: D.sectors }, news: news.slice(0, 10).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
+  const saved = await pmStore(env, "wput", { note }).catch(e => ({ error: String(e && e.message || e) }));
+  if (!saved || !saved.ok) note.saveError = (saved && saved.error) || "not saved";
+  if (notify) {
+    const L = x => (Array.isArray(x) ? x.slice(0, 3) : []), sg = v => (v > 0 ? "+" : "") + Number(v).toFixed(2) + "%";
+    const text = [
+      `<b>🗓 ${note.from.slice(5).replace("-", "/")}–${note.day.slice(5).replace("-", "/")} 週回顧：${hesc(a.call || "")}</b>`,
+      `${weekPct > 0 ? "🔺" : weekPct < 0 ? "🔻" : "▪️"} 加權 ${last.z.toFixed(2)}（本週 ${sg(weekPct)}）`,
+      hesc(a.headline), "", hesc(a.market || ""),
+      ...(L(a.lead).length ? ["", "<b>強勢</b> " + L(a.lead).map(hesc).join("；")] : []),
+      ...(L(a.lag).length ? ["<b>弱勢</b> " + L(a.lag).map(hesc).join("；")] : []),
+      ...(a.flows ? ["<b>法人</b> " + hesc(a.flows)] : []),
+      ...(L(a.next).length ? ["", "<b>下週要盯</b> " + L(a.next).map(hesc).join("；")] : []),
+      `<a href="https://si70531.github.io/TWstock/">完整內容</a>｜AI 研究參考，不保證漲跌`,
+    ].join("\n");
+    note.sent = await tgSend(env, text);
+  }
+  return note;
+}
+
 async function closeRetry(env, now) {
   const t = new Date(now.getTime() + 8 * 3600e3), wd = t.getUTCDay(), m = t.getUTCHours() * 60 + t.getUTCMinutes();
   if (wd < 1 || wd > 5 || m < 15 * 60 + 45 || m > 18 * 60 || (m - (15 * 60 + 45)) % 15) return;
