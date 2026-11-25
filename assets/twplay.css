@@ -63,3 +63,15 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .anasub button[aria-selected="true"] { color: var(--color-ink); }
 .anasub > i { position: absolute; left: 0; top: 4px; bottom: 4px; border-radius: 999px; background: color-mix(in oklch, var(--color-accent) 28%, transparent); border: 1px solid color-mix(in oklch, var(--color-accent) 50%, transparent); box-shadow: 0 6px 16px -8px var(--color-accent); transition: transform .45s cubic-bezier(.2,.9,.3,1.2), width .45s cubic-bezier(.2,.9,.3,1.2); }
 #dpPre > .dcard[hidden] { display: none !important; }
+
+/* press and drag a switch (twplay.js dragSeg) */
+.apppill, .anasub, .hmseg, .dtabs { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+:is(.apppill > .ap-hl, .anasub > i, .hmseg > i) { transition-property: transform, width, scale, box-shadow, background-color; }
+:is(.lift, .dragging) > :is(.ap-hl, i) { scale: 1.12; box-shadow: 0 12px 28px -8px rgb(0 0 0 / .45), inset 0 1px 0 rgb(255 255 255 / .45); }
+.dragging > :is(.ap-hl, i) { transition-property: width, scale, box-shadow, background-color; -webkit-backdrop-filter: saturate(1.5) brightness(1.08); backdrop-filter: saturate(1.5) brightness(1.08); }
+.dragging > .ap-hl { background: color-mix(in oklch, var(--c4) 80%, white); }
+.apppill.dragging .ap-item[aria-current="true"]:not(.hot) { color: var(--c4); }
+.apppill .ap-item.hot { color: var(--c0); }
+.dragging :is(.ap-item, button).hot { color: var(--color-ink); }
+.dtabs.dragging button.hot { background: color-mix(in oklch, var(--color-accent) 30%, transparent); }
+.dragging { cursor: grabbing; }

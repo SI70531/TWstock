@@ -4,6 +4,7 @@
    - swipe a row of the stock list left to add it to / remove it from a 自選 list
    - press feedback on buttons and cards, with a short vibration where the device supports it
    - numbers roll digit by digit when a quote changes; rows of the ranking lists open a small inline chart
+   - every switch (bottom pill, 分析 sub-tabs, filters) can be pressed and dragged: the highlight lifts and follows the finger
    Reads the dashboard through window.TWDash.api and drives it only by clicking its own controls. */
 (function () {
   "use strict";
@@ -176,9 +177,50 @@
     }, true);
   }
 
+  /* ---------- 6. every switch can be pressed and dragged: the highlight lifts like glass and follows the finger,
+     the segment under it lights up, and letting go picks it (a plain tap still works as before) ---------- */
+  const SEGS = [[".apppill", ".ap-item", ".ap-hl"], [".anasub", "[data-sub]", ":scope > i"], [".hmseg", "button", ":scope > i"], [".dtabs", 'button[role="tab"]', null]];
+  function dragSeg() {
+    document.addEventListener("pointerdown", e => {
+      if (e.pointerType === "mouse" && e.button) return;
+      let box = null, itemSel, hlSel;
+      for (const [b, i, h] of SEGS) { const x = e.target.closest(b); if (x) { box = x; itemSel = i; hlSel = h; break; } }
+      if (!box) return;
+      const btn = e.target.closest(itemSel); if (!btn || !box.contains(btn)) return;
+      const items = () => $$(itemSel, box).filter(b => !b.hidden && b.offsetWidth), hl = hlSel ? $(hlSel, box) : null;
+      const isCur = b => ["aria-selected", "aria-pressed", "aria-current"].some(a => b.getAttribute(a) === "true");
+      const id = e.pointerId, x0 = e.clientX; let moved = false, hot = btn, lastX = x0;
+      if (isCur(btn)) box.classList.add("lift");
+      const under = x => { const it = items(); let best = it[0], bd = 1e9; it.forEach(b => { const r = b.getBoundingClientRect(), d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0; if (d < bd) { bd = d; best = b; } }); return best; };
+      const snap = b => { if (!hl || !b) return; hl.style.width = b.offsetWidth + "px"; hl.style.transform = `translateX(${b.offsetLeft}px)`; };
+      const light = b => { if (b === hot) return; $$(".hot", box).forEach(n => n.classList.remove("hot")); hot = b; b.classList.add("hot"); buzz(6); };
+      const mv = ev => {
+        if (ev.pointerId !== id) return; lastX = ev.clientX;
+        if (!moved && Math.abs(ev.clientX - x0) > 5) { moved = true; box.classList.add("dragging"); box.classList.remove("lift"); }
+        if (!moved) return;
+        const it = items(), b = under(ev.clientX), br = box.getBoundingClientRect();
+        light(b);
+        if (hl) { const w = b.offsetWidth, lo = it[0].offsetLeft, hi = it[it.length - 1].offsetLeft + it[it.length - 1].offsetWidth - w;
+          hl.style.width = w + "px"; hl.style.transform = `translateX(${Math.max(lo, Math.min(hi, ev.clientX - br.left + box.scrollLeft - w / 2))}px)`; }
+        if (!hl && b !== btn && ev.pointerType) { /* no highlight to drag (top tabs): just preview */ }
+      };
+      const end = ev => {
+        if (ev.pointerId !== id) return;
+        removeEventListener("pointermove", mv); removeEventListener("pointerup", end); removeEventListener("pointercancel", end);
+        box.classList.remove("lift", "dragging"); $$(".hot", box).forEach(n => n.classList.remove("hot"));
+        if (!moved) return;
+        const t = ev.type === "pointercancel" ? btn : under(ev.clientX != null ? ev.clientX : lastX);
+        const stop = c => { if (c.isTrusted) { c.stopPropagation(); c.preventDefault(); } };
+        addEventListener("click", stop, true); setTimeout(() => removeEventListener("click", stop, true), 80);
+        snap(t); if (t && ev.type !== "pointercancel") t.click();
+      };
+      addEventListener("pointermove", mv); addEventListener("pointerup", end); addEventListener("pointercancel", end);
+    });
+  }
+
   function boot() {
     A = window.TWDash && window.TWDash.api;
-    pressFeel(); rollNumbers(); rowPeek();
+    pressFeel(); rollNumbers(); rowPeek(); dragSeg();
     if (touchy) { swipeTabs(); pullRefresh(); swipeRows(); }
   }
   if (window.TWDash) boot(); else document.addEventListener("twdash:ready", boot, { once: true });
