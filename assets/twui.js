@@ -282,8 +282,12 @@
       for (let i = S.length - 1; i >= 0; i--) {
         const s = S[i]; s.t += dt / 2600; if (s.t >= 1.6) { S.splice(i, 1); continue; }
         const n = Math.max(2, Math.floor(s.pts.length * Math.min(1, s.t))), fade = s.t > 1 ? 1 - (s.t - 1) / 0.6 : 1;
-        ctx.globalAlpha = 0.55 * fade; ctx.lineWidth = 2; ctx.strokeStyle = pal[s.c]; ctx.shadowColor = pal[s.c]; ctx.shadowBlur = 14;
-        ctx.beginPath(); s.pts.slice(0, n).forEach(([x, y], k) => (k ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+        /* candle-like: every step is red where the price rises (the line goes up the screen) and green where it falls */
+        ctx.globalAlpha = 0.55 * fade; ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.shadowBlur = 14;
+        for (let k = 1; k < n; k++) {
+          const a = s.pts[k - 1], b = s.pts[k], col = pal[b[1] <= a[1] ? 3 : 4];
+          ctx.strokeStyle = col; ctx.shadowColor = col; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+        }
         const [hx, hy] = s.pts[n - 1]; ctx.globalAlpha = fade; ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(hx, hy, 2.6, 0, 6.283); ctx.fill();
         ctx.shadowBlur = 0;
       }
