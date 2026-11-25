@@ -877,6 +877,7 @@
   async function clLoad() { try { clPaint(await J(`${WORKER}/tw/close`), true); } catch (e) { const el = $("#dpPre .clout"); if (el) el.innerHTML = `<p class="sub">收盤摘要需要部署新版 Worker。</p>`; } }
   async function clRun(b) {
     const el = $("#dpPre .clout");
+    $$(".runmsg", el).forEach(x => x.remove());
     b.disabled = true; b.textContent = "整理中…";
     try {
       const r = await fetch(WORKER + "/tw/close/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
@@ -884,13 +885,13 @@
       if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
       clPaint({ note: j }, true);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
-      if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
-      if (j.saveError) el.insertAdjacentHTML("afterbegin", `<p class="sub warn">這份摘要沒有存到伺服器，其他裝置看不到：${esc(j.saveError)}</p>`);
+      if (tg) el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
+      if (j.saveError) el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">這份摘要沒有存到伺服器，其他裝置看不到：${esc(j.saveError)}</p>`);
     } catch (e) {
       /* a long run can outlast the connection even though the summary was written and sent: look for it before saying it failed */
       await new Promise(r => setTimeout(r, 4000));
       try { const j = await J(`${WORKER}/tw/close`); if (j.note && Date.now() - j.note.at < 300000) { clPaint(j, true); b.disabled = false; b.textContent = "產生"; return; } } catch (e2) {}
-      el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連線中斷，請稍後重新整理。"}</p>`);
+      el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連線中斷，請稍後重新整理。"}</p>`);
     }
     b.disabled = false; b.textContent = "產生";
   }
@@ -1578,19 +1579,27 @@
   async function pmLoad(mid) { try { pmPaint(await J(`${WORKER}/tw/${mid ? "midday" : "premarket"}`), true, mid); } catch (e) { const el = $(mid ? "#dpMid .mdout" : "#dpPre .pmout"); if (el) el.innerHTML = `<p class="sub">${mid ? "盤中" : "盤前"}分析需要部署新版 Worker。</p>`; } }
   async function pmRun(b, mid) {
     const el = $(mid ? "#dpMid .mdout" : "#dpPre .pmout"), path = mid ? "midday" : "premarket";
+    $$(".runmsg", el).forEach(x => x.remove());
     b.disabled = true; b.textContent = "分析中…";
+    const t0 = Date.now() - 5000;
     try {
       const r = await fetch(WORKER + "/tw/" + path + "/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
       pmPaint({ note: j }, true, mid);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
-      if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
+      if (tg) el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
     } catch (e) {
-      /* a long run can outlast the connection even though the note was written: look for it before saying it failed */
-      await new Promise(r => setTimeout(r, 4000));
-      try { const j = await J(`${WORKER}/tw/${path}`); if (j.note && Date.now() - j.note.at < 180000) { pmPaint(j, true, mid); b.disabled = false; b.textContent = "分析"; return; } } catch (e2) {}
-      el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連線中斷，請稍後重新整理。"}</p>`);
+      /* a long run can outlast the connection while the Worker keeps going: wait for the new note (up to about 2 minutes) before saying it failed */
+      if (!/[一-鿿]/.test(e.message || "")) {
+        el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub">連線中斷了，伺服器還在分析，等它完成…</p>`);
+        for (let k = 0; k < 12; k++) {
+          await new Promise(r => setTimeout(r, 10000));
+          try { const j = await J(`${WORKER}/tw/${path}`); if (j.note && j.note.at >= t0) { $$(".runmsg", el).forEach(x => x.remove()); pmPaint(j, true, mid); b.disabled = false; b.textContent = "分析"; return; } } catch (e2) {}
+        }
+        $$(".runmsg", el).forEach(x => x.remove());
+      }
+      el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "沒有等到新的分析，可能是 AI 額度用完或忙碌，過幾分鐘再按一次。"}</p>`);
     }
     b.disabled = false; b.textContent = "分析";
   }
