@@ -20,7 +20,7 @@
   /* ---------- 1. swipe between tabs ---------- */
   function swipeTabs() {
     let sx = 0, sy = 0, st = 0, dir = 0, on = false, pnl = null, edge = null;
-    const skip = el => el.closest("input, textarea, select, .hm, .kchart, .ixfig, svg, .mwrap, .chips, .hmseg, .thseg, .dtabs, .apppill, .pmpgrid, .plan, .tape, .ticker, [data-noswipe], .hmcard, .pal, .ctxmenu");
+    const skip = el => el.closest("input, textarea, select, .hm, .kchart, .ixfig, svg, .mwrap, .chips, .hmseg, .dtabs, .apppill, .pmpgrid, .plan, .tape, .ticker, [data-noswipe], .hmcard, .pal, .ctxmenu");
     document.addEventListener("touchstart", e => {
       if (e.touches.length !== 1 || skip(e.target)) { on = false; return; }
       const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = Date.now(); dir = 0; on = true; pnl = panelOn();

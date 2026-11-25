@@ -56,7 +56,7 @@
   .topbar { flex-wrap: nowrap; gap: 8px; }
   .topbar .tb-right { flex-wrap: nowrap; gap: 6px; }
   .topbar .tb-right .btn { min-height: 34px; padding: 0 12px; }
-  .thseg button { height: 28px; padding: 0 7px; }
+
   .wsum { grid-template-columns: 1fr; padding: 14px 16px; }
   .wlead { justify-content: flex-start; }
 }
