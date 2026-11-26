@@ -207,33 +207,33 @@ async function twFut(cid = "TXF") {
       } catch (e) {}
     }
   }
-  if (cid !== "TXF") return null;   /* other futures: only TAIFEX's own list */
+  const ysym = cid === "TXF" ? "WTX%26" : "WEF%26", nm = cid === "TXF" ? "臺指期" : "電子期";
   try {
-    const r = await fetch("https://tw.stock.yahoo.com/_td-stock/api/resource/StockServices.stockList;fields=avgPrice;symbols=WTX%26", { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
+    const r = await fetch("https://tw.stock.yahoo.com/_td-stock/api/resource/StockServices.stockList;fields=avgPrice;symbols=" + ysym, { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
     const x = (await r.json())[0], raw = k => (x && x[k] && x[k].raw != null ? twNum(x[k].raw) : null);
     const lu = raw("limitUpPrice"), ld = raw("limitDownPrice");
     if (x && raw("price") > 0 && raw("price") !== lu && raw("price") !== ld) {   /* a quote sitting exactly on the limit price is Yahoo's placeholder, not a trade */
       const at = Date.parse(x.regularMarketTime || ""), tm = at ? new Date(at + 8 * 3600e3).toISOString().slice(11, 19) : "";
-      return tag({ n: "臺指期近一", z: raw("price"), y: raw("regularMarketPreviousClose"), o: raw("regularMarketOpen"), h: raw("regularMarketDayHigh"), l: raw("regularMarketDayLow"), v: twNum(x.volume), tm, via: "yahoo" },
+      return tag({ n: nm + "近一", z: raw("price"), y: raw("regularMarketPreviousClose"), o: raw("regularMarketOpen"), h: raw("regularMarketDayHigh"), l: raw("regularMarketDayLow"), v: twNum(x.volume), tm, via: "yahoo" },
         (night || day) && at && Date.now() - at < 20 * 60000);
     }
   } catch (e) {}
   try {
-    const r = await fetch("https://ws.api.cnyes.com/ws/api/v1/quote/quotes/TWF:TXF:FUTURES?column=I", { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
+    const r = await fetch("https://ws.api.cnyes.com/ws/api/v1/quote/quotes/TWF:" + cid + ":FUTURES?column=I", { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
     const x = ((await r.json()).data || [])[0];
     if (x && twNum(x["6"]) > 0) {
       const at = (+x["200007"] || 0) * 1000, tm = at ? new Date(at + 8 * 3600e3).toISOString().slice(11, 19) : "";
-      return tag({ n: "臺指期", z: twNum(x["6"]), y: twNum(x["21"]), o: twNum(x["19"]), h: twNum(x["12"]), l: twNum(x["13"]), v: twNum(x["800001"]), tm, via: "cnyes" },
+      return tag({ n: nm, z: twNum(x["6"]), y: twNum(x["21"]), o: twNum(x["19"]), h: twNum(x["12"]), l: twNum(x["13"]), v: twNum(x["800001"]), tm, via: "cnyes" },
         (night || day) && at && Date.now() - at < 20 * 60000);
     }
   } catch (e) {}
   try {
     const a = await (await twFetch("https://openapi.taifex.com.tw/v1/DailyMarketReportFut", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
     const month = x => String(x["ContractMonth(Week)"] || "").trim();
-    const x = a.find(r => String(r.Contract).trim() === "TX" && /^\d{6}$/.test(month(r)) && !/盤後|After/i.test(String(r.TradingSession || "")) && twNum(r.Last) > 0);
+    const x = a.find(r => String(r.Contract).trim() === (cid === "TXF" ? "TX" : "EXF") && /^\d{6}$/.test(month(r)) && !/盤後|After/i.test(String(r.TradingSession || "")) && twNum(r.Last) > 0);
     if (x) {
       const last = twNum(x.Last), chg = twNum(x.Change) || 0;
-      return { src: "eod", sess: "日盤", n: "臺指期 " + month(x), z: last, y: last - chg, o: twNum(x.Open), h: twNum(x.High), l: twNum(x.Low), v: twNum(x.Volume), tm: "", d: String(x.Date || "") };
+      return { src: "eod", sess: "日盤", n: nm + " " + month(x), z: last, y: last - chg, o: twNum(x.Open), h: twNum(x.High), l: twNum(x.Low), v: twNum(x.Volume), tm: "", d: String(x.Date || "") };
     }
   } catch (e) {}
   return null;
