@@ -177,8 +177,39 @@
     document.addEventListener("twdash:list", () => { if ($("#dpList .cm") && !$("#dpList .cm").hidden) cmPaint(false); });
     setInterval(ritualTick, 1000); ritualTick();
     swipe(); pull(); keys();
-    sideToggle(); popAnim();
+    sideToggle(); popAnim(); closeAnim(); actionAnim();
     window.TWDash.ritual = ritualShow;      /* TWDash.ritual("open") plays the opening animation for a look */
+  }
+  /* closing animates too: setting .hidden = true on a pop-open element first plays a short fade/sink, then hides it */
+  function closeAnim() {
+    const POP = ".ixdetail, .hmtip, .ktip, .kbcard, .sresults, .searchbox, [role=dialog], [role=tooltip], .popover, .menu-pop";
+    const d = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "hidden"); if (!d || !d.set) return;
+    const pend = new WeakMap();
+    Object.defineProperty(HTMLElement.prototype, "hidden", { configurable: true, enumerable: d.enumerable, get: d.get, set(v) {
+      const el = this;
+      if (pend.has(el)) { try { pend.get(el).cancel(); } catch (e) {} pend.delete(el); }
+      if (v && !d.get.call(el) && el.matches(POP) && el.isConnected && el.getClientRects().length) {
+        let a; try { a = el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(10px) scale(.98)" }], { duration: 240, easing: "ease-in", fill: "forwards" }); } catch (e) { d.set.call(el, v); return; }
+        pend.set(el, a);
+        a.onfinish = () => { pend.delete(el); d.set.call(el, true); try { a.cancel(); } catch (e) {} };
+        return;
+      }
+      d.set.call(el, v);
+    } });
+  }
+  /* anything an action adds to the page (rows, cards, results, panels) rises in; live refreshes stay quiet */
+  function actionAnim() {
+    let at = 0; const mark = () => { at = Date.now(); };
+    ["click", "keydown", "change", "submit", "pointerup"].forEach(t => document.addEventListener(t, mark, true));
+    new MutationObserver(ms => {
+      if (Date.now() - at > 1200) return;
+      let n = 0;
+      ms.forEach(m => m.addedNodes.forEach(el => {
+        if (el.nodeType !== 1 || n > 40 || el.closest(".side, .topbar, .sbtog, svg, .ixdetail")) return;
+        const h = el.getBoundingClientRect(); if (h.height < 24 || h.width < 40) return;
+        try { el.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 320, delay: Math.min(n, 12) * 28, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }); } catch (e) {} n++;
+      }));
+    }).observe(document.querySelector(".app") || document.body, { subtree: true, childList: true });
   }
   /* the left menu opens and closes; the choice is remembered. Closed: the top tabs take over navigation. */
   function sideToggle() {

@@ -267,3 +267,13 @@ html.vt-stk #dpStock .shead { view-transition-name: stkx; }
   body.sbhide .sbtog { left: 14px; background: var(--glass-bg, color-mix(in oklch, var(--color-paper) 70%, transparent)); box-shadow: 0 0 0 1px var(--glass-line, rgb(128 128 128 / .25)); backdrop-filter: blur(10px); }
   body.sbhide .dtabs { display: inline-flex !important; }
 }
+
+/* every control answers a touch or a hover */
+button, [role="button"], [role="tab"], summary, .chip, .ixcard, .dcard, .trow, .sb-row, .bd-row, .wrow, select, input[type="checkbox"], input[type="radio"] { transition: transform .18s cubic-bezier(.2,.8,.2,1), background-color .2s, border-color .2s, box-shadow .25s, color .2s, opacity .2s; }
+button:not(:disabled):active, [role="button"]:active, [role="tab"]:active, summary:active, .chip:active, .ixcard:active, .sb-row:active, .bd-row:active { transform: scale(.95); }
+button:not(:disabled):hover, .chip:hover, [role="tab"]:hover { transform: translateY(-1px); }
+.ixcard:hover, .dcard:hover { transform: translateY(-2px); }
+input:focus, select:focus, textarea:focus { animation: focuspulse .45s ease-out; }
+@keyframes focuspulse { from { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-accent) 55%, transparent); } to { box-shadow: 0 0 0 8px transparent; } }
+.dpanel { animation: dpin .35s cubic-bezier(.2,.8,.2,1); }
+@keyframes dpin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
