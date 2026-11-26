@@ -401,3 +401,19 @@ a, button, [role="button"], summary, label, input, select, .tp, .ixcard { touch-
 .fin-v { font: 600 9.5px var(--font-outlier, monospace); fill: var(--color-ink); } .fin-v.dn { fill: var(--color-down); }
 .fin-q { font: 500 9px var(--font-outlier, monospace); fill: var(--color-muted); }
 .fin-b rect { transition: opacity .15s; } .fqgrid:hover .fin-b rect { opacity: .75; } .fqgrid .fin-b:hover rect { opacity: 1; }
+/* top bar on narrow screens: chips on the left, buttons on the right, one tidy row */
+@media (max-width: 1099px) {
+  .app .topbar { flex-wrap: wrap; row-gap: 8px; gap: 6px; }
+  .app .topbar .mclock { flex: 1 0 100%; order: 9; }
+  .app .topbar .tb-brand:empty { display: none; }
+  .app .topbar .statuschip { flex: 0 1 auto; min-width: 0; padding: 4px 9px; font-size: 12px; white-space: nowrap; }
+  .app .topbar .tb-right { flex: 0 0 auto; flex-wrap: nowrap; margin-left: auto; gap: 4px; padding-right: 0 !important; }
+  .app .topbar .tb-right .btn, .app .topbar .tb-right .tbsearch, .app .topbar .tb-right .thdd > button { padding-left: 10px; padding-right: 10px; }
+  .app .topbar .tbsearch kbd, .app .topbar .tbsearch .kbd { display: none; }
+}
+@media (max-width: 520px) {
+  .app .topbar { padding: 8px 8px; }
+  .app .topbar .tb-right .thhelp { font-size: 12px; padding: 0 8px; }
+  .app .topbar .statuschip { padding: 3px 7px; font-size: 11px; gap: 4px; }
+  .app .topbar .statuschip > i { width: 7px; height: 7px; }
+}
