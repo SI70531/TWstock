@@ -2190,7 +2190,7 @@
   }
   tape.addEventListener("click", e => {
     const b = e.target.closest(".tp"); if (!b) return;
-    if (b.dataset.code) openStock(b.dataset.code, b); else { open("dpOverview", true); setTimeout(() => ixOpen(b.dataset.ix), 300); }
+    if (b.dataset.code) openStock(b.dataset.code, b); else { open("dpOverview", true); setTimeout(() => ixOpen(b.dataset.ix), 60); }
   });
 
   /* ---------------- live repaint ---------------- */
@@ -2225,7 +2225,7 @@
   }
   function open(id, animate, quiet) {
     const nb = tabs.find(t => t.dataset.p === id) || tabs[0];
-    if (animate && !quiet && cur && cur !== nb.dataset.p && document.startViewTransition && !document.hidden) {
+    if (false && animate && !quiet && cur && cur !== nb.dataset.p && document.startViewTransition && !document.hidden) {
       document.documentElement.style.setProperty("--vtd", tabs.indexOf(nb) > tabs.findIndex(t => t.dataset.p === cur) ? "1" : "-1");
       const vt = document.startViewTransition(() => openNow(id, animate, quiet)); [vt.ready, vt.finished, vt.updateCallbackDone].forEach(pr => pr && pr.catch(() => {}));
       return;

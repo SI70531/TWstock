@@ -388,3 +388,4 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 .dpanel.on { animation: panelin .26s cubic-bezier(.2,.9,.3,1); }
 ::view-transition-old(panels) { animation-duration: .1s; }
 ::view-transition-new(panels) { animation-duration: .24s; }
+a, button, [role="button"], summary, label, input, select, .tp, .ixcard { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
