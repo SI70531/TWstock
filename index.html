@@ -36,6 +36,7 @@
   <link rel="stylesheet" href="./assets/twpulse.css?v=20261129s">
   <link rel="stylesheet" href="./assets/twplay.css?v=20261129s">
   <link rel="stylesheet" href="./assets/twextra.css?v=20261129s">
+  <link rel="stylesheet" href="./assets/twnew.css?v=20261129s">
 </head>
 <body>
 <script src="./assets/twintro.js?v=20261129s"></script>
@@ -65,10 +66,13 @@
       <div class="dtabs" role="tablist" aria-label="儀表板分頁">
         <i class="pill"></i>
         <button type="button" role="tab" data-p="dpOverview" aria-selected="true">總覽</button>
+        <button type="button" role="tab" data-p="dpChip" aria-selected="false">籌碼</button>
+        <button type="button" role="tab" data-p="dpInd" aria-selected="false">產業</button>
         <button type="button" role="tab" data-p="dpCal" aria-selected="false">市場日曆</button>
-        <button type="button" role="tab" data-p="dpPre" aria-selected="false">分析</button>
         <button type="button" role="tab" data-p="dpList" aria-selected="false">股票</button>
         <button type="button" role="tab" data-p="dpHold" aria-selected="false">持股與損益</button>
+        <button type="button" role="tab" data-p="dpPre" aria-selected="false">分析</button>
+        <button type="button" role="tab" data-p="dpRev" aria-selected="false">復盤</button>
         <button type="button" role="tab" data-p="dpStock" aria-selected="false" hidden data-under="dpList">個股分析</button>
       </div>
       <div class="dpanels">
@@ -77,6 +81,9 @@
         <div class="dpanel" id="dpList" role="tabpanel"></div>
         <div class="dpanel" id="dpHold" role="tabpanel"></div>
         <div class="dpanel" id="dpCal" role="tabpanel"></div>
+        <div class="dpanel" id="dpChip" role="tabpanel"></div>
+        <div class="dpanel" id="dpInd" role="tabpanel"></div>
+        <div class="dpanel" id="dpRev" role="tabpanel"></div>
         <div class="dpanel" id="dpWatch" role="tabpanel"></div>
         <div class="dpanel" id="dpStock" role="tabpanel"></div>
       </div>
@@ -91,5 +98,6 @@
 <script src="./assets/twplay.js?v=20261129s"></script>
 <script src="./assets/twmore.js?v=20261129s"></script>
 <script src="./assets/twextra.js?v=20261129s"></script>
+<script src="./assets/twnew.js?v=20261129s"></script>
 </body>
 </html>

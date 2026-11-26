@@ -1,0 +1,40 @@
+/* 籌碼 / 產業 / 復盤 pages (twnew.js) */
+.nwgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.nwgrid > .dcard { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+.nwgrid > .dcard { grid-column: auto !important; width: auto; max-width: none; }
+.nwgrid > .wide { grid-column: 1 / -1 !important; }
+@media (max-width: 900px) { .nwgrid { grid-template-columns: minmax(0, 1fr); } }
+/* 總覽 boards that lost a card keep the full row instead of a half-empty one */
+.board3.solo { grid-template-columns: minmax(0, 1fr); }
+.board2.solo > .dcard { grid-column: 1 / -1; }
+/* 融資融券 */
+.mgsum { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mgsum > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 14px; background: var(--glass-2); border: 1px solid var(--glass-line); }
+.mgsum span { font-size: var(--text-xs); color: var(--color-muted); }
+.mgsum b { font-family: var(--font-mono, inherit); font-size: var(--text-lg, 1.15rem); font-variant-numeric: tabular-nums; }
+.mgsum i { font-style: normal; font-size: var(--text-sm); font-variant-numeric: tabular-nums; }
+.mgout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 14px; }
+@media (max-width: 720px) { .mgout { grid-template-columns: minmax(0, 1fr); } }
+.mgrow { display: grid !important; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; }
+.mgbar { height: 8px; border-radius: 999px; background: var(--glass-2); overflow: hidden; }
+.mgbar i { display: block; height: 100%; border-radius: 999px; transform-origin: left center; }
+.mgbar i.up { background: var(--color-up); } .mgbar i.down { background: var(--color-down); }
+.mgrow .rr { display: flex; flex-direction: column; align-items: flex-end; }
+.mgrow .rr i { margin: 0; font-style: normal; font-size: var(--text-xs); color: var(--color-muted); }
+/* 產業 */
+.ir .irout, .nwgrid > .gp .gpout { display: block; }
+.gpbar i { transform-origin: left center; }
+/* 復盤 */
+.rvtiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@media (max-width: 720px) { .rvtiles { grid-template-columns: minmax(0, 1fr); } }
+.rvt { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 12px 14px 16px; border-radius: 14px; background: var(--glass-2); border: 1px solid var(--glass-line); overflow: hidden; }
+.rvt span { font-size: var(--text-xs); color: var(--color-muted); }
+.rvt b { font-size: 1.7rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.rvt em { font-style: normal; font-size: var(--text-xs); color: var(--color-muted); }
+.rvt i { position: absolute; left: 0; bottom: 0; height: 4px; width: var(--w); background: var(--color-accent); border-radius: 0 4px 4px 0; transform-origin: left center; }
+.rvconf { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 12px 0; }
+.rvc { display: inline-flex; gap: 6px; align-items: baseline; padding: 4px 12px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--glass-line); font-variant-numeric: tabular-nums; }
+.rvc b { font-weight: 500; color: var(--color-muted); font-size: var(--text-xs); }
+.rvc em { font-style: normal; font-size: var(--text-xs); color: var(--color-muted); }
+.rvtbl td, .rvtbl th { text-align: right; white-space: nowrap; }
+.rvtbl td.l, .rvtbl th.l { text-align: left; }

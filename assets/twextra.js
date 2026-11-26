@@ -676,18 +676,17 @@
     $(".logpm", el).innerHTML = P.length ? table(["日期", "開盤預測", "實際跳空", "開盤結果", "收盤預測", "實際漲跌", "收盤結果"], P.slice(0, 60).map(x => `<tr><td class="l">${A.esc(x.day)}</td><td>${A.esc(x.call)}</td><td>${ok(x.openGap) ? A.signed(x.openGap, 0) + " 點" : "—"}</td><td>${mark(x.openOk)}</td><td>${A.esc(x.close || "—")}</td><td>${ok(x.chg) ? A.signed(x.chg, 0) + " 點" : "—"}</td><td>${mark(x.closeOk)}</td></tr>`)) : msg("還沒有紀錄。開過「盤前分析」頁後會記下。");
   }
 
-  /* ---------------- 分析 → 命中率 ---------------- */
-  const logCard = () => $("#dpPre .xlog");
-  const logBox = () => $("#dpPre .xlogbody");
-  const logShown = () => { const c = logCard(); return !!c && !c.hidden && A.tabNow() === "dpPre"; };
+  /* ---------------- 復盤 → 命中率 ---------------- */
+  const logCard = () => $("#dpRev .xlog");
+  const logBox = () => $("#dpRev .xlogbody");
+  const logShown = () => { const c = logCard(); return !!c && !c.hidden && A.tabNow() === "dpRev"; };
   function mountLog() {
-    const pre = document.getElementById("dpPre"), tab = pre && $('.anasub [data-sub="re"]', pre); if (!tab) return;
-    const card = document.createElement("div"); card.className = "dcard xlog"; card.dataset.sub = "re";
+    const rev = document.getElementById("dpRev"); if (!rev) return;
+    const card = document.createElement("div"); card.className = "dcard xlog";
     card.innerHTML = `<div class="xlogbody"></div>`;
-    card.hidden = tab.getAttribute("aria-selected") !== "true";
-    pre.appendChild(card);
+    rev.appendChild(card);
     buildLog(); paintLog();
-    tab.addEventListener("click", () => paintLog());
+    document.addEventListener("twdash:revopen", () => paintLog());
   }
 
   /* ---------------- start ---------------- */

@@ -82,6 +82,8 @@ export default {
     if (url.pathname === "/tw/world" && req.method === "GET") return twWorldRoute(json, fail);
     if (url.pathname === "/tw/futchip" && req.method === "GET") return twFutChip(env, json, fail);
     if (url.pathname === "/tw/margin" && req.method === "GET") return twMargin(url, json, fail);
+    if (url.pathname === "/tw/margintop" && req.method === "GET") return twMarginTop(json, fail);
+    if (url.pathname === "/tw/review" && req.method === "GET") return json({ rows: await reviewRows(env) }, 200, { "Cache-Control": "no-store" });
     if (url.pathname === "/tw/holders" && req.method === "GET") return twHolders(url, json, fail);
     if (url.pathname === "/tw/pe" && req.method === "GET") return twPe(url, json, fail);
     if (url.pathname === "/tw/open" && req.method === "GET") return twOpen(url, json, fail);
@@ -1155,6 +1157,38 @@ async function twMargin(url, json, fail) {
   return json({ code: c, rows }, 200, { "Cache-Control": "public, max-age=600" });
 }
 
+/* market-wide margin ranking: the biggest rises and falls of 融資 and 融券 balances on the latest day TWSE has published */
+async function twMarginTop(json, fail) {
+  let day = "", m = null;
+  for (const ds of taipeiDays(10)) {
+    try { m = await twMarginDay(ds); } catch (e) { twCache.delete("margin:" + ds); m = null; }
+    if (m && Object.keys(m).length > 100) { day = ds; break; } else twCache.delete("margin:" + ds);
+  }
+  if (!day) return fail(502, "NO_DATA", "證交所的融資融券資料暫時讀不到");
+  const rows = Object.entries(m).map(([c, r]) => ({ c, fin: r[1], finChg: r[1] - r[0], sht: r[3], shtChg: r[3] - r[2], finPct: r[0] > 0 ? (r[1] / r[0] - 1) * 100 : 0 })).filter(x => x.fin != null && x.sht != null);
+  const top = (arr, key, dir, n) => arr.slice().sort((a, b) => (b[key] - a[key]) * dir).slice(0, n).map(x => [x.c, x.fin, x.finChg, x.sht, x.shtChg]);
+  const finBig = rows.filter(x => x.fin >= 1000), shtBig = rows.filter(x => x.sht >= 100);
+  return json({ day: day.slice(0, 4) + "-" + day.slice(4, 6) + "-" + day.slice(6), unit: "張",
+    finUp: top(finBig, "finChg", 1, 10), finDown: top(finBig, "finChg", -1, 10), shtUp: top(shtBig, "shtChg", 1, 10), shtDown: top(shtBig, "shtChg", -1, 10),
+    total: { fin: rows.reduce((a, x) => a + x.fin, 0), finChg: rows.reduce((a, x) => a + x.finChg, 0), sht: rows.reduce((a, x) => a + x.sht, 0), shtChg: rows.reduce((a, x) => a + x.shtChg, 0) } }, 200, { "Cache-Control": "public, max-age=600" });
+}
+
+/* 復盤: each trading day, the pre-market call checked against what really happened (written when the close summary is made, kept for 120 days) */
+async function reviewRows(env) {
+  const v = await pmStore(env, "kv", { k: "review" }).then(r => r.v).catch(() => null);
+  return Array.isArray(v) ? v : [];
+}
+async function reviewSave(env, day, pre, open, X) {
+  if (!pre || !X || !(X.pct != null)) return;
+  const openHit = (c, g) => (/高/.test(c) ? g > 20 : /低/.test(c) ? g < -20 : Math.abs(g) <= 60);
+  const closeHit = (c, p) => (/紅/.test(c) ? p > 0.2 : /黑/.test(c) ? p < -0.2 : Math.abs(p) <= 0.2);
+  const gap = open && Number.isFinite(open.gapPoints) ? open.gapPoints : null, pc = pre.close && pre.close.call ? pre.close.call : null;
+  const e = { day, conf: pre.confidence || "", open: pre.call ? { call: pre.call, gap: pre.gap || "", actual: gap, hit: gap == null ? null : openHit(pre.call, gap) } : null,
+    close: pc ? { call: pc, range: pre.close.range || "", actual: Math.round(X.pct * 100) / 100, z: X.z, hit: closeHit(pc, X.pct) } : null };
+  const rows = (await reviewRows(env)).filter(x => x && x.day !== day); rows.push(e);
+  await pmStore(env, "kv", { k: "review", set: rows.slice(-120) });
+}
+
 /* shareholding distribution (集保戶股權分散表): one big weekly file, read once and searched as text */
 /* the TDCC file covers the whole market (tens of MB): stream it, keep only the rows of the stock asked for and stop reading there */
 async function twTdccRows(c) {
@@ -1398,6 +1432,7 @@ async function closeNote(env, notify, manual) {
   const note = { at: Date.now(), day, analysis: a, data: { taiex: rep.taiex, turnoverYi: rep.turnoverYi, breadth: rep.breadth, sectors: rep.sectors, institutions: inst || [], mine: D.mine }, news: news.slice(0, 10).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
   const saved = await pmStore(env, "cput", { note }).catch(e => ({ error: String(e && e.message || e) }));
   if (!saved || !saved.ok) note.saveError = (saved && saved.error) || "not saved";
+  await reviewSave(env, day, pre, D.open, rep.taiex).catch(() => {});
   /* the owner's stocks newly on the attention or disposition list: each one is told once (forgotten 10 days after it was last seen) */
   const was = await pmStore(env, "flags").catch(() => ({})), keep = {}, newly = [], cut = new Date(Date.now() + 8 * 3600e3 - 10 * 864e5).toISOString().slice(0, 10);
   Object.entries(was || {}).forEach(([k, v]) => { if (typeof v === "string" && v >= cut) keep[k] = v; });

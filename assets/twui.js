@@ -14,6 +14,9 @@
     dpHold: '<rect x="3.5" y="7" width="17" height="12" rx="2.5"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7M3.5 12.5h17"/>',
     dpCal: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
     dpWatch: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+    dpChip: '<path d="M4 18V9M10 18V5M16 18v-7M21 18H3"/><circle cx="19" cy="6" r="2"/>',
+    dpInd: '<rect x="3.5" y="3.5" width="7" height="9" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="15.5" width="7" height="5" rx="1.5"/>',
+    dpRev: '<path d="M4 12a8 8 0 1 0 2.5-5.8"/><path d="M4 4v4.5h4.5"/><path d="M12 8v4.5l3 1.5"/>',
     dpStock: '<path d="M6 4v4M6 12v8M12 6v10M18 3v5M18 12v9"/><rect x="4.5" y="8" width="3" height="4" rx=".6"/><rect x="16.5" y="8" width="3" height="4" rx=".6"/>',
   };
   let A = null;

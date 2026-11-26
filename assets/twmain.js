@@ -450,7 +450,7 @@
     const box = $("#dpOverview");
     $(".msearch", box).addEventListener("input", e => { VIEW.q = e.target.value.trim(); VIEW.dist = null; VIEW.shown = 50; paintTable(true); });
     root.addEventListener("click", e => {
-      if (!e.target.closest("#dpOverview, #dpPre, #dpList")) return;
+      if (!e.target.closest("#dpOverview, #dpPre, #dpList, #dpChip, #dpInd, #dpRev")) return;
       const p = e.target.closest("[data-preset]");
       if (p) {
         VIEW.q = ""; $("#dpList .msearch").value = ""; VIEW.dist = null;
@@ -470,12 +470,12 @@
       if (e.target.closest(".clgo")) { clRun(e.target.closest(".clgo")); return; }
       if (e.target.closest(".hmback")) { heatZoom(null); return; }
       const hv = e.target.closest(".hmseg [data-hv]");
-      if (hv) { const k = hv.closest(".hmseg").dataset.hk; if (HEAT[k] !== hv.dataset.hv) { HEAT[k] = hv.dataset.hv; heatCardClose($("#dpOverview .hm")); paintHeat(false); } return; }
+      if (hv) { const k = hv.closest(".hmseg").dataset.hk; if (HEAT[k] !== hv.dataset.hv) { HEAT[k] = hv.dataset.hv; heatCardClose($(".hm")); paintHeat(false); } return; }
       const hcg = e.target.closest(".hmc-go"); if (hcg) { const c = hcg.closest(".hmcard"); openStock(c.dataset.code, c); return; }
-      if (e.target.closest(".hmc-x")) { heatCardClose($("#dpOverview .hm")); return; }
+      if (e.target.closest(".hmc-x")) { heatCardClose($(".hm")); return; }
       if (e.target.closest(".hmcard")) return;
       const hmt = e.target.closest(".hmt"); if (hmt) { heatRipple(hmt, e); if (hmt.dataset.code) heatCard(hmt); else setTimeout(() => heatZoom(hmt), 160); return; }
-      if (e.target.closest(".hm")) { heatCardClose($("#dpOverview .hm")); return; }
+      if (e.target.closest(".hm")) { heatCardClose($(".hm")); return; }
       const sk = e.target.closest("[data-stk]"); if (sk) { STRK.tab = sk.dataset.stk; paintStreak(true); return; }
       const dc = e.target.closest("[data-dist]");
       if (dc) { VIEW.q = ""; $("#dpList .msearch").value = ""; VIEW.dist = +dc.dataset.dist; VIEW.key = "vol"; VIEW.dir = -1; VIEW.shown = 50; open("dpList", true); paintTable(true); return; }
@@ -490,15 +490,15 @@
     /* the pre-market note and the stock list each have their own tab */
     /* 分析: one tab with three parts (收盤摘要, 盤前分析, 盤中分析), one shown at a time */
     const pre = $("#dpPre");
-    pre.insertAdjacentHTML("beforeend", `<div class="anasub" role="tablist" aria-label="分析">${[["cl", "收盤"], ["pm", "盤前"], ["md", "盤中"], ["wk", "週回顧"], ["re", "命中率"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
+    pre.insertAdjacentHTML("beforeend", `<div class="anasub" role="tablist" aria-label="分析">${[["cl", "收盤"], ["pm", "盤前"], ["md", "盤中"], ["wk", "週回顧"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
     const pmc = $(".pm:not(.md)", box), mdc = $(".pm.md", box), clc = $(".cl", box), wkc = $(".wk", box);
     clc.dataset.sub = "cl"; pmc.dataset.sub = "pm"; mdc.dataset.sub = "md"; wkc.dataset.sub = "wk";
     pre.appendChild(clc); pre.appendChild(pmc); pre.appendChild(mdc); pre.appendChild(wkc);
     $(".anasub", pre).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) anaSub(b.dataset.sub, true); });
     anaSub(anaDefault(), false); mdGate();
     const instc = $(".inst", box), mktc = $(".mkt", box), dl = $("#dpList");
-    dl.insertAdjacentHTML("afterbegin", `<div class="anasub lsub" role="tablist" aria-label="股票">${[["ls", "清單"], ["sc", "選股"], ["rv", "營收"], ["gp", "族群"], ["in", "法人"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
-    mktc.dataset.sub = "ls"; instc.dataset.sub = "in"; dl.appendChild(mktc); dl.appendChild(instc); instInit(instc); lstBuild(dl);
+    dl.insertAdjacentHTML("afterbegin", `<div class="anasub lsub" role="tablist" aria-label="股票">${[["ls", "清單"], ["sc", "選股"], ["rv", "營收"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
+    mktc.dataset.sub = "ls"; dl.appendChild(mktc); instInit(instc); lstBuild(dl);
     $(".lsub", dl).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) lstSub(b.dataset.sub, true); });
     lstSub((() => { try { return sessionStorage.getItem("twlst") || "ls"; } catch (e) { return "ls"; } })(), false);
     $(".wkgo", wkc).addEventListener("click", e => wkRun(e.currentTarget));
@@ -656,7 +656,7 @@
     return [...G.values()].map(g => Object.assign(g, { pct: g.wp / g.val })).sort((a, b) => b.val - a.val);
   }
   function paintHeat(animate) {
-    const card = $("#dpOverview .bd-heat"); if (!card) return;
+    const card = $(".bd-heat"); if (!card) return;
     const hm = $(".hm", card), head = $(".hmsel", card);
     if (!DB.list.length) return;
     if (!INDMAP) { hm.innerHTML = `<p class="sub hmwait">${DB.live ? "產業分類還沒發布，稍後會出現。" : "示意資料模式下沒有熱力圖。"}</p>`; return; }
@@ -729,7 +729,7 @@
     tip.style.transform = `translate(${Math.round(x + 16 + w > r.width ? x - w - 14 : x + 16)}px, ${Math.round(y + 16 + h > r.height ? Math.max(4, y - h - 12) : y + 16)}px)`;
   }
   function heatZoom(tile) {
-    const hm = $("#dpOverview .hm"); if (!hm) return;
+    const hm = $(".hm"); if (!hm) return;
     $(".hmcard", hm) && $(".hmcard", hm).remove(); hm.classList.remove("focus");
     const hr = hm.getBoundingClientRect(), from = HEAT.sel;
     const box = el => { const r = el.getBoundingClientRect(); return { x: r.left - hr.left, y: r.top - hr.top, w: r.width, h: r.height, bg: getComputedStyle(el).backgroundColor }; };
@@ -805,7 +805,7 @@
     if (c) c.animate([{ opacity: 1 }, { opacity: 0, transform: "scale(.9)" }], { duration: 160 }).onfinish = () => c.remove();
   }
   let heatRT = 0;
-  addEventListener("resize", () => { clearTimeout(heatRT); heatRT = setTimeout(() => { const hm = $("#dpOverview .hm"); if (hm && hm.clientWidth !== HEAT.w) { HEAT.w = hm.clientWidth; HEAT.sig = ""; paintHeat(false); } }, 200); });
+  addEventListener("resize", () => { clearTimeout(heatRT); heatRT = setTimeout(() => { const hm = $(".hm"); if (hm && hm.clientWidth !== HEAT.w) { HEAT.w = hm.clientWidth; HEAT.sig = ""; paintHeat(false); } }, 200); });
 
   /* ---------------- 注意股 / 處置股 (TWSE announcements; TPEx refuses other sites, so 上櫃 stocks are not covered) ---------------- */
   const FLAGS = new Map();                         /* code → { k: "punish" | "notice", t, info } */
@@ -877,7 +877,7 @@
     STRK.days = days; STRK.busy = false;
     paintStreak(true);
   }
-  const paintStreakNote = t => { const el = $("#dpOverview .bd-strk .bd-list"); if (el && !STRK.days) el.innerHTML = `<p class="sub">${esc(t)}</p>`; };
+  const paintStreakNote = t => { const el = $(".bd-strk .bd-list"); if (el && !STRK.days) el.innerHTML = `<p class="sub">${esc(t)}</p>`; };
   function streakRows(k, sg) {
     const D = STRK.days, out = [];
     D[0].m.forEach((v, c) => {
@@ -889,7 +889,7 @@
     return out.sort((a, b) => b.n - a.n || Math.abs(b.sum) - Math.abs(a.sum)).slice(0, 10);
   }
   function paintStreak(animate) {
-    const card = $("#dpOverview .bd-strk"); if (!card) return;
+    const card = $(".bd-strk"); if (!card) return;
     $$("[data-stk]", card).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.stk === STRK.tab)));
     if (!STRK.days) return;
     const D = STRK.days, el = $(".bd-list", card);
@@ -927,13 +927,14 @@
   }
   function anaSub(k, animate) {
     const pre = $("#dpPre"), bar = $(".anasub", pre); if (!bar) return;
+    if (!["cl", "pm", "md", "wk"].includes(k)) k = "pm";
     const prev = ANA; ANA = k;
     try { if (animate) sessionStorage.setItem("twana", k); } catch (e) {}
     const bs = $$("[data-sub]", bar), b = bs.find(x => x.dataset.sub === k) || bs[1];
     bs.forEach(x => x.setAttribute("aria-selected", String(x === b)));
     anaMark(bar);
     if (!bar._ro && window.ResizeObserver) { bar._ro = new ResizeObserver(() => anaMark(bar, true)); bar._ro.observe(bar); } /* the bar has no size while 分析 is hidden: place the highlight again once it shows */
-    const order = ["cl", "pm", "md", "wk", "re"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
+    const order = ["cl", "pm", "md", "wk"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
     $$(".dcard[data-sub]", pre).forEach(c => {
       const on = c.dataset.sub === k; c.hidden = !on;
       if (on && animate) { c.animate([{ opacity: 0, transform: `translateX(${dir * 40}px)` }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.16,1,.3,1)" }); rise($$(".lrise", c), 50, 120); }
@@ -1026,7 +1027,8 @@
   let LST = "ls";
   function lstSub(k, animate) {
     const dl = $("#dpList"), bar = $(".lsub", dl); if (!bar) return;
-    const order = ["ls", "sc", "rv", "gp", "in"], prev = LST; LST = k;
+    if (!["ls", "sc", "rv"].includes(k)) k = "ls";
+    const order = ["ls", "sc", "rv"], prev = LST; LST = k;
     try { if (animate) sessionStorage.setItem("twlst", k); } catch (e) {}
     const bs = $$("[data-sub]", bar), b = bs.find(x => x.dataset.sub === k) || bs[0];
     bs.forEach(x => x.setAttribute("aria-selected", String(x === b)));
@@ -1037,7 +1039,7 @@
       const on = c.dataset.sub === k; c.hidden = !on;
       if (on && animate) c.animate([{ opacity: 0, transform: `translateX(${dir * 40}px)` }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.16,1,.3,1)" });
     });
-    if (k === "sc") scGo(); else if (k === "rv") rvGo(); else if (k === "gp") gpPaint(); else if (k === "in") instLoad();
+    if (k === "sc") scGo(); else if (k === "rv") rvGo();
   }
   const stockish = s => /^\d{4}$/.test(s.code) && s.mkt !== "esb";
   const rowBtn = (s, right, sub) => `<button type="button" class="instrow" data-code="${esc(s.code)}"><span class="nm"><b>${esc(s.name)}</b><em>${esc(s.code)}${sub ? "・" + sub : ""}</em></span><span class="rr">${right}</span></button>`;
@@ -1137,9 +1139,9 @@
     ["鋼鐵", ["2002", "2014", "2015", "2006", "2027"]],
   ];
   function gpPaint() {
-    const el = $("#dpList .gpout"); if (!el) return;
+    const el = $(".gpout"); if (!el) return;
     if (!DB.live || !DB.list.length) { el.innerHTML = `<p class="sub">示意資料模式下沒有族群資料。</p>`; return; }
-    const open = new Set($$("#dpList .gpg.open .gpname").map(x => x.textContent));
+    const open = new Set($$(".gpg.open .gpname").map(x => x.textContent));
     const gs = GROUPS.map(([n, cs]) => { const ms = cs.map(c => DB.by.get(c)).filter(s => s && s.price > 0 && ok(s.pct)); return { n, ms, avg: ms.length ? ms.reduce((t, s) => t + s.pct, 0) / ms.length : null, up: ms.filter(s => s.chg > 0).length }; }).filter(g => g.ms.length >= 3).sort((a, b) => b.avg - a.avg);
     const mx = Math.max(1, ...gs.map(g => Math.abs(g.avg)));
     el.innerHTML = gs.map(g => `<div class="gpg${open.has(g.n) ? " open" : ""}"><button type="button" class="gphead"><span class="gpname">${esc(g.n)}</span><span class="gpbar"><i class="${tone(g.avg)}" style="width:${Math.max(4, Math.abs(g.avg) / mx * 100).toFixed(0)}%"></i></span><b class="${tone(g.avg)}">${pct(g.avg)}</b><em>${g.up}/${g.ms.length} 漲</em></button><div class="gpmem">${g.ms.slice().sort((a, b) => b.pct - a.pct).map(s => `<button type="button" data-code="${esc(s.code)}"><span>${esc(s.name)}</span><i class="${tone(s.pct)}">${pct(s.pct)}</i></button>`).join("")}</div></div>`).join("");
@@ -1154,12 +1156,12 @@
     card.addEventListener("click", e => { const r = e.target.closest(".instrow"); if (r) openStock(r.dataset.code, r); });
   }
   async function instLoad() {
-    const el = $("#dpList .instout"); if (!el) return;
+    const el = $(".instout"); if (!el) return;
     try { INST.data = await J(`${WORKER}/tw/instrank`); } catch (e) { el.innerHTML = `<p class="sub">法人買賣超需要部署新版 Worker，或證交所還沒有資料。</p>`; return; }
     instPaint(true);
   }
   function instPaint(animate) {
-    const card = $("#dpList .inst"), D = INST.data; if (!card || !D) return;
+    const card = $(".inst"), D = INST.data; if (!card || !D) return;
     const el = $(".instout", card), g = (D.groups || {})[INST.g] || { buy: [], sell: [] };
     $(".instday", card).textContent = String(D.day).slice(5).replace("-", "/") + "・單位：張";
     const col = (title, arr, cls) => `<div class="instcol"><h4>${title}</h4>${arr.length ? arr.map(([c, n, v]) => `<button type="button" class="instrow" data-code="${esc(c)}"><span class="nm"><b>${esc(n)}</b><em>${esc(c)}</em></span><span class="${cls}">${v > 0 ? "+" : ""}${Number(v).toLocaleString("zh-TW")}</span></button>`).join("") : `<p class="sub">沒有資料</p>`}</div>`;
@@ -1189,7 +1191,7 @@
     } catch (e) { el.innerHTML = `<p class="sub">國際行情需要部署新版 Worker，或暫時讀不到。</p>`; }
   }
   async function ftLoad() {
-    const el = $("#dpOverview .ftout"); if (!el) return;
+    const el = $(".ftout"); if (!el) return;
     try {
       const j = await J(`${WORKER}/tw/futchip`), who = [["f", "外資"], ["t", "投信"], ["d", "自營商"]];
       const mx = Math.max(1, ...who.map(([k]) => Math.abs((j[k] || {}).net || 0)));
@@ -2305,6 +2307,7 @@
     cur = b.dataset.p;
     try { sessionStorage.setItem("twdash-tab", cur); } catch (e) {}
     navPush();
+    document.dispatchEvent(new CustomEvent("twdash:tab", { detail: cur }));
     if (!quiet) {
       /* panel content rises in one block after another; then the figures inside draw themselves */
       rise(Array.from(panel.children), 80);
@@ -2379,7 +2382,7 @@
 
   /* ---------- the command palette (Ctrl+K): any stock, any tab, light / dark ---------- */
   let pal = null;
-  const PAGES = [["dpOverview", "總覽", "大盤、法人、注意股"], ["dpPre", "分析", "AI 收盤摘要、盤前與盤中分析"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"]];
+  const PAGES = [["dpOverview", "總覽", "大盤、國際行情、漲跌排行"], ["dpChip", "籌碼", "法人、融資融券、期貨籌碼"], ["dpInd", "產業", "類股熱力圖、產業強弱、族群"], ["dpCal", "市場日曆", "除權息、股東會、總經事件"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "AI 收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"]];
   function palOpen() {
     if (pal) { $("input", pal).focus(); return; }
     pal = document.createElement("div"); pal.className = "pal"; pal.setAttribute("role", "dialog"); pal.setAttribute("aria-modal", "true"); pal.setAttribute("aria-label", "搜尋");
@@ -2469,7 +2472,7 @@
   });
   window.TWDash = { replay: () => open(cur, false),
     /* shared with the 研究室 tab (assets/twlab.js) */
-    api: { DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
+    api: { paintHeat, gpPaint, instLoad, ftLoad, paintStreak, heatGroups, heatTip, heatFocus, segMark, DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
       refresh: () => Promise.all([rtPoll(), pmLoad(), pmLoad(true), clLoad()]).then(() => open(cur, true)),
       rtPoll, quoteNow,
       store, worker: WORKER, openTab: p => open(p, true), lstSub: k => lstSub(k, true), tabNow: () => cur, ixk: () => IXV.k, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
