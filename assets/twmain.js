@@ -1273,7 +1273,7 @@
     xtGet("holders", code).then(j => {
       const L = j.levels || [], g = (a, b) => Math.round(L.filter(x => x.lv >= a && x.lv <= b).reduce((t, x) => t + (x.pct || 0), 0) * 100) / 100;
       const bands = [["10 張以下", g(1, 3)], ["10–50 張", g(4, 8)], ["50–200 張", g(9, 10)], ["200–400 張", g(11, 11)], ["400–1,000 張", g(12, 14)], ["1,000 張以上", g(15, 15)]], mx = Math.max(1, ...bands.map(b => b[1]));
-      put("shd", `<div class="hdtiles"><div><span>千張大戶持股</span><b>${j.big1000.toFixed(2)}%</b></div><div><span>400 張以上</span><b>${j.big400.toFixed(2)}%</b></div><div><span>10 張以下散戶</span><b>${j.small10.toFixed(2)}%</b></div><div><span>股東人數</span><b>${Number(j.totalPeople).toLocaleString("zh-TW")}</b></div></div>${bands.map(([n, v]) => `<div class="hdrow"><span>${n}</span><span class="hdbar"><i style="width:${Math.max(2, v / mx * 100).toFixed(0)}%"></i></span><b>${v.toFixed(2)}%</b></div>`).join("")}`, String(j.date).slice(5).replace("-", "/") + " 週資料");
+      put("shd", `<div class="hdtiles"><div><span>千張大戶持股</span><b>${j.big1000.toFixed(2)}%</b></div><div><span>400 張以上</span><b>${j.big400.toFixed(2)}%</b></div><div><span>10 張以下散戶</span><b>${j.small10.toFixed(2)}%</b></div><div><span>股東人數</span><b>${Number(j.totalPeople).toLocaleString("zh-TW")}</b></div></div>${bands.map(([n, v]) => `<div class="hdrow"><span>${n}</span><span class="hdbar"><i style="width:${Math.max(1, Math.min(100, v)).toFixed(0)}%"></i></span><b>${v.toFixed(2)}%</b></div>`).join("")}`, String(j.date).slice(5).replace("-", "/") + " 週資料");
     }, () => put("shd", miss("沒有資料")));
     if (!/^00/.test(code)) peRiver(code, tok, put);
     finGlance(code, put);
