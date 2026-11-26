@@ -295,3 +295,7 @@ table thead th:hover { color: var(--color-ink); }
 tbody tr, .bd-row, .sk-row, .fl-row, .cl-row, .fgr, .ftrow, .wdcell, .mcell { transition: background-color .2s, transform .2s; }
 tbody tr:hover, .fgr:hover, .ftrow:hover, .wdcell:hover { background: color-mix(in oklch, var(--color-accent) 12%, transparent); }
 svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hover { filter: brightness(1.18) saturate(1.2); }
+
+/* the back button and the search box sit in a card of their own above the stock header */
+#dpStock > .sbar { grid-column: 1 / -1; position: relative; z-index: 25; overflow: visible; padding: 10px; }
+#dpStock > .sbar .sfind { margin: 0; }

@@ -1562,8 +1562,8 @@
   const INDS = [["ma", "均線"], ["boll", "布林通道"], ["vol", "成交量"], ["kd", "KD"], ["macd", "MACD"], ["rsi", "RSI"]];
   function buildStock() {
     $("#dpStock").innerHTML = `
+      <div class="dcard sbar"><div class="sfind"><button type="button" class="sback" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span></span></button><input class="ssearch" type="search" placeholder="輸入代號或名稱換一檔" aria-label="搜尋股票" autocomplete="off"><div class="ssug" hidden></div></div></div>
       <div class="dcard shead"><i class="sglow" aria-hidden="true"></i>
-        <div class="sfind"><button type="button" class="sback" hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span></span></button><input class="ssearch" type="search" placeholder="輸入代號或名稱換一檔" aria-label="搜尋股票" autocomplete="off"><div class="ssug" hidden></div></div>
         <div class="stitle"><h2></h2></div>
         <p class="sflagline" hidden></p>
         <div class="spx"><span class="big">—</span><span class="schg"></span><span class="sub stime"></span></div>
