@@ -248,8 +248,9 @@ html.vt-stk #dpStock .shead { view-transition-name: stkx; }
 :root .ixcard svg.spark path, :root .ixcard svg.spark.up path, :root .ixcard svg.spark.down path { stroke: #3b82c4; }
 
 /* the line draws left to right in the same 0.7 s (ease-out cubic) as the number count-up, so both finish together */
-:root .ixcard svg.spark path.spdraw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: spdraw .7s cubic-bezier(.215,.61,.355,1) forwards; }
-@keyframes spdraw { to { stroke-dashoffset: 0; } }
+/* drawn left to right with a clip (a dash on a non-scaling stroke breaks the line into pieces) */
+:root .ixcard svg.spark path.spdraw { animation: spdraw .7s cubic-bezier(.215,.61,.355,1) both; }
+@keyframes spdraw { from { clip-path: inset(-4px 100% -4px 0); } to { clip-path: inset(-4px -4px -4px 0); } }
 
 /* left menu open / close (wide screens only; narrower ones never show the sidebar) */
 .sbtog { display: none; }
