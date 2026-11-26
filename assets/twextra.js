@@ -439,18 +439,7 @@
   function holdExtraHTML() {
     const opt = A.store.get("twalert-opt", {}) || {}, cash = +A.store.get("twlab-cash", 0) || 0;
     const mv = holdings().reduce((a, h) => { const s = A.DB.by.get(h.code); return a + (s && s.price > 0 ? s.price * h.shares : 0); }, 0);
-    return `<div class="dcard"><div class="aihead"><div><h3>持股走勢與 0050 比較</h3></div><button type="button" class="aigo" data-xcurve>畫出走勢</button></div><p class="sub lcmsg" role="status"></p><div class="lcurve"></div></div>
-      <div class="dcard"><h3>部位試算（做多）</h3>
-        <div class="xform">
-          <label>代號（選填）<input class="in" name="zcode" inputmode="numeric" autocomplete="off"></label>
-          <label>進場價<input class="in" name="zin" inputmode="decimal"></label>
-          <label>停損價<input class="in" name="zstop" inputmode="decimal"></label>
-          <label>總資金（元）<input class="in" name="zcap" inputmode="decimal" value="${Math.round(mv + cash) || ""}"></label>
-          <label>單筆最多虧總資金 %<input class="in" name="zrisk" inputmode="decimal" value="1"></label>
-        </div><div class="lsizeout">${msg("填入進場價、停損價與總資金。")}</div></div>
-      <div class="dcard"><h3>資料備份</h3><p class="sub">備份檔包含自選股、持股、交易紀錄、模擬帳戶、回顧紀錄與設定，以及這台裝置的警示識別碼，請自己保管。</p>
-        <div class="xrow"><button type="button" class="aigo" data-backup>下載備份</button><label class="btn xfile">選擇備份檔還原<input type="file" accept=".json,application/json" hidden></label><button type="button" class="btn" data-restore hidden>確認還原</button></div>
-        <p class="sub setlast"></p><p class="sub setmsg" role="status"></p></div>`;
+    return `<div class="dcard"><div class="aihead"><div><h3>持股走勢與 0050 比較</h3></div><button type="button" class="aigo" data-xcurve>畫出走勢</button></div><p class="sub lcmsg" role="status"></p><div class="lcurve"></div></div>`;
   }
   /* top-right 設定: the Telegram switches live in a popup now */
   function openSettings() {
