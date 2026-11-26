@@ -64,7 +64,8 @@
   /* ---------------- state ---------------- */
   const DEFAULT_WATCH = ["2330", "2317", "2454", "2308", "2881", "0050"];
   const DB = { list: [], by: new Map(), live: false, date: "", rt: null, rtAt: "", err: "" };
-  const IDX = [{ k: "t00", name: "加權指數" }, { k: "fut", name: "台指期" }, { k: "t13", name: "電子" }, { k: "t17", name: "金融" }];
+  const IDX = [{ k: "t00", name: "加權指數" }, { k: "fut", name: "台指期" }, { k: "o00", name: "櫃買指數" }, { k: "exf", name: "電子期" }];
+  const isFut = k => k === "fut" || k === "exf";
   const MKT = { rows: null, inst: null };          /* TAIEX history rows and the institutions of the day */
   let WATCH = store.get("twtrade-watch", DEFAULT_WATCH);
   /* five watchlists 自選1–自選5; 自選1 is WATCH (the 自選股 tab, sidebar, alerts) */
@@ -146,7 +147,7 @@
   /* indices at the close (used until the Worker supplies intraday values) */
   async function loadIdxEod() {
     const a = await J("https://openapi.twse.com.tw/v1/exchangeReport/MI_INDEX");
-    const want = { t00: /^發行量加權股價指數$/, t13: /^電子(工業)?類指數$/, t17: /^金融保險類指數$/ };
+    const want = { t00: /^發行量加權股價指數$/ };
     a.forEach(x => {
       const nk = Object.keys(x).find(key => key === "指數") || Object.keys(x).find(key => key.includes("指數") && !key.includes("收盤"));
       const name = String(x[nk] || "").trim();
@@ -364,6 +365,7 @@
         const it = IDX.find(i => i.k === x.c); if (!it || !(x.z > 0)) return;
         any = true; Object.assign(it, { z: x.z, y: x.y, h: x.h, l: x.l, tm: x.tm, src: marketOpen() ? "盤中" : "收盤", rt: true });
       });
+      if (j.exf && j.exf.z > 0) { any = true; Object.assign(IDX[3], { z: j.exf.z, y: j.exf.y, h: j.exf.h, l: j.exf.l, v: j.exf.v, tm: j.exf.tm, src: j.exf.src === "night" ? "夜盤" : j.exf.src === "rt" ? "盤中" : (j.exf.sess || "") + "收盤", rt: true, label: "" }); }
       if (j.fut && j.fut.z > 0) { any = true; Object.assign(IDX[1], { z: j.fut.z, y: j.fut.y, h: j.fut.h, l: j.fut.l, tm: j.fut.tm, src: j.fut.src === "night" ? "夜盤" : j.fut.src === "rt" ? "盤中" : (j.fut.sess || "") + "收盤", rt: true, label: j.fut.n }); }
       DB.rtSrc = j.src || "mis";
       if (any) { DB.rt = true; DB.rtAt = new Date().toLocaleTimeString("zh-TW", { hour12: false }); paintLive(); }
@@ -564,13 +566,15 @@
   function paintIdx() {
     IDX.forEach(i => {
       const c = $(`.ixcard[data-k="${i.k}"]`); if (!c) return;
+      const cd = CH[i.k + ":tick"];   /* no live quote from the Worker: fall back on the chart's last bar (Yahoo, a little delayed) */
+      if (!i.rt && cd && cd.last > 0) Object.assign(i, { z: cd.last, y: cd.prev, h: cd.high, l: cd.low, tm: cd.at ? new Date(cd.at + 8 * 3600e3).toISOString().slice(11, 19) : "", src: "延遲" });
       const d = ok(i.z) && ok(i.y) ? i.z - i.y : NaN, t = tone(d), big = $(".big", c);
       if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); $(".ixn", c).textContent = sub ? i.name + "（" + sub + "）" : i.name; }
       $(".ixsrc", c).textContent = i.src ? i.src + (i.tm ? " " + i.tm.slice(0, 5) : "") : "";
       const bt = ok(i.z) ? fmt(i.z, 2) : "—";
       if (big.dataset.txt !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.dataset.txt = bt; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }
       big.dataset.z = ok(i.z) ? i.z : ""; big.className = "big " + t + (big.classList.contains("fl-up") ? " fl-up" : big.classList.contains("fl-down") ? " fl-down" : "");
-      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)}（${pct(d / i.y * 100)}）` : (i.k === "fut" && DB.rt === false ? "需要部署新版 Worker" : DB.list.length ? "讀不到資料" : "載入中…"), cg = $(".ixchg", c);
+      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)}（${pct(d / i.y * 100)}）` : (isFut(i.k) && DB.rt === false ? "需要部署新版 Worker" : DB.list.length ? "讀不到資料" : "載入中…"), cg = $(".ixchg", c);
       if (cg.textContent !== ct) cg.textContent = ct;
       cg.className = "sub ixchg " + t;
       const ht = i.h > 0 && i.l > 0 ? `高 ${fmt(i.h, 2)}　低 ${fmt(i.l, 2)}` : "", hl = $(".ixhl", c); if (hl.textContent !== ht) hl.textContent = ht;
@@ -1795,7 +1799,7 @@
   /* ---------------- index cards: intraday sparklines and a detail chart (Yahoo Taiwan through the Worker) ---------------- */
   const CH = {};                                   /* "k:r" → chart data */
   const IXV = { k: null, r: "tick" };
-  const sessOpen = k => (k === "fut" ? marketOpen() || nightOpen() : marketOpen());
+  const sessOpen = k => (isFut(k) ? marketOpen() || nightOpen() : marketOpen());
   async function loadChart(k, r) {
     const j = await J(`${WORKER}/tw/chart?k=${k}&r=${r}`);
     if (j && Array.isArray(j.pts)) CH[k + ":" + r] = j;
@@ -1844,8 +1848,8 @@
     if (IXV.k !== k || IXV.r !== r) return;
     const d = CH[key], pts = r === "tick" ? d.pts : d.pts.slice(r === "3mo" ? -66 : -250);
     const z = ok(it.z) ? it.z : d.last, y = ok(it.y) ? it.y : d.prev, ch = z - y, t = tone(ch), dg = 2;
-    const sessName = k === "fut" ? (nightOpen() || (taipei().mins < 525) ? "夜盤（15:00 起）" : "日盤（08:45 起）") : "當日（09:00–13:30）";
-    const vol = k === "fut" ? (ok(it.v) || ok(d.volume) ? fmt(ok(d.volume) ? d.volume : it.v) + " 口" : "—") : ok(d.volume) ? fmt(d.volume / 1e8, 1) + " 億股" : "—";
+    const sessName = isFut(k) ? (nightOpen() || (taipei().mins < 525) ? "夜盤（15:00 起）" : "日盤（08:45 起）") : "當日（09:00–13:30）";
+    const vol = isFut(k) ? (ok(it.v) || ok(d.volume) ? fmt(ok(d.volume) ? d.volume : it.v) + " 口" : "—") : ok(d.volume) ? fmt(d.volume / 1e8, 1) + " 億股" : "—";
     const kv = (a, b, c) => `<div class="snap ixkv"><span>${a}</span><b class="${c || ""}">${b}</b></div>`;
     panel.innerHTML = `
       <div class="ixdhead"><div><h3>${esc(it.name)}${it.label ? "（" + esc(it.label.replace(/^臺指期\s*/, "")) + "）" : ""}</h3>
@@ -1854,8 +1858,8 @@
           <button type="button" class="btn ixclose" aria-label="關閉">×</button></div></div>
       <div class="ixdbody"><div class="ixdchart">${ixSVG(pts, r === "tick" ? y : null, r, k)}<p class="sub ixread"></p></div>
         <div class="ixdstats">${kv("開盤", ok(d.open) ? fmt(d.open, dg) : "—")}${kv("最高", ok(it.h) ? fmt(it.h, dg) : ok(d.high) ? fmt(d.high, dg) : "—", "up")}${kv("最低", ok(it.l) ? fmt(it.l, dg) : ok(d.low) ? fmt(d.low, dg) : "—", "down")}
-          ${kv(k === "fut" ? "參考價" : "昨收", ok(y) ? fmt(y, dg) : "—")}${kv("振幅", ok(d.high) && ok(d.low) && ok(y) ? pct((d.high - d.low) / y * 100).replace("+", "") : "—")}${kv("成交量", vol)}
-          ${k === "fut" && ok(d.limitUp) ? kv("漲停／跌停", `${fmt(d.limitUp, 0)}／${fmt(d.limitDown, 0)}`) : ""}${r !== "tick" && pts.length > 1 ? kv("區間漲跌", pct((pts[pts.length - 1][1] / pts[0][1] - 1) * 100), tone(pts[pts.length - 1][1] - pts[0][1])) + kv("區間最高", fmt(Math.max(...pts.map(p => p[1])), 0), "up") + kv("區間最低", fmt(Math.min(...pts.map(p => p[1])), 0), "down") : ""}</div></div>`;
+          ${kv(isFut(k) ? "參考價" : "昨收", ok(y) ? fmt(y, dg) : "—")}${kv("振幅", ok(d.high) && ok(d.low) && ok(y) ? pct((d.high - d.low) / y * 100).replace("+", "") : "—")}${kv("成交量", vol)}
+          ${isFut(k) && ok(d.limitUp) ? kv("漲停／跌停", `${fmt(d.limitUp, 0)}／${fmt(d.limitDown, 0)}`) : ""}${r !== "tick" && pts.length > 1 ? kv("區間漲跌", pct((pts[pts.length - 1][1] / pts[0][1] - 1) * 100), tone(pts[pts.length - 1][1] - pts[0][1])) + kv("區間最高", fmt(Math.max(...pts.map(p => p[1])), 0), "up") + kv("區間最低", fmt(Math.min(...pts.map(p => p[1])), 0), "down") : ""}</div></div>`;
     ixHover(panel, pts, r);
     if (animate) ixAnimate(panel);
   }
@@ -1866,7 +1870,7 @@
     /* the session's own time span for the intraday chart, so a morning line only fills part of the width */
     let x0 = pts[0][0], x1 = pts[pts.length - 1][0];
     if (r === "tick") { const d0 = new Date((pts[0][0] + 8 * 3600) * 1000), mid = Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), d0.getUTCDate()) / 1000 - 8 * 3600, h = d0.getUTCHours();
-      if (k === "fut" && h >= 15) { x0 = mid + 15 * 3600; x1 = mid + 29 * 3600; } else if (k === "fut") { x0 = mid + 8.75 * 3600; x1 = mid + 13.75 * 3600; } else { x0 = mid + 9 * 3600; x1 = mid + 13.5 * 3600; } }
+      if (isFut(k) && h >= 15) { x0 = mid + 15 * 3600; x1 = mid + 29 * 3600; } else if (isFut(k)) { x0 = mid + 8.75 * 3600; x1 = mid + 13.75 * 3600; } else { x0 = mid + 9 * 3600; x1 = mid + 13.5 * 3600; } }
     const X = (p, i) => PL + (r === "tick" ? (p[0] - x0) / (x1 - x0) : i / (pts.length - 1)) * (W - PL - PR), Y = v => PT + (hi - v) / (hi - lo) * (H - PT - PB);
     const ticks = [0, 1, 2, 3].map(j => lo + pad + (hi0 - lo0) * j / 3);
     const xl = r === "tick" ? [0, 0.25, 0.5, 0.75, 1].map(f => { const ts = x0 + (x1 - x0) * f, d = new Date((ts + 8 * 3600) * 1000); return [PL + f * (W - PL - PR), String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0")]; })

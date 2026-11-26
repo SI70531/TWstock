@@ -185,7 +185,7 @@ async function twMis(chs) {
   }).filter(x => x.c);
 }
 /* front-month TAIEX futures: the futures exchange's live quote list, or its daily report when that fails */
-async function twFut() {
+async function twFut(cid = "TXF") {
   /* day session 08:45–13:45, night session 15:00–05:00 (Taipei). TAIFEX's own quote list often refuses Cloudflare,
      so Yahoo Taiwan and cnyes (both carry the front-month TAIEX future, night session included) are tried next */
   const t = new Date(Date.now() + 8 * 3600e3), m = t.getUTCHours() * 60 + t.getUTCMinutes();
@@ -195,10 +195,10 @@ async function twFut() {
     for (const direct of [false, true]) {
       try {
         const init = { method: "POST", headers: { "Content-Type": "application/json", "User-Agent": TW_UA, Referer: "https://mis.taifex.com.tw/futures/" },
-          body: JSON.stringify({ MarketType: mt, SymbolType: "F", KindID: "1", CID: "TXF", ExpireMonth: "", RowSize: "全部", PageNo: "", SortColumn: "", AscDesc: "A" }) };
+          body: JSON.stringify({ MarketType: mt, SymbolType: "F", KindID: "1", CID: cid, ExpireMonth: "", RowSize: "全部", PageNo: "", SortColumn: "", AscDesc: "A" }) };
         const r = direct ? await fetch("https://mis.taifex.com.tw/futures/api/getQuoteList", init) : await twFetch("https://mis.taifex.com.tw/futures/api/getQuoteList", init);
         const j = await r.json(), list = (j && j.RtData && j.RtData.QuoteList) || [];
-        const q = list.find(x => /^TXF[A-Z]\d-[FM]$/.test(String(x.SymbolID || "")) && twNum(x.CLastPrice) > 0);
+        const q = list.find(x => new RegExp("^" + cid + "[A-Z]\\d-[FM]$").test(String(x.SymbolID || "")) && twNum(x.CLastPrice) > 0);
         if (q) {
           const tt = String(q.CTime || "").replace(/\D/g, "");
           return tag({ n: twClip(q.DispCName || "臺指期", 20), z: twNum(q.CLastPrice), y: twNum(q.CRefPrice), o: twNum(q.COpenPrice), h: twNum(q.CHighPrice), l: twNum(q.CLowPrice), v: twNum(q.CTotalVolume),
@@ -207,6 +207,7 @@ async function twFut() {
       } catch (e) {}
     }
   }
+  if (cid !== "TXF") return null;   /* other futures: only TAIFEX's own list */
   try {
     const r = await fetch("https://tw.stock.yahoo.com/_td-stock/api/resource/StockServices.stockList;fields=avgPrice;symbols=WTX%26", { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
     const x = (await r.json())[0], raw = k => (x && x[k] && x[k].raw != null ? twNum(x[k].raw) : null);
@@ -243,7 +244,7 @@ async function twRt(url, json) {
   const jobs = [], wantIdx = url.searchParams.get("idx") === "1";
   /* the page asks every 2 seconds in the day session: the stocks and the indices go to TWSE as ONE request (kept 2 seconds),
      so each open page costs TWSE about one request every 2 seconds, as before (TWSE blocks an address that asks too often) */
-  const IDX_CH = ["tse_t00.tw", "tse_t13.tw", "tse_t17.tw"], IDX_C = new Set(["t00", "t13", "t17"]);
+  const IDX_CH = ["tse_t00.tw", "otc_o00.tw"], IDX_C = new Set(["t00", "o00"]);
   if (codes.length || wantIdx) {
     const chs = codes.flatMap(c => ["tse_" + c + ".tw", "otc_" + c + ".tw"]).concat(wantIdx ? IDX_CH : []);
     jobs.push(twCached("mis:" + codes.join(",") + (wantIdx ? "|idx" : ""), 2000, () => twMis(chs)).then(v => {
@@ -251,7 +252,7 @@ async function twRt(url, json) {
       if (wantIdx) out.idx = v.filter(x => IDX_C.has(x.c));
     }));
   }
-  if (wantIdx) jobs.push(twCached("fut", 2000, twFut).then(v => { out.fut = v; }));
+  if (wantIdx) { jobs.push(twCached("fut", 2000, twFut).then(v => { out.fut = v; })); jobs.push(twCached("exf", 2000, () => twFut("EXF")).then(v => { out.exf = v; })); }
   await Promise.all(jobs.map(p => p.catch(e => { out.err = twClip(e && e.message, 80); })));
   /* TWSE's MIS often refuses or answers empty to cloud servers outside Taiwan (this Worker runs in the US):
      every code still without a price is filled from Yahoo Finance (delayed a little, but the right day's price) */
@@ -879,7 +880,7 @@ async function watchNews(env, codes, S) {
 }
 
 /* ---------- index and futures charts (Yahoo Taiwan): 1-minute bars of the session, or daily bars for about a year ---------- */
-const CHART_SYM = { t00: "^TWII", fut: "WTX&", t13: "^TELI", t17: "^TFNI" };
+const CHART_SYM = { t00: "^TWII", fut: "WTX&", o00: "^TWOII", exf: "WEF&", t13: "^TELI", t17: "^TFNI" };
 async function twChart(url, json, fail) {
   const k = url.searchParams.get("k"), r = url.searchParams.get("r") === "day" ? "day" : "tick", sym = CHART_SYM[k];
   if (!sym) return fail(400, "BAD_CODE", "Unknown chart");
