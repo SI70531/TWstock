@@ -177,7 +177,17 @@
     document.addEventListener("twdash:list", () => { if ($("#dpList .cm") && !$("#dpList .cm").hidden) cmPaint(false); });
     setInterval(ritualTick, 1000); ritualTick();
     swipe(); pull(); keys();
+    sideToggle();
     window.TWDash.ritual = ritualShow;      /* TWDash.ritual("open") plays the opening animation for a look */
+  }
+  /* the left menu opens and closes; the choice is remembered. Closed: the top tabs take over navigation. */
+  function sideToggle() {
+    if ($(".sbtog")) return;
+    const b = document.createElement("button"); b.type = "button"; b.className = "sbtog"; b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15"/></svg>';
+    const set = hide => { document.body.classList.toggle("sbhide", hide); b.setAttribute("aria-label", hide ? "開啟左側選單" : "關閉左側選單"); b.title = b.getAttribute("aria-label"); b.setAttribute("aria-expanded", String(!hide)); try { localStorage.setItem("tw.sbhide", hide ? "1" : "0"); } catch (e) {} };
+    let h = false; try { h = localStorage.getItem("tw.sbhide") === "1"; } catch (e) {}
+    b.addEventListener("click", () => set(!document.body.classList.contains("sbhide")));
+    document.body.appendChild(b); set(h);
   }
   if (window.TWDash && window.TWDash.api) start(); else document.addEventListener("twdash:ready", start);
 })();
