@@ -55,6 +55,8 @@
       if (target) {
         hl.style.width = target.offsetWidth + 'px';
         hl.style.transform = 'translateX(' + target.offsetLeft + 'px)';
+        /* eight tabs do not all fit on a phone: bring the chosen one into view */
+        if (nav.scrollWidth > nav.clientWidth + 2) nav.scrollTo({ left: Math.max(0, target.offsetLeft - (nav.clientWidth - target.offsetWidth) / 2), behavior: 'smooth' });
       }
     }
 

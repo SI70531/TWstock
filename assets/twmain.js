@@ -490,7 +490,7 @@
     /* the pre-market note and the stock list each have their own tab */
     /* 分析: one tab with three parts (收盤摘要, 盤前分析, 盤中分析), one shown at a time */
     const pre = $("#dpPre");
-    pre.insertAdjacentHTML("beforeend", `<div class="anasub" role="tablist" aria-label="分析">${[["cl", "收盤"], ["pm", "盤前"], ["md", "盤中"], ["wk", "週回顧"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
+    pre.insertAdjacentHTML("beforeend", `<div class="anasub" role="tablist" aria-label="分析">${[["cl", "收盤"], ["pm", "盤前"], ["md", "盤中"], ["wk", "週回顧"], ["ar", "存檔"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
     const pmc = $(".pm:not(.md)", box), mdc = $(".pm.md", box), clc = $(".cl", box), wkc = $(".wk", box);
     clc.dataset.sub = "cl"; pmc.dataset.sub = "pm"; mdc.dataset.sub = "md"; wkc.dataset.sub = "wk";
     pre.appendChild(clc); pre.appendChild(pmc); pre.appendChild(mdc); pre.appendChild(wkc);
@@ -927,14 +927,14 @@
   }
   function anaSub(k, animate) {
     const pre = $("#dpPre"), bar = $(".anasub", pre); if (!bar) return;
-    if (!["cl", "pm", "md", "wk"].includes(k)) k = "pm";
+    if (!["cl", "pm", "md", "wk", "ar"].includes(k)) k = "pm";
     const prev = ANA; ANA = k;
     try { if (animate) sessionStorage.setItem("twana", k); } catch (e) {}
     const bs = $$("[data-sub]", bar), b = bs.find(x => x.dataset.sub === k) || bs[1];
     bs.forEach(x => x.setAttribute("aria-selected", String(x === b)));
     anaMark(bar);
     if (!bar._ro && window.ResizeObserver) { bar._ro = new ResizeObserver(() => anaMark(bar, true)); bar._ro.observe(bar); } /* the bar has no size while 分析 is hidden: place the highlight again once it shows */
-    const order = ["cl", "pm", "md", "wk"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
+    const order = ["cl", "pm", "md", "wk", "ar"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
     $$(".dcard[data-sub]", pre).forEach(c => {
       const on = c.dataset.sub === k; c.hidden = !on;
       if (on && animate) { c.animate([{ opacity: 0, transform: `translateX(${dir * 40}px)` }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.16,1,.3,1)" }); rise($$(".lrise", c), 50, 120); }
@@ -946,6 +946,7 @@
     const el = $("#dpPre .clout"); if (!el) return;
     const n = j && j.note;
     if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有收盤摘要，交易日 15:30 會自動產生。</p>`; return; }
+    document.dispatchEvent(new CustomEvent("twdash:close", { detail: n }));
     const a = n.analysis, d = n.data || {}, X = d.taiex || {}, B = d.breadth || {}, li = arr => (Array.isArray(arr) ? arr : []).map(x => `<li>${esc(x)}</li>`).join("");
     const at = new Date(n.at).toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
     const t = /紅/.test(a.call || "") ? "up" : /黑/.test(a.call || "") ? "down" : "";
@@ -1047,6 +1048,7 @@
     dl.insertAdjacentHTML("beforeend", `
       <div class="dcard sc" data-sub="sc"><div class="aihead"><div><h3>選股器</h3></div><span class="sub scn"></span></div>
         <div class="scform">${SC_F.map(f => `<label><span>${f.l}</span><select data-f="${f.k}">${f.o.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></label>`).join("")}</div>
+        <div class="scpre"><button type="button" class="chip scsave">＋ 儲存目前條件</button><span class="scpl"></span></div>
         <div class="scout"></div></div>
       <div class="dcard rv" data-sub="rv"><div class="aihead"><div><h3>月營收排行</h3></div><span class="sub rvn"></span></div>
         <div class="hmseg rvseg" role="group" aria-label="營收">${[["yu", "年增 ↑"], ["yd", "年增 ↓"], ["mu", "月增 ↑"], ["md", "月增 ↓"]].map(([k, l]) => `<button type="button" data-g="${k}" aria-pressed="${k === "yu"}">${l}</button>`).join("")}<i></i></div>
@@ -1056,6 +1058,18 @@
     const sc = $(".sc", dl), st = store.get("twmain-sc", {});
     $$("select", sc).forEach(sel => { if (st[sel.dataset.f] != null && [...sel.options].some(o => o.value === st[sel.dataset.f])) sel.value = st[sel.dataset.f]; });
     sc.addEventListener("change", e => { const o = {}; $$("select", sc).forEach(x => (o[x.dataset.f] = x.value)); store.set("twmain-sc", o); scPaint(true); });
+    /* saved conditions: one tap brings a whole set of filters back (kept in this browser, up to 8) */
+    const PK = "twmain-sc-presets", defOf = f => f.o[0][0];
+    const presets = () => store.get(PK, []) || [];
+    const preName = v => { const parts = SC_F.filter(f => f.k !== "sort" && v[f.k] != null && v[f.k] !== defOf(f)).map(f => { const o = f.o.find(x => x[0] === v[f.k]); return o ? (f.k === "ind" ? o[1] : f.l + " " + o[1]) : ""; }).filter(Boolean); return parts.length ? parts.slice(0, 3).join("＋") : "全部股票"; };
+    const prePaint = () => { $(".scpl", sc).innerHTML = presets().map((p, i) => `<span class="scp"><button type="button" class="chip" data-pi="${i}">${esc(p.n)}</button><button type="button" class="scx" data-px="${i}" aria-label="刪除這組條件">×</button></span>`).join(""); };
+    prePaint();
+    sc.addEventListener("click", e => {
+      const sv = e.target.closest(".scsave");
+      if (sv) { const v = {}; $$("select", sc).forEach(x => (v[x.dataset.f] = x.value)); const L = presets().filter(p => JSON.stringify(p.v) !== JSON.stringify(v)); L.unshift({ n: preName(v), v }); store.set(PK, L.slice(0, 8)); prePaint(); const nb = $(".scp", sc); if (nb) nb.animate([{ opacity: 0, transform: "scale(.7)" }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.2,.9,.3,1.2)" }); return; }
+      const x = e.target.closest("[data-px]"); if (x) { const L = presets(); L.splice(+x.dataset.px, 1); store.set(PK, L); prePaint(); return; }
+      const pb = e.target.closest("[data-pi]"); if (pb) { const p = presets()[+pb.dataset.pi]; if (!p) return; $$("select", sc).forEach(sel => { if (p.v[sel.dataset.f] != null && [...sel.options].some(o => o.value === p.v[sel.dataset.f])) sel.value = p.v[sel.dataset.f]; }); sc.dispatchEvent(new Event("change")); }
+    });
     sc.addEventListener("click", e => { const r = e.target.closest(".instrow"); if (r) openStock(r.dataset.code, r); });
     const rv = $(".rv", dl), seg = $(".rvseg", rv);
     seg.addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (!b) return; $$("[data-g]", seg).forEach(x => x.setAttribute("aria-pressed", String(x === b))); RV.g = b.dataset.g; segMark(seg); rvPaint(true); });
@@ -1077,6 +1091,8 @@
     { k: "ma", l: "均線（上市）", o: [["", "不限"], ["above20", "站上月線"], ["above60", "站上季線"]] },
     { k: "sig", l: "訊號（上市）", o: [["", "不限"], ["gold", "KD 黃金交叉（近 3 日）"], ["high60", "收盤創 60 日新高"]] },
     { k: "volx", l: "量能（上市）", o: [["0", "不限"], ["1.5", "≥ 20 日均量 1.5 倍"], ["2", "≥ 2 倍"], ["3", "≥ 3 倍"]] },
+    { k: "px", l: "股價", o: [["", "不限"], ["le50", "≤ 50 元"], ["le100", "≤ 100 元"], ["le300", "≤ 300 元"], ["ge300", "≥ 300 元"], ["ge1000", "≥ 1,000 元"]] },
+    { k: "ind", l: "產業", o: [["", "不限"], ...Object.entries(INDN).filter(([id]) => !/^(80|91)$/.test(id)).sort((a, b) => a[1].localeCompare(b[1], "zh-TW")).map(([id, n]) => [id, n])] },
     { k: "sort", l: "排序", o: [["vol", "成交量"], ["pct", "漲跌幅"], ["yld", "殖利率"], ["yoy", "營收年增"], ["pe", "本益比（低→高）"]] },
   ];
   async function scGo() { const el = $(".scout"); if (el && !FUND.map) el.innerHTML = `<p class="sub">讀取財務與法人資料…</p>`; await Promise.all([loadFund(), loadChip()]); scPaint(false); }
@@ -1097,6 +1113,8 @@
       if (+v.pct > -99) { if (+v.pct === -3 ? !(s.pct <= -3) : !(s.pct >= (+v.pct === 0 ? 0.0001 : +v.pct))) return; }
       if (+v.vol > 0 && !(s.vol >= +v.vol)) return;
       if (v.chip && !(c[v.chip] > 0)) return;
+      if (v.ind && !(INDMAP && INDMAP[s.code] === v.ind)) return;
+      if (v.px) { const n = +v.px.slice(2); if (v.px.startsWith("le") ? !(s.price <= n) : !(s.price >= n)) return; }
       rows.push({ s, f, c });
     });
     const key = { vol: r => -r.s.vol, pct: r => -r.s.pct, yld: r => -(r.f.yld || -1), yoy: r => -(Number.isFinite(r.f.yoy) ? r.f.yoy : -1e9), pe: r => (r.f.pe > 0 ? r.f.pe : 1e9) }[v.sort] || (r => -r.s.vol);
@@ -1272,7 +1290,7 @@
   function stockExtras(code, tok) {
     const box = $("#dpStock"), put = (cls, html, note) => { if (tok !== chartTok || code !== CODE) return; const c = $("." + cls, box); if (!c) return; $(".sxout", c).innerHTML = html; $(".sxn", c).textContent = note || ""; };
     const miss = m => `<p class="sub">${m}</p>`, s0 = DB.by.get(code);
-    ["smg", "shd", "spe", "sfin"].forEach(c => put(c, miss("載入中…")));
+    ["smg", "shd", "spe", "sfin", "sinst"].forEach(c => put(c, miss("載入中…")));
     if (!s0 || !/^\d{4,6}[A-Z]?$/.test(code)) return;
     if (/^00/.test(code)) { put("smg", miss("沒有資料")); put("spe", miss("沒有資料")); }   /* ETFs have no margin trading and no P/E */
     else xtGet("margin", code).then(j => {
@@ -1285,7 +1303,27 @@
       put("shd", `<div class="hdtiles"><div><span>千張大戶持股</span><b>${j.big1000.toFixed(2)}%</b></div><div><span>400 張以上</span><b>${j.big400.toFixed(2)}%</b></div><div><span>10 張以下散戶</span><b>${j.small10.toFixed(2)}%</b></div><div><span>股東人數</span><b>${Number(j.totalPeople).toLocaleString("zh-TW")}</b></div></div>${bands.map(([n, v]) => `<div class="hdrow"><span>${n}</span><span class="hdbar"><i style="width:${Math.max(1, Math.min(100, v)).toFixed(0)}%"></i></span><b>${v.toFixed(2)}%</b></div>`).join("")}`, String(j.date).slice(5).replace("-", "/") + " 週資料");
     }, () => put("shd", miss("沒有資料")));
     if (!/^00/.test(code)) peRiver(code, tok, put);
-    finGlance(code, put);
+    finGlance(code, put); instGlance(code, put);
+  }
+  /* 三大法人買賣超 (last 10 trading days): FinMind, as the other cards on this page */
+  const FMC = new Map();
+  const fmGet = (ds, code, days) => {
+    const k = ds + ":" + code; if (!FMC.has(k)) { const from = new Date(Date.now() + 8 * 3600e3 - days * 864e5).toISOString().slice(0, 10); FMC.set(k, J(`https://api.finmindtrade.com/api/v4/data?dataset=${ds}&data_id=${encodeURIComponent(code)}&start_date=${from}`).catch(e => { FMC.delete(k); throw e; })); }
+    return FMC.get(k);
+  };
+  async function instGlance(code, put) {
+    const miss = m => `<p class="sub">${m}</p>`;
+    try {
+      const a = ((await fmGet("TaiwanStockInstitutionalInvestorsBuySell", code, 24)).data || []), by = new Map();
+      a.forEach(r => { const o = by.get(r.date) || { f: 0, t: 0, d: 0 }, v = (Number(r.buy) || 0) - (Number(r.sell) || 0), n = String(r.name);
+        if (/^Foreign/.test(n)) o.f += v; else if (n === "Investment_Trust") o.t += v; else if (/^Dealer/.test(n)) o.d += v; by.set(r.date, o); });
+      const days = [...by.keys()].sort().slice(-10).map(d => { const o = by.get(d), L = x => Math.round(x / 1000); return { d, f: L(o.f), t: L(o.t), dl: L(o.d), a: L(o.f + o.t + o.d) }; });
+      if (days.length < 2) { put("sinst", miss("沒有資料")); return; }
+      const mx = Math.max(1, ...days.map(x => Math.abs(x.a))), c = v => (v > 0 ? "up" : v < 0 ? "down" : ""), n = v => (v > 0 ? "+" : "") + v.toLocaleString("zh-TW");
+      const sum = k => days.reduce((t, x) => t + x[k], 0);
+      put("sinst", `<div class="mgtbl itbl"><div class="mgh"><span>日期</span><span>外資</span><span>投信</span><span>自營商</span><span>合計</span><span></span></div>${days.slice().reverse().map(x => `<div><span>${esc(x.d.slice(5).replace("-", "/"))}</span><span class="${c(x.f)}">${n(x.f)}</span><span class="${c(x.t)}">${n(x.t)}</span><span class="${c(x.dl)}">${n(x.dl)}</span><b class="${c(x.a)}">${n(x.a)}</b><span class="ibar"><i class="${c(x.a)}" style="width:${Math.max(3, Math.abs(x.a) / mx * 100).toFixed(0)}%"></i></span></div>`).join("")}<div class="isum"><span>${days.length} 日合計</span><span class="${c(sum("f"))}">${n(sum("f"))}</span><span class="${c(sum("t"))}">${n(sum("t"))}</span><span class="${c(sum("dl"))}">${n(sum("dl"))}</span><b class="${c(sum("a"))}">${n(sum("a"))}</b><span></span></div></div>`, "單位：張");
+      setTimeout(() => { rise($$(".sinst .mgtbl > div:not(.mgh)"), 30); $$(".sinst .ibar i").forEach(b => b.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 650, easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" })); }, 30);
+    } catch (e) { put("sinst", miss("沒有資料")); }
   }
   /* 財報速覽: the last 8 quarters of EPS, gross margin and operating margin (FinMind's quarterly statements; ETFs have none) */
   const FING = new Map();
@@ -1646,6 +1684,7 @@
       <div class="dcard sx shd"><div class="aihead"><div><h3>股權分散</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       <div class="dcard sx spe"><div class="aihead"><div><h3>本益比河流圖</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       <div class="dcard sx sfin"><div class="aihead"><div><h3>財報速覽</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
+      <div class="dcard sx sinst"><div class="aihead"><div><h3>三大法人買賣超</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       </div>
       <div class="sgrid">
         <div class="dcard ssnap"><h3>技術面快照</h3><div class="snaplist"><p class="sub">載入中…</p></div></div>

@@ -352,6 +352,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
       const E = {}, add = (d, t) => (E[d] = E[d] || []).push(t);
       add(ymd(y, 4, 15), "第一季財報申報期限"); add(ymd(y, 7, 14), "第二季財報申報期限"); add(ymd(y, 10, 14), "第三季財報申報期限"); add(ymd(y, 2, 31), "年度財報申報期限");
       for (let m = 0; m < 12; m++) add(ymd(y, m, 10), "上月營收公布期限");
+      for (let m = 0; m < 12; m++) { const w = new Date(y, m, 1).getDay(); add(ymd(y, m, 1 + ((3 - w + 7) % 7) + 14), "台指期・選擇權結算日"); }
       return E;
     }
     async function calView() {
