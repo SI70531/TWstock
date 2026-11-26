@@ -276,7 +276,7 @@
     let pal = COLORS(); new MutationObserver(() => { pal = COLORS(); }).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
     const N = Math.round(Math.min(90, (innerWidth * innerHeight) / 16000));
     const P = Array.from({ length: N }, () => ({ x: rnd(0, W), y: rnd(0, H), r: rnd(0.6, 2.4), vx: rnd(-0.15, 0.15), vy: rnd(-0.35, -0.05), c: Math.floor(rnd(0, 3)), tw: rnd(0, 6.28) }));
-    const S = [];   /* streaks: a jagged line that draws itself across the screen and fades */
+    const S = [];   /* streaks: an area chart line that draws itself across the screen and fades */
     const streak = () => {
       const up = root.dataset.mood === "down" ? Math.random() < 0.35 : Math.random() < 0.65, cs = [], w = rnd(9, 13);
       let y = rnd(H * 0.3, H * 0.75);
@@ -304,14 +304,15 @@
       for (let i = S.length - 1; i >= 0; i--) {
         const s = S[i]; s.t += dt / 2600; if (s.t >= 1.6) { S.splice(i, 1); continue; }
         const n = Math.max(1, Math.floor(s.cs.length * Math.min(1, s.t))), fade = s.t > 1 ? 1 - (s.t - 1) / 0.6 : 1;
-        /* real candles: red body where the close is above the open, green where below, thin wicks for high / low */
-        ctx.globalAlpha = 0.6 * fade; ctx.lineWidth = 1.6; ctx.shadowBlur = 12;
-        for (let k = 0; k < n; k++) {
-          const q = s.cs[k], col = pal[q.c <= q.o ? 3 : 4], top = Math.min(q.o, q.c), hgt = Math.max(2, Math.abs(q.c - q.o));
-          ctx.strokeStyle = col; ctx.fillStyle = col; ctx.shadowColor = col;
-          ctx.beginPath(); ctx.moveTo(q.x, q.h); ctx.lineTo(q.x, q.l); ctx.stroke();
-          ctx.fillRect(q.x - s.w / 2, top, s.w, hgt);
-        }
+        /* an area chart: a glowing price line with a soft fill fading downwards; red when it ends above where it began, green when below */
+        const pts = s.cs.slice(0, n + 1), col = pal[pts[pts.length - 1].c <= s.cs[0].o ? 3 : 4];
+        let top = Infinity, bot = -Infinity; pts.forEach(q => { top = Math.min(top, q.c); bot = Math.max(bot, q.c); });
+        const edge = Math.min(H, bot + 170), g = ctx.createLinearGradient(0, top, 0, edge);
+        g.addColorStop(0, col); g.addColorStop(1, "transparent");
+        ctx.beginPath(); ctx.moveTo(pts[0].x, edge); pts.forEach(q => ctx.lineTo(q.x, q.c)); ctx.lineTo(pts[pts.length - 1].x, edge); ctx.closePath();
+        ctx.globalAlpha = 0.22 * fade; ctx.fillStyle = g; ctx.fill();
+        ctx.beginPath(); pts.forEach((q, k) => (k ? ctx.lineTo(q.x, q.c) : ctx.moveTo(q.x, q.c)));
+        ctx.globalAlpha = 0.7 * fade; ctx.lineWidth = 1.8; ctx.lineJoin = "round"; ctx.strokeStyle = col; ctx.shadowColor = col; ctx.shadowBlur = 12; ctx.stroke();
         ctx.shadowBlur = 0;
       }
       ctx.globalAlpha = 1;
