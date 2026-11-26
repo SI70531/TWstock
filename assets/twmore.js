@@ -363,8 +363,18 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
     async function calPaint() {
       if (!isOn("cal")) return;
       const root = $(".sbcal", cur); if (!root) return;
-      const hol = await holidays(CY), L = legal(CY), W = new Set(A.watch()), Hd = store.get(HK, []) || [], HM = new Map(Hd.map(h => [h.code, h.shares])), mine = c => W.has(c) || HM.has(c);
-      let dv = [], ag = []; try { dv = await dvLoad(); } catch (e) {} try { ag = await agmLoad(); } catch (e) {}
+      /* the three sources are read side by side, and the last answer is kept for the day so the page opens at once and refreshes behind it */
+      const day = taipei().iso, CK = "twmain-calc", C = store.get(CK, null), fresh = C && C.day === day && C.y === CY;
+      const pull = async () => {
+        const [h, d, g] = await Promise.all([holidays(CY).catch(() => ({})), dvLoad().catch(() => []), agmLoad().catch(() => [])]);
+        const m0 = day.slice(0, 8) + "01";
+        if (d.length || g.length) store.set(CK, { day, y: CY, hol: h, dv: d.filter(r => !r.d || r.d >= m0), ag: g.filter(r => !r.d || r.d >= m0) });
+        return [h, d, g];
+      };
+      let hol, dv, ag;
+      if (fresh && !HOL) { hol = C.hol; dv = C.dv; ag = C.ag; HOL = { y: CY, m: hol }; pull().then(() => { if (isOn("cal")) calPaint(); }); }
+      else { [hol, dv, ag] = await pull(); if (!dv.length && !ag.length && C && C.y === CY) { dv = C.dv; ag = C.ag; } }   /* the sources are down: keep showing the last answer */
+      const L = legal(CY), W = new Set(A.watch()), Hd = store.get(HK, []) || [], HM = new Map(Hd.map(h => [h.code, h.shares])), mine = c => W.has(c) || HM.has(c);
       const ev = []; dv.forEach(r => ev.push({ ...r, t: "ex" })); ag.forEach(r => ev.push({ ...r, t: "agm" }));
       const shown = ev.filter(e => !CMINE || mine(e.code)), byD = {}; shown.forEach(e => (byD[e.d] = byD[e.d] || []).push(e));
       const T0 = taipei().iso, T1 = (() => { const d = new Date(T0 + "T00:00:00"); d.setMonth(d.getMonth() + 1); return ymd(d.getFullYear(), d.getMonth(), d.getDate()); })(), mp = CY + "-" + String(CM + 1).padStart(2, "0"), inM = shown.filter(e => CMODE === "list" ? (e.d >= T0 && e.d <= T1) : e.d.startsWith(mp)), exM = inM.filter(e => e.t === "ex"), agM = inM.filter(e => e.t === "agm");
