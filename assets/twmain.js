@@ -66,6 +66,7 @@
   const DB = { list: [], by: new Map(), live: false, date: "", rt: null, rtAt: "", err: "" };
   const IDX = [{ k: "t00", name: "加權指數", en: "TAIEX" }, { k: "fut", name: "台指期", en: "TX" }, { k: "o00", name: "櫃買指數", en: "TPEx" }, { k: "exf", name: "電子期", en: "EXF" }];
   const US4 = [["^DJI", "道瓊", "DJIA"], ["^GSPC", "標普 500", "S&P 500"], ["^IXIC", "那斯達克", "NASDAQ"], ["^SOX", "費城半導體", "SOX"]];
+  const T_START = Date.now(); setTimeout(() => { try { paintIdx(); } catch (e) {} }, 31000);   /* "讀不到資料" only after 30 seconds of trying */
   const isFut = k => k === "fut" || k === "exf";
   const MKT = { rows: null, inst: null };          /* TAIEX history rows and the institutions of the day */
   let WATCH = store.get("twtrade-watch", DEFAULT_WATCH);
@@ -575,7 +576,7 @@
       const bt = ok(i.z) ? fmt(i.z, 2) : "—";
       if (big.dataset.txt !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.dataset.txt = bt; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }
       big.dataset.z = ok(i.z) ? i.z : ""; big.className = "big " + t + (big.classList.contains("fl-up") ? " fl-up" : big.classList.contains("fl-down") ? " fl-down" : "");
-      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (isFut(i.k) && DB.rt === false ? "需要部署新版 Worker" : DB.list.length ? "讀不到資料" : "載入中…"), cg = $(".ixchg", c);
+      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (Date.now() - T_START > 30000 && DB.list.length ? "讀不到資料" : "讀取中，請稍後…"), cg = $(".ixchg", c);
       if (cg.textContent !== ct) cg.textContent = ct;
       cg.className = "sub ixchg " + t;
       const ht = i.h > 0 && i.l > 0 ? `高 ${fmt(i.h, 2)}　低 ${fmt(i.l, 2)}` : "", hl = $(".ixhl", c); if (hl.textContent !== ht) hl.textContent = ht;
