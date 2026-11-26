@@ -1276,7 +1276,7 @@
       const qn = d => { const m = +d.slice(5, 7); return d.slice(2, 4) + "Q" + Math.ceil(m / 3); };
       const mxE = Math.max(0.01, ...qs.map(q => Math.abs(q.eps))), bar = (v, mx, cls) => `<span class="fgb"><i class="${cls}" style="width:${Math.max(3, Math.abs(v) / mx * 100).toFixed(0)}%"></i></span>`;
       const mxM = Math.max(1, ...qs.map(q => Math.max(Math.abs(q.gm || 0), Math.abs(q.om || 0))));
-      put("sfin", `<div class="fgrid"><div class="fgh"><span>季</span><span>EPS（元）</span><span>毛利率</span><span>營業利益率</span></div>${qs.map(q => `<div class="fgr"><span>${qn(q.d)}</span><span class="fgc">${bar(q.eps, mxE, q.eps >= 0 ? "up" : "down")}<b class="${tone(q.eps)}">${q.eps.toFixed(2)}</b></span><span class="fgc">${q.gm == null ? "—" : bar(q.gm, mxM, "neu") + `<b>${q.gm.toFixed(1)}%</b>`}</span><span class="fgc">${q.om == null ? "—" : bar(q.om, mxM, q.om >= 0 ? "neu" : "down") + `<b>${q.om.toFixed(1)}%</b>`}</span></div>`).join("")}</div>`, "近 " + qs.length + " 季");
+      put("sfin", `<div class="fqgrid"><div class="fgh"><span>季</span><span>EPS（元）</span><span>毛利率</span><span>營業利益率</span></div>${qs.map(q => `<div class="fgr"><span>${qn(q.d)}</span><span class="fgc">${bar(q.eps, mxE, q.eps >= 0 ? "up" : "down")}<b class="${tone(q.eps)}">${q.eps.toFixed(2)}</b></span><span class="fgc">${q.gm == null ? "—" : bar(q.gm, mxM, "neu") + `<b>${q.gm.toFixed(1)}%</b>`}</span><span class="fgc">${q.om == null ? "—" : bar(q.om, mxM, q.om >= 0 ? "neu" : "down") + `<b>${q.om.toFixed(1)}%</b>`}</span></div>`).join("")}</div>`, "近 " + qs.length + " 季");
     } catch (e) { put("sfin", miss("沒有資料")); }
   }
   async function peRiver(code, tok, put) {
