@@ -182,12 +182,12 @@
   }
   /* closing animates too: setting .hidden = true on a pop-open element first plays a short fade/sink, then hides it */
   function closeAnim() {
-    const POP = ".ixdetail, .hmtip, .ktip, .kbcard, .sresults, .searchbox, [role=dialog], [role=tooltip], .popover, .menu-pop";
+    const POP = ".ixdetail, .hmtip, .ktip, .kbcard, .sresults, .searchbox, .thpop, .thmenu, [role=dialog], [role=menu], [role=listbox], [role=tooltip], .popover, .menu-pop";
     const d = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "hidden"); if (!d || !d.set) return;
     const pend = new WeakMap();
-    Object.defineProperty(HTMLElement.prototype, "hidden", { configurable: true, enumerable: d.enumerable, get: d.get, set(v) {
+    Object.defineProperty(HTMLElement.prototype, "hidden", { configurable: true, enumerable: d.enumerable, get() { return pend.has(this) ? true : d.get.call(this); }, set(v) {
       const el = this;
-      if (pend.has(el)) { try { pend.get(el).cancel(); } catch (e) {} pend.delete(el); }
+      if (pend.has(el)) { if (v) return; try { pend.get(el).cancel(); } catch (e) {} pend.delete(el); }
       if (v && !d.get.call(el) && el.matches(POP) && el.isConnected && el.getClientRects().length) {
         let a; try { a = el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(10px) scale(.98)" }], { duration: 240, easing: "ease-in", fill: "forwards" }); } catch (e) { d.set.call(el, v); return; }
         pend.set(el, a);
@@ -201,6 +201,20 @@
   function actionAnim() {
     let at = 0; const mark = () => { at = Date.now(); };
     ["click", "keydown", "change", "submit", "pointerup"].forEach(t => document.addEventListener(t, mark, true));
+    /* removed items leave too: a ghost copy collapses in place while the real node goes at once */
+    const rm = Element.prototype.remove, rc = Node.prototype.removeChild;
+    const ghost = el => {
+      try {
+        if (Date.now() - at > 1200 || !(el instanceof HTMLElement) || !el.isConnected || !el.closest(".app") || el.closest(".side, .topbar, .sbtog, svg, .ixdetail, .xghost") || /^(SCRIPT|STYLE|TR|TD|TH|OPTION)$/.test(el.tagName)) return;
+        const r = el.getBoundingClientRect(); if (r.height < 24 || r.width < 40 || !el.parentNode) return;
+        const g = el.cloneNode(true); g.removeAttribute("id"); g.querySelectorAll("[id]").forEach(x => x.removeAttribute("id")); g.classList.add("xghost"); g.setAttribute("aria-hidden", "true"); g.style.cssText += `;pointer-events:none;overflow:hidden;box-sizing:border-box;height:${r.height}px`;
+        el.parentNode.insertBefore(g, el);
+        const a = g.animate([{ height: r.height + "px", opacity: 1, transform: "none" }, { height: "0px", opacity: 0, transform: "translateX(-14px)", marginTop: "0px", marginBottom: "0px", paddingTop: "0px", paddingBottom: "0px" }], { duration: 260, easing: "ease-in", fill: "forwards" });
+        a.onfinish = () => rm.call(g);
+      } catch (e) {}
+    };
+    Element.prototype.remove = function () { ghost(this); return rm.call(this); };
+    Node.prototype.removeChild = function (c) { ghost(c); return rc.call(this, c); };
     new MutationObserver(ms => {
       if (Date.now() - at > 1200) return;
       let n = 0;
