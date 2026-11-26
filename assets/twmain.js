@@ -1634,7 +1634,7 @@
         <div class="askout"></div>
       </div>
       <div class="dcard sx smg"><div class="aihead"><div><h3>融資融券</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
-      <div class="dcard sx shd"><div class="aihead"><div><h3>股權分散（集保）</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
+      <div class="dcard sx shd"><div class="aihead"><div><h3>股權分散</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       <div class="dcard sx spe"><div class="aihead"><div><h3>本益比河流圖</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       <div class="dcard sx sfin"><div class="aihead"><div><h3>財報速覽</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       </div>
