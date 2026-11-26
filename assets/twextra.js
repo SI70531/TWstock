@@ -280,14 +280,14 @@
     if (T) {
       const all = [...T.map.values()], share = k => { const v = all.filter(x => x[k] != null); return v.length ? v.filter(x => x[k]).length / v.length * 100 : NaN; };
       h += cell("站上月線的股票", A.fmt(share("above20"), 1) + "%", `收盤價高於 MA20・${slash(T.date)}`) + cell("站上季線的股票", A.fmt(share("above60"), 1) + "%", "收盤價高於 MA60");
-    } else h += `<div class="xcell"><span>站上月線／季線的比例</span><button type="button" class="btn" data-xtech ${TP.techBusy ? "disabled" : ""}>計算</button><i>${A.esc(TP.techMsg || "第一次約 3 分鐘，之後只讀新的日期")}</i></div>`;
+    } else h += `<div class="xcell"><span>站上月線／季線的比例</span>${TP.techBusy ? `<b>計算中</b><div class="xprog"><i style="width:${TP.techPct || 0}%"></i></div>` : `<button type="button" class="btn" data-xtech>重新計算</button>`}<i>${A.esc(TP.techMsg || "")}</i></div>`;
     el.innerHTML = h;
     $(".xtempd").textContent = m ? "上市・融資融券 " + slash(m.date) : "上市";
   }
   async function runTempTech() {
     if (TP.techBusy) return;
     TP.techBusy = true; TP.techMsg = "讀取中…"; paintTemp();
-    try { TP.tech = await tech((i, n) => { TP.techMsg = `讀取交易日 ${i}/${n}…`; paintTemp(); }); }
+    try { TP.tech = await tech((i, n) => { TP.techMsg = `讀取交易日 ${i}/${n}`; TP.techPct = Math.round(i / n * 100); paintTemp(); }); }
     catch (e) { TP.techMsg = e.message; }
     TP.techBusy = false; paintTemp();
   }
@@ -296,7 +296,7 @@
     if (!A.DB.live) return;
     try { TP.margin = (await loadMargin()) || false; } catch (e) { TP.margin = false; }
     paintTemp();
-    if (!TP.tech && (await techCached()) >= NEED - 3) runTempTech();          /* already read before: just bring it up to date */
+    if (!TP.tech) runTempTech();          /* start on its own: a first read takes a few minutes, later ones only fetch the new days */
   }
   function buildTemp() {
     const strip = $("#dpOverview .mstrip"); if (!strip) return;
