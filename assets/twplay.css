@@ -177,3 +177,10 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .ixdhead h3 .ixen, .sb-ix .ixen { font-style: normal; font-size: .72em; opacity: .6; margin-left: 5px; letter-spacing: .03em; }
 .ixcard.usx { cursor: default; }
 .ixcard.usx:hover { transform: none; }
+
+/* clock box: the market chip and the futures chip share one row; the date moves to the clock line */
+.sb-clock .s { flex-wrap: nowrap; gap: 6px; justify-content: flex-start; }
+.sb-clock .s .statuschip { padding: 3px 9px; gap: 6px; white-space: nowrap; flex: none; }
+.sb-clock .s .futchip { margin-left: 0; }
+.sb-clock .trow { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.sb-clock .trow .sd { font-size: var(--text-xs); color: var(--color-muted); }
