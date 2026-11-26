@@ -1932,7 +1932,7 @@
       svg.setAttribute("class", "spark up");
       if (!svg.dataset.drawn) { svg.dataset.drawn = "1"; pth.setAttribute("pathLength", "1"); pth.classList.remove("spdraw"); void pth.getBoundingClientRect(); pth.classList.add("spdraw"); }
     });
-    if ($(".ixcard:not([data-shown])")) paintIdx();   /* a card was waiting for its line: show number and line together now */
+    if (!paintSparks.busy && $(".ixcard.ixwait:not([data-shown])")) { paintSparks.busy = true; try { paintIdx(); } finally { paintSparks.busy = false; } }   /* a card was waiting for its line: show number and line together now */
   }
   function ixOpen(k) {
     const panel = $("#dpOverview .ixdetail");
