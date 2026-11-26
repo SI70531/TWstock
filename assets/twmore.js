@@ -329,7 +329,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
     }
 
     /* ----- market calendar ----- */
-    let CY = new Date().getFullYear(), CM = new Date().getMonth(), CSEL = "", HOL = null, CMODE = "list", CMINE = false, AGM = null;
+    let CY = new Date().getFullYear(), CM = new Date().getMonth(), CSEL = "", HOL = null, CMODE = (window.TWSet && window.TWSet.get("cmode")) || "list", CMINE = !!(window.TWSet && window.TWSet.get("cmine") === "1"), AGM = null;
     const ymd = (y, m, d) => y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
     async function holidays(y) {
       if (HOL && HOL.y === y) return HOL.m; const m = {};

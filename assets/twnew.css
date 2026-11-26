@@ -116,10 +116,27 @@
 .bstr svg { flex: 1; width: 100%; min-height: 100px; }
 .bstr .bz { stroke: currentColor; opacity: .25; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
 .bstr .bl { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-.bstr .bl.up { stroke: #c63a3a; } .bstr .bl.down { stroke: #2e8b57; }
+.bstr .bl.up { stroke: var(--color-up); } .bstr .bl.down { stroke: var(--color-down); }
 .bstr .bl.in { animation: bsdraw 1s cubic-bezier(.16,1,.3,1) backwards; }
 @keyframes bsdraw { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
 .bsrng { display: flex; justify-content: space-between; font-size: 12px; opacity: .75; }
 
 .xprog { height: 6px; border-radius: 3px; background: rgba(120,130,160,.18); overflow: hidden; margin: 4px 0; }
 .xprog > i { display: block; height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4a90d9, #9b6bd6); transition: width .5s cubic-bezier(.16,1,.3,1); }
+
+/* 漲跌顏色: 綠漲紅跌 swaps the two (and the tinted pills that use the error / ok pair) */
+:root[data-ud="intl"][data-theme="light"] { --color-up: oklch(55% 0.15 150); --color-down: oklch(57% 0.21 25); }
+:root[data-ud="intl"][data-theme="dark"] { --color-up: oklch(76% 0.15 150); --color-down: oklch(72% 0.17 25); }
+:root[data-ud="intl"] .pxpill.up, :root[data-ud="intl"] .aitag.up { background: color-mix(in oklch, var(--color-up) 14%, transparent); }
+:root[data-ud="intl"] .pxpill.down, :root[data-ud="intl"] .aitag.down { background: color-mix(in oklch, var(--color-down) 14%, transparent); }
+/* 設定視窗 */
+.setcard { width: min(520px, 92vw); max-height: 86vh; overflow: auto; gap: 14px; }
+.setcard h3 { margin: 0; }
+.setsec { display: grid; gap: 8px; }
+.setsec > b { font-size: var(--text-sm); color: var(--color-muted); font-weight: 600; }
+.setrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.setrow .chip, .setrow .btn { white-space: nowrap; }
+.setcard .xrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.kbcard.setcard > div { display: grid; gap: 8px; align-items: stretch; }
+.kbcard.setcard > .setsec > .lcheck { display: flex; }
+.setsec .lcheck span { white-space: normal; }

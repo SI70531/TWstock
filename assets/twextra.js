@@ -398,12 +398,12 @@
     A.store.set("twlab-backup-at", Date.now()); paintBackupNote();
   }
   function paintBackupNote() {
-    const el = $("#dpHold .setlast"); if (!el) return;
+    const el = $(".setlast"); if (!el) return;
     const at = A.store.get("twlab-backup-at", 0);
     el.textContent = at ? `上次備份：${twTime(at)}` : "還沒有備份過。";
   }
   function readBackup(file) {
-    const say = t => { $("#dpHold .setmsg").textContent = t; }, go = $("#dpHold [data-restore]");
+    const say = t => { $(".setmsg").textContent = t; }, go = $(".setdlg [data-restore]");
     pendingRestore = null; go.hidden = true;
     if (!file) return;
     if (file.size > 5e6) return say("檔案太大，不像本站的備份。");
@@ -427,7 +427,7 @@
         A.store.set(k, parsed);
         if (localStorage.getItem(k) !== JSON.stringify(parsed)) throw new Error("full");
       });
-    } catch (e) { $("#dpHold .setmsg").textContent = "瀏覽器空間不足，只還原了一部分。清出空間後再還原一次。"; return; }
+    } catch (e) { $(".setmsg").textContent = "瀏覽器空間不足，只還原了一部分。清出空間後再還原一次。"; return; }
     location.reload();
   }
   function paintTg() {
@@ -441,18 +441,57 @@
     const mv = holdings().reduce((a, h) => { const s = A.DB.by.get(h.code); return a + (s && s.price > 0 ? s.price * h.shares : 0); }, 0);
     return `<div class="dcard"><div class="aihead"><div><h3>持股走勢與 0050 比較</h3></div><button type="button" class="aigo" data-xcurve>畫出走勢</button></div><p class="sub lcmsg" role="status"></p><div class="lcurve"></div></div>`;
   }
-  /* top-right 設定: the Telegram switches live in a popup now */
+  /* top-right 設定: one popup for look, defaults, refresh, notifications and the user's own data */
+  const PAGES = [["", "總覽"], ["dpChip", "籌碼"], ["dpInd", "產業"], ["dpList", "股票"], ["dpHold", "持股與損益"], ["dpPre", "分析"], ["dpRev", "復盤"], ["dpCal", "市場日曆"]];
+  const SETS = [
+    ["外觀", "theme", [["system", "系統"], ["light", "淺色"], ["dark", "深色"]]],
+    ["漲跌顏色", "ud", [["tw", "紅漲綠跌"], ["intl", "綠漲紅跌"]]],
+    ["預設開啟頁面", "home", PAGES],
+    ["股票預設分頁", "lst", [["ls", "清單"], ["rk", "排行"], ["sc", "選股"], ["rv", "營收"]]],
+    ["日曆預設範圍", "cmine", [["0", "全部"], ["1", "我的"]]],
+    ["日曆預設檢視", "cmode", [["list", "列表"], ["grid", "月曆"]]],
+    ["行情更新頻率", "poll", [["auto", "自動"], ["5", "5 秒"], ["10", "10 秒"], ["manual", "手動"]]],
+    ["動畫速度", "speed", [["1.5", "慢"], ["1", "標準"], ["0.6", "快"]]],
+  ];
+  const setVal = k => k === "theme" ? (window.__twTheme ? window.__twTheme.mode : "system") : window.TWSet.get(k);
   function openSettings() {
-    let el = $(".setdlg"); if (el) return;
+    let el = $(".setdlg"); if (el || !window.TWSet) return;
     const opt = A.store.get("twalert-opt", {}) || {};
     el = document.createElement("div"); el.className = "kbhelp setdlg"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "設定");
-    el.innerHTML = `<div class="kbcard setcard"><h3>Telegram 通知</h3>${TG.map(([k, t]) => `<label class="lcheck"><input type="checkbox" data-tg="${k}" ${opt[k] === false ? "" : "checked"}><span>${t}</span></label>`).join("")}<p class="sub settg" role="status"></p></div>`;
+    el.innerHTML = `<div class="kbcard setcard"><h3>設定</h3>
+      ${SETS.map(([t, k, o]) => `<div class="setsec"><b>${t}</b><div class="setrow" data-set="${k}">${o.map(([v, l]) => `<button type="button" class="chip" data-v="${v}" aria-pressed="${String(setVal(k)) === v}">${l}</button>`).join("")}</div></div>`).join("")}
+      <div class="setsec"><b>Telegram 通知</b>${TG.map(([k, t]) => `<label class="lcheck"><input type="checkbox" data-tg="${k}" ${opt[k] === false ? "" : "checked"}><span>${t}</span></label>`).join("")}<p class="sub settg" role="status"></p></div>
+      <div class="setsec"><b>資料</b><div class="xrow"><button type="button" class="aigo" data-backup>下載備份</button><label class="btn xfile">選擇備份檔還原<input type="file" accept=".json,application/json" hidden></label><button type="button" class="btn" data-restore hidden>確認還原</button><button type="button" class="btn" data-wipe>清除本機資料</button></div>
+        <p class="sub setlast"></p><p class="sub setmsg" role="status"></p></div></div>`;
     const shut = () => { document.removeEventListener("keydown", esc); el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, fill: "forwards" }).onfinish = () => el.remove(); };
     const esc = e => { if (e.key === "Escape") shut(); };
     document.addEventListener("keydown", esc);
-    el.addEventListener("click", e => { if (!e.target.closest(".kbcard")) shut(); });
-    el.addEventListener("change", e => { const t = e.target; if (!t.dataset.tg) return; const o = A.store.get("twalert-opt", {}) || {}; o[t.dataset.tg] = t.checked; A.store.set("twalert-opt", o); tgState = null; $(".settg", el).textContent = "同步中…"; document.dispatchEvent(new Event("twalert:change")); });
-    document.body.appendChild(el); paintTg();
+    let wipeT = 0;
+    el.addEventListener("click", e => {
+      if (!e.target.closest(".kbcard")) return shut();
+      const row = e.target.closest("[data-set]"), b = e.target.closest("[data-v]");
+      if (row && b) {
+        $$("[data-v]", row).forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+        if (row.dataset.set === "theme") window.__twTheme && window.__twTheme.set(b.dataset.v); else window.TWSet.set(row.dataset.set, b.dataset.v);
+        return;
+      }
+      if (e.target.closest("[data-backup]")) return backup();
+      if (e.target.closest("[data-restore]")) return restore();
+      const w = e.target.closest("[data-wipe]");
+      if (w) {
+        if (!wipeT) { w.textContent = "再按一次確認清除"; wipeT = setTimeout(() => { wipeT = 0; w.textContent = "清除本機資料"; }, 4000); return; }
+        clearTimeout(wipeT);
+        const dead = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (/^tw/.test(k) && k !== "twstock-device") dead.push(k); }
+        dead.forEach(k => localStorage.removeItem(k)); try { sessionStorage.clear(); } catch (x) {}
+        location.reload();
+      }
+    });
+    el.addEventListener("change", e => {
+      const t = e.target;
+      if (t.type === "file") return readBackup(t.files && t.files[0]);
+      if (!t.dataset.tg) return; const o = A.store.get("twalert-opt", {}) || {}; o[t.dataset.tg] = t.checked; A.store.set("twalert-opt", o); tgState = null; $(".settg", el).textContent = "同步中…"; document.dispatchEvent(new Event("twalert:change"));
+    });
+    document.body.appendChild(el); paintTg(); paintBackupNote();
     el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160 });
     $(".kbcard", el).animate([{ transform: "scale(.94) translateY(8px)" }, { transform: "none" }], { duration: 260, easing: "cubic-bezier(.2,.9,.3,1.2)" });
   }

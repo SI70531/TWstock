@@ -393,9 +393,11 @@
     } catch (e) { DB.rt = false; rtFailAt = Date.now(); }
     rtBusy = false; note();
   }
+  document.addEventListener("twset:change", e => { if (e.detail.k === "poll") { clearTimeout(rtTimer); rtLoop(); } });
   function rtLoop() {
     clearTimeout(rtTimer);
-    rtPoll().then(() => { rtTimer = setTimeout(rtLoop, marketOpen() ? 2000 : nightOpen() ? 5000 : 120000); });
+    const pl = window.TWSet ? window.TWSet.get("poll") : "auto";
+    rtPoll().then(() => { if (pl === "manual") return; rtTimer = setTimeout(rtLoop, pl === "5" || pl === "10" ? (marketOpen() || nightOpen() ? +pl * 1000 : 120000) : marketOpen() ? 2000 : nightOpen() ? 5000 : 120000); });
   }
 
   /* ---------------- banner ---------------- */
@@ -500,7 +502,7 @@
     dl.insertAdjacentHTML("afterbegin", `<div class="anasub lsub" role="tablist" aria-label="股票">${[["ls", "清單"], ["rk", "排行"], ["sc", "選股"], ["rv", "營收"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
     mktc.dataset.sub = "ls"; dl.appendChild(mktc); instInit(instc); lstBuild(dl);
     $(".lsub", dl).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) lstSub(b.dataset.sub, true); });
-    lstSub((() => { try { return sessionStorage.getItem("twlst") || "ls"; } catch (e) { return "ls"; } })(), false);
+    lstSub((() => { try { return sessionStorage.getItem("twlst") || (window.TWSet && window.TWSet.get("lst")) || "ls"; } catch (e) { return "ls"; } })(), false);
     $(".wkgo", wkc).addEventListener("click", e => wkRun(e.currentTarget));
     pmLoad(); pmLoad(true); clLoad(); wkLoad(); wdLoad(); ftLoad();
     const dd = $(".bd-dist", box); dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; });
@@ -2510,7 +2512,7 @@
   let saved = null; try { saved = sessionStorage.getItem("twdash-tab"); } catch (e) {}
   requestAnimationFrame(() => {
     if (/^#(stock\/[0-9A-Z]{4,6}|dp\w+)$/.test(location.hash)) { navGo(location.hash); try { history.replaceState({ tw: 1, p: cur, code: CODE }, "", navHash()); } catch (e) {} }
-    else { navLock = true; open(saved || "dpOverview", false); navLock = false; try { history.replaceState({ tw: 1, p: cur, code: CODE }, "", navHash()); } catch (e) {} }
+    else { navLock = true; open(saved || ((window.TWSet && window.TWSet.get("home")) || "dpOverview"), false); navLock = false; try { history.replaceState({ tw: 1, p: cur, code: CODE }, "", navHash()); } catch (e) {} }
   });
   window.TWDash = { replay: () => open(cur, false),
     /* shared with the 研究室 tab (assets/twlab.js) */
