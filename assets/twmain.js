@@ -664,10 +664,12 @@
     if (HEAT.sel && !g) HEAT.sel = null;
     let items = g ? g.list.slice().sort((a, b) => b.price * b.vol - a.price * a.vol).slice(0, 60).map(s => ({ key: s.code, name: s.name, val: s.price * s.vol * 1000, pct: s.pct, sub: fmt(s.price, dig(s.price)) }))
       : groups.map(x => ({ key: x.id, name: x.name, val: x.val, pct: x.pct, sub: `${x.list.length} 檔` }));
+    /* layout uses coarse (~12%) steps of turnover, so every live tick does not reshuffle and resize the tiles */
+    items.forEach(i => { i.val = i.val > 0 ? Math.exp(Math.round(Math.log(i.val) / 0.12) * 0.12) : 0; });
     if (HEAT.f !== "all") items = items.filter(i => (HEAT.f === "up" ? i.pct > 0 : i.pct < 0));
-    items.sort(HEAT.sort === "pct" ? (a, b) => (HEAT.f === "down" ? a.pct - b.pct : b.pct - a.pct) : (a, b) => b.val - a.val);
+    items.sort(HEAT.sort === "pct" ? (a, b) => (HEAT.f === "down" ? a.pct - b.pct : b.pct - a.pct) || (a.key < b.key ? -1 : 1) : (a, b) => b.val - a.val || (a.key < b.key ? -1 : 1));
     const W = hm.clientWidth || 800, H = hm.clientHeight || 380;
-    const sig = (HEAT.sel || "") + HEAT.f + HEAT.sort + W + ":" + items.map(i => i.key + (i.pct || 0).toFixed(2) + Math.round(i.val / 1e7)).join();
+    const sig = (HEAT.sel || "") + HEAT.f + HEAT.sort + W + ":" + items.map(i => i.key + (i.pct || 0).toFixed(2) + Math.round(Math.log(i.val + 1) / 0.12)).join();
     if (!animate && sig === HEAT.sig) return; HEAT.sig = sig;
     const R = squarify(items.map(i => i.val), W, H), lim = g ? 7 : 3.5;
     const seg = (k, opts) => `<span class="hmseg" data-hk="${k}">${opts.map(([v, l]) => `<button type="button" data-hv="${v}" aria-pressed="${HEAT[k] === v}">${l}</button>`).join("")}<i></i></span>`;
@@ -695,7 +697,7 @@
         } else {
           const was = +t.dataset.p, now = +(it.pct || 0).toFixed(2);
           t.setAttribute("style", st); t.className = cls; $("span", t).textContent = pct(it.pct); $("i", t).textContent = it.sub;
-          if (Number.isFinite(was) && now !== was) heatFlash(t, now > was);
+          if (Number.isFinite(was) && Math.abs(now - was) >= 0.1) heatFlash(t, now > was);
           t.dataset.p = now;
         }
         t.title = it.name + " " + pct(it.pct); keep.add(it.key);
@@ -751,7 +753,8 @@
   }
   /* a live change: the tile flashes brighter and pulses once, with a small arrow for the direction */
   function heatFlash(t, up) {
-    t.animate([{ filter: "brightness(1.9) saturate(1.4)", transform: "scale(1.06)" }, { filter: "none", transform: "none" }], { duration: 900, easing: "cubic-bezier(.2,.8,.3,1)" });
+    const nw = Date.now(); if (nw - (+t.dataset.fl || 0) < 6000) return; t.dataset.fl = nw;   /* at most one flash per tile every 6 s */
+    t.animate([{ filter: "brightness(1.3)" }, { filter: "none" }], { duration: 1200, easing: "cubic-bezier(.2,.8,.3,1)" });
     const a = document.createElement("em"); a.className = "hmarw " + (up ? "up" : "down"); a.textContent = up ? "▲" : "▼"; t.appendChild(a);
     a.animate([{ opacity: 0, transform: `translateY(${up ? 6 : -6}px)` }, { opacity: 1, transform: "none", offset: .25 }, { opacity: 0, transform: `translateY(${up ? -8 : 8}px)` }], { duration: 1400, easing: "ease-out" }).onfinish = () => a.remove();
   }
