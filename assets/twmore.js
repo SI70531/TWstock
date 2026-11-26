@@ -162,7 +162,7 @@
     document.addEventListener("twdash:list", () => { if ($("#dpList .cm") && !$("#dpList .cm").hidden) cmPaint(false); });
     setInterval(ritualTick, 1000); ritualTick();
     swipe(); keys();
-    sideToggle(); popAnim(); closeAnim(); actionAnim(); visAnim(); sortTables();
+    sideToggle(); popAnim(); closeAnim(); actionAnim(); visAnim(); sortTables(); sidePlus();
     window.TWDash.ritual = ritualShow;      /* TWDash.ritual("open") plays the opening animation for a look */
   }
   /* closing animates too: setting .hidden = true on a pop-open element first plays a short fade/sink, then hides it */
@@ -209,6 +209,155 @@
         try { el.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 320, delay: Math.min(n, 12) * 28, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }); } catch (e) {} n++;
       }));
     }).observe(document.querySelector(".app") || document.body, { subtree: true, childList: true });
+  }
+  /* ================= sidebar extras: price alerts, holdings and P&L, market calendar, recently viewed ================= */
+  function sidePlus() {
+    const side = $(".side"), nav = side && $("nav", side); if (!side || !nav || $(".sb-tools", side)) { if (!side) setTimeout(sidePlus, 600); return; }
+    const store = A.store, fmt = A.fmt, esc = A.esc, DB = A.DB;
+    const IC = {
+      alert: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
+      hold: '<rect x="3.5" y="7" width="17" height="12" rx="2.5"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7M3.5 12.5h17"/>',
+      cal: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'
+    };
+    const tools = document.createElement("div"); tools.className = "sb-tools";
+    tools.innerHTML = [["alert", "價格提醒"], ["hold", "持股與損益"], ["cal", "市場日曆"]].map(([k, t]) => `<button type="button" data-sbt="${k}"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg><span>${t}</span><em class="sbn" hidden></em></button>`).join("");
+    nav.after(tools);
+    const rec = document.createElement("div"); rec.className = "sb-recent"; rec.innerHTML = '<div class="sb-h">最近瀏覽</div><div class="sb-rlist"></div>'; tools.after(rec);
+    const tone = v => (v > 0 ? "up" : v < 0 ? "down" : "flat"), num = v => (Number.isFinite(v) ? v : NaN), sgn = (v, d = 0) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
+    const px = c => { const x = DB.by.get(c); return x ? num(x.price) : NaN; };
+    const nm = c => { const x = DB.by.get(c); return x ? x.name : c; };
+
+    /* ----- recently viewed ----- */
+    const RK = "tw-recent";
+    const noteHash = () => { const m = location.hash.match(/#stock\/([0-9A-Za-z]+)/); if (!m) return; const c = m[1].toUpperCase(), L = (store.get(RK, []) || []).filter(x => x !== c); L.unshift(c); store.set(RK, L.slice(0, 8)); paintRecent(); };
+    function paintRecent() {
+      const L = (store.get(RK, []) || []).filter(c => DB.by.get(c)).slice(0, 6), box = $(".sb-rlist", rec); rec.hidden = !L.length;
+      const html = L.map(c => { const x = DB.by.get(c), t = tone(x.pct); return `<button type="button" class="sb-row" data-code="${esc(c)}"><b>${esc(x.name)}</b><span class="p ${t}">${fmt(x.price, x.price < 50 ? 2 : x.price < 1000 ? 1 : 0)}</span><span>${esc(c)}</span><span class="p ${t}">${(x.pct > 0 ? "+" : "") + (x.pct || 0).toFixed(2)}%</span></button>`; }).join("");
+      if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
+    }
+    window.addEventListener("hashchange", noteHash); noteHash();
+
+    /* ----- modal shell ----- */
+    let cur = null;
+    function modal(title, body, cls) {
+      if (cur) closeM(true);
+      const el = document.createElement("div"); el.className = "sbm"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", title);
+      el.innerHTML = `<div class="sbmc ${cls || ""}"><div class="sbmh"><h3>${title}</h3><button type="button" class="sbmx" aria-label="關閉">×</button></div><div class="sbmb">${body}</div></div>`;
+      el.addEventListener("click", e => { if (e.target === el || e.target.closest(".sbmx")) closeM(); });
+      document.body.appendChild(el); cur = el; return el;
+    }
+    function closeM(now) { const el = cur; if (!el) return; cur = null; if (now) { el.remove(); return; } el.hidden = true; setTimeout(() => el.remove(), 320); }
+    document.addEventListener("keydown", e => { if (e.key === "Escape" && cur) closeM(); });
+
+    /* ----- price alerts ----- */
+    const AK = "tw-palerts", alerts = () => store.get(AK, []) || [];
+    function badge() {
+      const act = alerts().filter(a => a.on).length, b = $('[data-sbt="alert"] .sbn', tools); b.hidden = !act; b.textContent = act;
+      const H = store.get("twlab-hold", []) || [], hb = $('[data-sbt="hold"] .sbn', tools);
+      let day = 0, n = 0; H.forEach(h => { const x = DB.by.get(h.code); if (x && Number.isFinite(x.chg) && h.shares > 0) { day += x.chg * h.shares; n++; } });
+      hb.hidden = !n; hb.textContent = sgn(day); hb.className = "sbn " + tone(day);
+    }
+    function ping(a, now) {
+      let host = $(".toasts"); if (!host) { host = document.createElement("div"); host.className = "toasts"; host.setAttribute("aria-live", "polite"); document.body.appendChild(host); }
+      const el = document.createElement("div"); el.className = "toast " + (a.op === "above" ? "up" : "down");
+      el.innerHTML = `<span class="tt-badge">價格提醒</span><button type="button" class="tt-body"><b>${esc(nm(a.code))} <i>${esc(a.code)}</i></b><span>現價 ${fmt(now, now < 50 ? 2 : 1)}，已${a.op === "above" ? "漲到" : "跌到"} ${fmt(a.px, a.px < 50 ? 2 : 1)}</span></button>`;
+      el.addEventListener("click", () => { A.openStock(a.code); el.remove(); }); host.prepend(el); setTimeout(() => el.remove(), 15000);
+      try { if (window.Notification && Notification.permission === "granted") new Notification("價格提醒 " + nm(a.code), { body: `現價 ${now}，已${a.op === "above" ? "漲到" : "跌到"} ${a.px}` }); } catch (e) {}
+    }
+    function checkAlerts() {
+      const L = alerts(); let ch = false;
+      L.forEach(a => { if (!a.on) return; const p = px(a.code); if (!Number.isFinite(p)) return; if ((a.op === "above" && p >= a.px) || (a.op === "below" && p <= a.px)) { a.on = false; a.at = Date.now(); a.hit = p; ch = true; ping(a, p); } });
+      if (ch) { store.set(AK, L); if (cur && cur.dataset.k === "alert") alertView(); }
+      badge();
+    }
+    function alertView() {
+      const L = alerts(), body = `
+        <form class="sbf" data-f="alert"><input name="code" placeholder="代號，例如 2330" inputmode="text" autocomplete="off" aria-label="股票代號"><select name="op" aria-label="條件"><option value="above">漲到</option><option value="below">跌到</option></select><input name="px" type="number" step="any" min="0" placeholder="價格" aria-label="價格"><button type="submit" class="btn">新增</button></form>
+        <p class="sub sbhint"></p>
+        <div class="sbl">${L.length ? L.map((a, i) => `<div class="sbr${a.on ? "" : " done"}"><button type="button" class="sbl-go" data-go="${esc(a.code)}"><b>${esc(nm(a.code))}</b><span>${esc(a.code)}</span></button><span>${a.op === "above" ? "漲到" : "跌到"} <b>${fmt(a.px, a.px < 50 ? 2 : 1)}</b></span><span class="sbs">${a.on ? `監控中（現價 ${Number.isFinite(px(a.code)) ? fmt(px(a.code), px(a.code) < 50 ? 2 : 1) : "—"}）` : "已觸發 " + new Date(a.at).toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span><button type="button" class="sbdel" data-del="${i}" aria-label="刪除">×</button></div>`).join("") : '<p class="sub">還沒有提醒。輸入代號、條件和價格就會開始監控，頁面開著時到價會跳通知。</p>'}</div>`;
+      if (cur && cur.dataset.k === "alert") { $(".sbmb", cur).innerHTML = body; return cur; }
+      const m = modal("價格提醒", body); m.dataset.k = "alert"; return m;
+    }
+
+    /* ----- holdings and P&L ----- */
+    const HK = "twlab-hold";
+    function holdBody() {
+      const H = store.get(HK, []) || [];
+      const rows = H.map(h => { const p = px(h.code), mv = Number.isFinite(p) ? p * h.shares : NaN, pl = mv - h.cost; return { h, p, mv, pl, rt: pl / h.cost * 100, day: (DB.by.get(h.code) || {}).chg * h.shares }; });
+      const tot = rows.reduce((a, r) => { a.cost += r.h.cost; if (Number.isFinite(r.mv)) { a.mv += r.mv; } if (Number.isFinite(r.day)) a.day += r.day; return a; }, { cost: 0, mv: 0, day: 0 });
+      return `<div class="sbsum"><div><span>總市值</span><b data-s="mv">${Number.isFinite(tot.mv) && tot.mv ? Math.round(tot.mv).toLocaleString("en-US") : "—"}</b></div><div><span>總損益</span><b data-s="pl" class="${tone(tot.mv - tot.cost)}">${rows.length ? sgn(tot.mv - tot.cost) : "—"}</b></div><div><span>報酬率</span><b data-s="rt" class="${tone(tot.mv - tot.cost)}">${tot.cost ? sgn((tot.mv / tot.cost - 1) * 100, 2) + "%" : "—"}</b></div><div><span>今日損益</span><b data-s="day" class="${tone(tot.day)}">${rows.length ? sgn(tot.day) : "—"}</b></div></div>
+        ${rows.length ? `<div class="sbtw"><table class="sbt"><thead><tr><th>股票</th><th>股數</th><th>均價</th><th>現價</th><th>市值</th><th>損益</th><th>報酬</th><th></th></tr></thead><tbody>${rows.map(r => `<tr data-c="${esc(r.h.code)}"><td><button type="button" class="sbl-go" data-go="${esc(r.h.code)}"><b>${esc(nm(r.h.code))}</b><span>${esc(r.h.code)}</span></button></td><td>${r.h.shares.toLocaleString("en-US")}</td><td>${(r.h.cost / r.h.shares).toFixed(2)}</td><td data-k="p" class="${tone((DB.by.get(r.h.code) || {}).chg)}">${Number.isFinite(r.p) ? fmt(r.p, r.p < 50 ? 2 : 1) : "—"}</td><td data-k="mv">${Number.isFinite(r.mv) ? Math.round(r.mv).toLocaleString("en-US") : "—"}</td><td data-k="pl" class="${tone(r.pl)}">${Number.isFinite(r.pl) ? sgn(Math.round(r.pl)) : "—"}</td><td data-k="rt" class="${tone(r.pl)}">${Number.isFinite(r.rt) ? sgn(r.rt, 2) + "%" : "—"}</td><td><button type="button" class="sbdel" data-hdel="${esc(r.h.code)}" aria-label="刪除">×</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="sub">還沒有持股。在下面輸入代號、股數和總成本。</p>'}
+        <form class="sbf" data-f="hold"><input name="code" placeholder="代號" autocomplete="off" aria-label="代號"><input name="shares" type="number" min="1" step="1" placeholder="股數" aria-label="股數"><input name="cost" type="number" min="1" step="any" placeholder="總成本（元）" aria-label="總成本"><button type="submit" class="btn">新增／更新</button></form><p class="sub sbhint">股數以「股」計（1 張 = 1,000 股）。同一代號再輸入會覆蓋。資料只存在這台裝置。</p>`;
+    }
+    function holdView() { if (cur && cur.dataset.k === "hold") { $(".sbmb", cur).innerHTML = holdBody(); return cur; } const m = modal("持股與損益", holdBody(), "wide"); m.dataset.k = "hold"; return m; }
+    function holdLive() {
+      if (!cur || cur.dataset.k !== "hold") return; const H = store.get(HK, []) || []; let mv = 0, cost = 0, day = 0;
+      H.forEach(h => { const x = DB.by.get(h.code), p = px(h.code), tr = $(`tr[data-c="${h.code}"]`, cur); cost += h.cost; if (!Number.isFinite(p)) return; const v = p * h.shares, pl = v - h.cost; mv += v; day += (x.chg || 0) * h.shares;
+        if (tr) { const set = (k, t, c) => { const td = $(`[data-k=${k}]`, tr); if (td && td.textContent !== t) { td.textContent = t; if (c) td.className = c; } }; set("p", fmt(p, p < 50 ? 2 : 1), tone(x.chg)); set("mv", Math.round(v).toLocaleString("en-US")); set("pl", sgn(Math.round(pl)), tone(pl)); set("rt", sgn(pl / h.cost * 100, 2) + "%", tone(pl)); } });
+      const S = (k, t, c) => { const b = $(`[data-s=${k}]`, cur); if (b && b.textContent !== t) { b.textContent = t; if (c) b.className = c; } };
+      S("mv", Math.round(mv).toLocaleString("en-US")); S("pl", sgn(mv - cost), tone(mv - cost)); S("rt", cost ? sgn((mv / cost - 1) * 100, 2) + "%" : "—", tone(mv - cost)); S("day", sgn(day), tone(day));
+    }
+
+    /* ----- market calendar ----- */
+    let CY = new Date().getFullYear(), CM = new Date().getMonth(), CSEL = "", HOL = null;
+    const ymd = (y, m, d) => y + "-" + String(m + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+    async function holidays(y) {
+      if (HOL && HOL.y === y) return HOL.m; const m = {};
+      try { const j = await A.J(`https://www.twse.com.tw/rwd/zh/holidaySchedule/holidaySchedule?response=json&queryYear=${y}`);
+        (j.data || []).forEach(r => { const c = String(r[0]); let d = ""; const a = c.match(/(\d{4})-(\d{2})-(\d{2})/), b = c.match(/(\d{2,3})年(\d{1,2})月(\d{1,2})日/); if (a) d = c.slice(0, 10); else if (b) d = ymd(+b[1] + 1911, +b[2] - 1, +b[3]); if (d && !/開始交易|最後交易/.test(String(r[1] || ""))) m[d] = String(r[1] || "休市").replace(/<[^>]*>/g, "").slice(0, 12); }); } catch (e) {}
+      HOL = { y, m }; return m;
+    }
+    function legal(y) {
+      const E = {}, add = (d, t) => (E[d] = E[d] || []).push(t);
+      add(ymd(y, 4, 15), "第一季財報申報期限"); add(ymd(y, 7, 14), "第二季財報申報期限"); add(ymd(y, 10, 14), "第三季財報申報期限"); add(ymd(y, 2, 31), "年度財報申報期限");
+      for (let m = 0; m < 12; m++) add(ymd(y, m, 10), "上月營收公布期限");
+      return E;
+    }
+    async function calView() {
+      const body = `<div class="sbcal"><div class="sbch"><button type="button" class="chip" data-cm="-1" aria-label="上個月">‹</button><b></b><button type="button" class="chip" data-cm="1" aria-label="下個月">›</button><button type="button" class="chip" data-cm="0">今天</button></div><div class="sbgrid"></div><div class="sbday"></div><p class="sub sbhint">紅點＝除權息　藍點＝財報／營收申報期限　灰底＝週末或休市。除權息只列出尚未發生的場次；休市日取自證交所公告，抓不到時只標週末。</p></div>`;
+      const m = modal("市場日曆", body, "wide"); m.dataset.k = "cal"; await calPaint(); return m;
+    }
+    async function calPaint() {
+      if (!cur || cur.dataset.k !== "cal") return;
+      const hol = await holidays(CY), L = legal(CY), W = new Set(A.watch()), H = new Set((store.get(HK, []) || []).map(h => h.code)); let dv = [];
+      try { dv = await dvLoad(); } catch (e) {}
+      const byD = {}; dv.forEach(r => (byD[r.d] = byD[r.d] || []).push(r));
+      const first = new Date(CY, CM, 1).getDay(), days = new Date(CY, CM + 1, 0).getDate(), today = taipei().iso;
+      $(".sbch b", cur).textContent = `${CY} 年 ${CM + 1} 月`;
+      let cells = "日一二三四五六".split("").map(w => `<i class="sbw">${w}</i>`).join("");
+      for (let i = 0; i < first; i++) cells += "<i></i>";
+      for (let d = 1; d <= days; d++) { const k = ymd(CY, CM, d), wd = new Date(CY, CM, d).getDay(), ex = byD[k] || [], lg = L[k] || [], mine = ex.some(r => W.has(r.code) || H.has(r.code));
+        cells += `<button type="button" class="sbc${wd % 6 === 0 || hol[k] ? " off" : ""}${k === today ? " today" : ""}${k === CSEL ? " sel" : ""}${mine ? " mine" : ""}" data-d="${k}"><span>${d}</span><em>${ex.length ? '<u class="dx"></u>' : ""}${lg.length ? '<u class="dl"></u>' : ""}</em>${hol[k] ? `<small>${esc(hol[k])}</small>` : ""}</button>`; }
+      const g = $(".sbgrid", cur); g.innerHTML = cells;
+      g.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.2,.8,.2,1)" });
+      const sel = CSEL && CSEL.startsWith(CY + "-" + String(CM + 1).padStart(2, "0")) ? CSEL : ""; const out = $(".sbday", cur);
+      if (!sel) { out.innerHTML = ""; return; }
+      const ex = byD[sel] || [], lg = L[sel] || [], wdn = "日一二三四五六"[new Date(sel + "T00:00:00").getDay()];
+      out.innerHTML = `<h4>${+sel.slice(5, 7)}/${+sel.slice(8)}（週${wdn}）</h4>` + ((hol[sel] ? `<p class="sbev off">休市：${esc(hol[sel])}</p>` : "") + lg.map(t => `<p class="sbev lg">${esc(t)}</p>`).join("") + ex.map(r => `<button type="button" class="sbev ex" data-go="${esc(r.code)}"><b>${esc(r.name)}</b> ${esc(r.code)}<span>${r.cash != null ? "現金 " + r.cash : ""}${r.stock ? "　股票 " + r.stock : ""}</span>${W.has(r.code) || H.has(r.code) ? "<i>我的</i>" : ""}</button>`).join("") || '<p class="sub">這天沒有已知的事件。</p>');
+      if (!ex.length && !lg.length && !hol[sel]) out.innerHTML = `<h4>${+sel.slice(5, 7)}/${+sel.slice(8)}（週${wdn}）</h4><p class="sub">這天沒有已知的事件。</p>`;
+    }
+
+    /* ----- clicks ----- */
+    tools.addEventListener("click", e => { const b = e.target.closest("[data-sbt]"); if (!b) return; const k = b.dataset.sbt; if (k === "alert") { alertView(); } else if (k === "hold") holdView(); else calView(); });
+    document.addEventListener("click", e => {
+      if (!cur || !cur.contains(e.target)) return;
+      const go = e.target.closest("[data-go]"); if (go) { const c = go.dataset.go; closeM(); A.openStock(c); return; }
+      const del = e.target.closest("[data-del]"); if (del) { const L = alerts(); L.splice(+del.dataset.del, 1); store.set(AK, L); alertView(); badge(); return; }
+      const hd = e.target.closest("[data-hdel]"); if (hd) { store.set(HK, (store.get(HK, []) || []).filter(h => h.code !== hd.dataset.hdel)); document.dispatchEvent(new Event("twlab:hold")); holdView(); badge(); return; }
+      const cm = e.target.closest("[data-cm]"); if (cm) { const v = +cm.dataset.cm; if (!v) { CY = new Date().getFullYear(); CM = new Date().getMonth(); CSEL = taipei().iso; } else { CM += v; if (CM < 0) { CM = 11; CY--; } if (CM > 11) { CM = 0; CY++; } } calPaint(); return; }
+      const dd = e.target.closest("[data-d]"); if (dd) { CSEL = dd.dataset.d; calPaint(); }
+    });
+    document.addEventListener("submit", e => {
+      const f = e.target.closest && e.target.closest(".sbf"); if (!f || !cur || !cur.contains(f)) return; e.preventDefault();
+      const code = f.code.value.trim().toUpperCase(), hint = $(".sbhint", cur);
+      if (!DB.by.get(code)) { if (hint) hint.textContent = "找不到這個代號（要先在股票清單裡）。"; return; }
+      if (f.dataset.f === "alert") { const p = parseFloat(f.px.value); if (!(p > 0)) { hint.textContent = "請輸入價格。"; return; } const L = alerts(); L.unshift({ code, op: f.op.value, px: p, on: true }); store.set(AK, L.slice(0, 40)); try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch (x) {} alertView(); badge(); checkAlerts(); }
+      else { const sh = parseFloat(f.shares.value), cost = parseFloat(f.cost.value); if (!(sh > 0) || !(cost > 0)) { hint.textContent = "股數和總成本都要大於 0。"; return; } const H = (store.get(HK, []) || []).filter(h => h.code !== code); const x = DB.by.get(code); H.push({ code, shares: sh, cost, px: null, ind: "" }); store.set(HK, H); document.dispatchEvent(new Event("twlab:hold")); holdView(); badge(); }
+    });
+    document.addEventListener("twdash:live", () => { try { checkAlerts(); paintRecent(); holdLive(); } catch (e) {} });
+    document.addEventListener("twdash:list", () => { paintRecent(); badge(); });
+    document.addEventListener("twlab:hold", badge);
+    paintRecent(); badge();
   }
   /* ================= every chart and table animates when it scrolls into view ================= */
   function visAnim() {
