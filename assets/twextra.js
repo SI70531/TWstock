@@ -431,7 +431,7 @@
     location.reload();
   }
   function paintTg() {
-    const el = $("#dpHold .settg"); if (!el) return;
+    const el = $(".settg"); if (!el) return;
     const S = tgState;
     el.textContent = !S ? "" : S.old ? "目前部署的 Worker 還是舊版，這些開關要部署新版後才生效。" : S.ok ? "已同步到 Worker。" : S.owner === false ? "只有擁有者裝置的設定會生效。" : "同步失敗。";
   }
@@ -450,9 +450,24 @@
         </div><div class="lsizeout">${msg("填入進場價、停損價與總資金。")}</div></div>
       <div class="dcard"><h3>資料備份</h3><p class="sub">備份檔包含自選股、持股、交易紀錄、模擬帳戶、回顧紀錄與設定，以及這台裝置的警示識別碼，請自己保管。</p>
         <div class="xrow"><button type="button" class="aigo" data-backup>下載備份</button><label class="btn xfile">選擇備份檔還原<input type="file" accept=".json,application/json" hidden></label><button type="button" class="btn" data-restore hidden>確認還原</button></div>
-        <p class="sub setlast"></p><p class="sub setmsg" role="status"></p></div>
-      <div class="dcard"><h3>Telegram 通知</h3>${TG.map(([k, t]) => `<label class="lcheck"><input type="checkbox" data-tg="${k}" ${opt[k] === false ? "" : "checked"}><span>${t}</span></label>`).join("")}<p class="sub settg" role="status"></p></div>`;
+        <p class="sub setlast"></p><p class="sub setmsg" role="status"></p></div>`;
   }
+  /* top-right 設定: the Telegram switches live in a popup now */
+  function openSettings() {
+    let el = $(".setdlg"); if (el) return;
+    const opt = A.store.get("twalert-opt", {}) || {};
+    el = document.createElement("div"); el.className = "kbhelp setdlg"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "設定");
+    el.innerHTML = `<div class="kbcard setcard"><h3>Telegram 通知</h3>${TG.map(([k, t]) => `<label class="lcheck"><input type="checkbox" data-tg="${k}" ${opt[k] === false ? "" : "checked"}><span>${t}</span></label>`).join("")}<p class="sub settg" role="status"></p></div>`;
+    const shut = () => { document.removeEventListener("keydown", esc); el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, fill: "forwards" }).onfinish = () => el.remove(); };
+    const esc = e => { if (e.key === "Escape") shut(); };
+    document.addEventListener("keydown", esc);
+    el.addEventListener("click", e => { if (!e.target.closest(".kbcard")) shut(); });
+    el.addEventListener("change", e => { const t = e.target; if (!t.dataset.tg) return; const o = A.store.get("twalert-opt", {}) || {}; o[t.dataset.tg] = t.checked; A.store.set("twalert-opt", o); tgState = null; $(".settg", el).textContent = "同步中…"; document.dispatchEvent(new Event("twalert:change")); });
+    document.body.appendChild(el); paintTg();
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160 });
+    $(".kbcard", el).animate([{ transform: "scale(.94) translateY(8px)" }, { transform: "none" }], { duration: 260, easing: "cubic-bezier(.2,.9,.3,1.2)" });
+  }
+  document.addEventListener("twdash:settings", () => { if (A) openSettings(); });
   /* the 持股與損益 page is drawn by twmore.js; the switch and these cards sit around it and are put back if it redraws */
   function mountHold() {
     const el = holdPanel(); if (!el || !$(".sbpage", el) || !A.DB.list.length) return;
@@ -482,7 +497,6 @@
     el.addEventListener("change", e => {
       const t = e.target;
       if (t.type === "file" && t.closest(".xhold")) return readBackup(t.files && t.files[0]);
-      if (t.dataset.tg) { const o = A.store.get("twalert-opt", {}) || {}; o[t.dataset.tg] = t.checked; A.store.set("twalert-opt", o); tgState = null; $("#dpHold .settg").textContent = "同步中…"; document.dispatchEvent(new Event("twalert:change")); }
     });
     new MutationObserver(() => { if ($(".sbpage", el) && !$(".xviews", el)) mountHold(); }).observe(el, { childList: true });
   }
