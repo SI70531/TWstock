@@ -166,6 +166,7 @@
     const d = decs(text), t0 = performance.now(), dur = 700, prefix = text.match(/^[^\d-]*/)[0], suffix = text.match(/[^\d.,]*$/)[0];
     RUN.add(el);
     const step = now => {
+      if (el.dataset.txt && el.dataset.txt !== text) { RUN.delete(el); return; }   /* a newer quote arrived: let it stand */
       const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3), v = from + (to - from) * e;
       el.textContent = k < 1 ? prefix + v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }) + suffix : text;
       if (k < 1) requestAnimationFrame(step); else RUN.delete(el);
@@ -179,8 +180,10 @@
       const text = el.textContent, v = num(text), k = keyOf(el, i), who = el.closest("#dpStock") && A && A.code ? A.code() : "", prev = LAST.get(k);
       LAST.set(k, { v, who });
       if (!Number.isFinite(v) || !prev) return;
-      const from = prev.who !== who || !Number.isFinite(prev.v) ? 0 : prev.v;
-      if (!Number.isFinite(from) || from === v) return;
+      /* count from the value that was just on screen (37,000 → 36,800), never from 0; a new stock or a placeholder just swaps */
+      if (prev.who !== who || !Number.isFinite(prev.v)) return;
+      const from = prev.v;
+      if (from === v) return;
       countTo(el, from, v, text);
     });
     $$(".dash .pxpill").forEach(el => {

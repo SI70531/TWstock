@@ -568,7 +568,7 @@
       if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); $(".ixn", c).textContent = sub ? i.name + "（" + sub + "）" : i.name; }
       $(".ixsrc", c).textContent = i.src ? i.src + (i.tm ? " " + i.tm.slice(0, 5) : "") : "";
       const bt = ok(i.z) ? fmt(i.z, 2) : "—";
-      if (big.textContent !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }
+      if (big.dataset.txt !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.dataset.txt = bt; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }
       big.dataset.z = ok(i.z) ? i.z : ""; big.className = "big " + t + (big.classList.contains("fl-up") ? " fl-up" : big.classList.contains("fl-down") ? " fl-down" : "");
       const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)}（${pct(d / i.y * 100)}）` : (i.k === "fut" && DB.rt === false ? "需要部署新版 Worker" : DB.list.length ? "讀不到資料" : "載入中…"), cg = $(".ixchg", c);
       if (cg.textContent !== ct) cg.textContent = ct;
