@@ -71,8 +71,14 @@
     panel.innerHTML = `<div class="nwgrid"></div>`;
     const grid = $(".nwgrid", panel);
     grid.insertAdjacentHTML("beforeend", `<div class="dcard bd-heat wide"><div class="bd-h"><h3>類股熱力圖</h3><span class="sub bd-n"></span></div><div class="hmsel"></div><div class="hm"></div></div>
+      <div class="dcard rot wide"><div class="aihead"><div><h3>產業輪動</h3></div><span class="sub rotn"></span></div>
+        <div class="hmseg rotseg" role="group" aria-label="期間">${[["5", "近 5 日"], ["10", "近 10 日"]].map(([k, l]) => `<button type="button" data-g="${k}" aria-pressed="${k === "5"}">${l}</button>`).join("")}<i></i></div>
+        <div class="rotout"><p class="sub">載入中…</p></div></div>
       <div class="dcard ir"><div class="aihead"><div><h3>產業強弱排行</h3></div><span class="sub irn"></span></div><div class="irout"><p class="sub">載入中…</p></div></div>`);
     const gp = $(".gp"); if (gp) { gp.removeAttribute("data-sub"); gp.hidden = false; grid.appendChild(gp); }
+    const rot = $(".rot", grid), rseg = $(".rotseg", rot);
+    rseg.addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (!b) return; $$("[data-g]", rseg).forEach(x => x.setAttribute("aria-pressed", String(x === b))); ROT.n = +b.dataset.g; A.segMark(rseg); rotPaint(true); });
+    if (window.ResizeObserver) new ResizeObserver(() => A.segMark(rseg)).observe(rseg);
     const hm = $(".hm", grid);
     hm.addEventListener("pointermove", e => { if (!$(".hmcard", hm)) A.heatTip(e); A.heatFocus(e); });
     hm.addEventListener("pointerleave", e => { const t = $(".hmtip", hm); if (t) t.hidden = true; A.heatFocus(e); });
@@ -80,6 +86,24 @@
       const m = e.target.closest("[data-code]"); if (m) { A.openStock(m.dataset.code); return; }
       const h = e.target.closest(".gphead"); if (h) h.parentElement.classList.toggle("open");
     });
+  }
+  /* 產業輪動: the sector indices' daily changes, newest on the right, ranked by the change over the chosen window */
+  const ROT = { n: 5, data: null, loading: false };
+  async function rotLoad() {
+    if (ROT.loading) return; ROT.loading = true;
+    try { ROT.data = await A.J(`${A.worker}/tw/sectorhist`); rotPaint(true); }
+    catch (e) { if (!ROT.data) { const el = $(".rotout"); if (el) el.innerHTML = `<p class="sub">產業輪動需要部署新版 Worker，或證交所暫時讀不到。</p>`; } }
+    finally { ROT.loading = false; }
+  }
+  function rotPaint(animate) {
+    const D = ROT.data, el = $(".rotout"); if (!D || !el) return;
+    const days = D.days, N = Math.min(ROT.n, days.length), cum = a => (a.slice(-N).reduce((t, p) => t * (1 + (p || 0) / 100), 1) - 1) * 100;
+    const rows = D.rows.map(r => ({ n: r.n, d: r.d, c: cum(r.d), c5: cum(r.d.slice(-5)), c10: cum(r.d) })).sort((a, b) => b.c - a.c);
+    $(".rotn").textContent = `${days[days.length - N].slice(5).replace("-", "/")} – ${days[days.length - 1].slice(5).replace("-", "/")}`;
+    const cell = p => { const v = p == null ? 0 : p, a = Math.min(1, Math.abs(v) / 2.5), c = v >= 0 ? "var(--color-up)" : "var(--color-down)"; return `<i class="rc" title="${v > 0 ? "+" : ""}${v.toFixed(2)}%" style="background:color-mix(in oklab, ${c} ${(12 + a * 78).toFixed(0)}%, transparent)"></i>`; };
+    const mx = Math.max(1, ...rows.map(r => Math.abs(r.c)));
+    el.innerHTML = `<div class="rothead"><span></span><span class="rdays">${days.slice(-N).map(d => `<em>${d.slice(8)}</em>`).join("")}</span><span>累計</span></div>` + rows.map(r => `<div class="rotrow"><b>${A.esc(r.n.replace(/(?<!工)業$/, ""))}</b><span class="rdays">${r.d.slice(-N).map(cell).join("")}</span><span class="rcum ${A.tone(r.c)}">${A.pct(r.c)}</span></div>`).join("");
+    if (animate) { A.rise($$(".rotrow", el), 18); $$(".rc", el).forEach((c, i) => c.animate([{ opacity: 0, transform: "scale(.4)" }, { opacity: 1, transform: "none" }], { duration: 380, delay: 120 + (i % 20) * 14, easing: "cubic-bezier(.2,.9,.3,1.2)", fill: "backwards" })); }
   }
   function irPaint(animate) {
     const el = $(".irout"); if (!el) return;
@@ -224,7 +248,7 @@
       A.rise($$("#dpChip .nwgrid > .dcard"), 80);
     } else if (p === "dpInd") {
       A.rise($$("#dpInd .nwgrid > .dcard"), 80);
-      requestAnimationFrame(() => paintInd(true));
+      requestAnimationFrame(() => paintInd(true)); rotLoad();
     } else if (p === "dpHold") {
       hdvLoad();
     } else if (p === "dpRev") {

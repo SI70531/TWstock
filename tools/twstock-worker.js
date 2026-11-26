@@ -82,6 +82,7 @@ export default {
     if (url.pathname === "/tw/world" && req.method === "GET") return twWorldRoute(json, fail);
     if (url.pathname === "/tw/futchip" && req.method === "GET") return twFutChip(env, json, fail);
     if (url.pathname === "/tw/margin" && req.method === "GET") return twMargin(url, json, fail);
+    if (url.pathname === "/tw/sectorhist" && req.method === "GET") return twSectorHist(json, fail);
     if (url.pathname === "/tw/margintop" && req.method === "GET") return twMarginTop(json, fail);
     if (url.pathname === "/tw/review" && req.method === "GET") return json({ rows: await reviewRows(env) }, 200, { "Cache-Control": "no-store" });
     if (url.pathname === "/tw/holders" && req.method === "GET") return twHolders(url, json, fail);
@@ -1155,6 +1156,25 @@ async function twMargin(url, json, fail) {
   }
   if (!rows.length) return fail(404, "NO_DATA", "這檔沒有融資融券資料（或證交所還沒公布）");
   return json({ code: c, rows }, 200, { "Cache-Control": "public, max-age=600" });
+}
+
+/* 產業輪動: each TWSE sector index's daily change over the last 10 trading days (MI_INDEX, one request per day, kept 12 hours) */
+async function twSectorHist(json, fail) {
+  const out = await twCached("sechist", 600000, async () => {
+    const today = taipeiDays(1)[0], cand = taipeiDays(14);
+    const got = await Promise.all(cand.map(async ds => {
+      const key = "secday:" + ds;
+      try { const v = await twCached(key, ds === today ? 600000 : 12 * 3600e3, async () => { const r = await twDayReport(ds); return r && r.sectors && r.sectors.length > 5 ? r.sectors : null; }); if (!v) twCache.delete(key); return v ? { ds, v } : null; }
+      catch (e) { twCache.delete(key); return null; }
+    }));
+    const days = got.filter(Boolean).slice(0, 10).reverse();
+    if (days.length < 3) return null;
+    const names = [...new Set(days.flatMap(d => d.v.map(x => x.name)))];
+    const rows = names.map(n => ({ n, d: days.map(d => { const x = d.v.find(y => y.name === n); return x ? x.pct : null; }) }));
+    return { days: days.map(d => d.ds.slice(0, 4) + "-" + d.ds.slice(4, 6) + "-" + d.ds.slice(6)), rows };
+  }).catch(() => null);
+  if (!out) { twCache.delete("sechist"); return fail(502, "NO_DATA", "證交所的類股指數歷史暫時讀不到"); }
+  return json(out, 200, { "Cache-Control": "public, max-age=600" });
 }
 
 /* market-wide margin ranking: the biggest rises and falls of 融資 and 融券 balances on the latest day TWSE has published */
