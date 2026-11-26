@@ -143,3 +143,6 @@
 .kbcard.setcard > .settabs { display: flex; flex-wrap: wrap; gap: 6px; }
 .kbcard.setcard > .setpane { display: grid; gap: 14px; min-height: 220px; align-content: start; }
 .kbcard.setcard > .setpane[hidden] { display: none; }
+/* index cards: the source / time label drops to its own line instead of being cut off */
+.ixcard h3 { flex-wrap: wrap; row-gap: 2px; }
+.ixcard h3 .ixsrc { margin-left: auto; max-width: 100%; }
