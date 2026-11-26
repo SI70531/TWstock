@@ -162,7 +162,7 @@
     document.addEventListener("twdash:list", () => { if ($("#dpList .cm") && !$("#dpList .cm").hidden) cmPaint(false); });
     setInterval(ritualTick, 1000); ritualTick();
     swipe(); keys();
-    sideToggle(); popAnim(); closeAnim(); actionAnim(); visAnim(); sortTables(); sidePlus();
+    sideToggle(); popAnim(); closeAnim(); actionAnim(); visAnim(); sortTables(); sidePlus(); syncInit();
     window.TWDash.ritual = ritualShow;      /* TWDash.ritual("open") plays the opening animation for a look */
   }
   /* closing animates too: setting .hidden = true on a pop-open element first plays a short fade/sink, then hides it */
@@ -209,6 +209,32 @@
         try { el.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 320, delay: Math.min(n, 12) * 28, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }); } catch (e) {} n++;
       }));
     }).observe(document.querySelector(".app") || document.body, { subtree: true, childList: true });
+  }
+  /* ================= the same data on every device: holdings, cash, trades, alerts, watchlists (no login; stored in the Worker) ================= */
+  function syncInit() {
+    const KEYS = ["twlab-hold", "twlab-cash", "twlab-trades", "twlab-events", "twlab-pref", "tw-palerts", "tw-fee-disc", "twtrade-watch", "twtrade-wl"], WATCHK = new Set(["twtrade-watch", "twtrade-wl"]);
+    const raw = A.store.set.bind(A.store), TK = "tw-sync-t", T = () => A.store.get(TK, {}) || {};
+    const url = A.worker + "/tw/sync"; let pushT = 0, busy = false;
+    const post = body => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json());
+    A.store.set = (k, v) => { raw(k, v); if (KEYS.includes(k)) { const t = T(); t[k] = Date.now(); raw(TK, t); clearTimeout(pushT); pushT = setTimeout(sync, 1500); } };
+    async function sync() {
+      if (busy) { clearTimeout(pushT); pushT = setTimeout(sync, 1500); return; } busy = true;
+      try {
+        const t = T(), push = {}, r0 = await post({ set: {} }), rem = (r0 && r0.data) || {}, applied = [];
+        KEYS.forEach(k => {
+          const r = rem[k], lt = t[k] || 0, lv = localStorage.getItem(k);
+          if (r && r.t > lt) { raw(k, r.v); t[k] = r.t; applied.push(k); }
+          else if (lv != null && (!r || lt > r.t)) { const tt = lt || Date.now(); t[k] = tt; push[k] = { v: JSON.parse(lv), t: tt }; }
+        });
+        raw(TK, t);
+        if (Object.keys(push).length) await post({ set: push });
+        if (applied.length) {
+          if (applied.some(k => WATCHK.has(k))) { const last = +sessionStorage.getItem("tw-sync-rl") || 0; if (Date.now() - last > 60000) { sessionStorage.setItem("tw-sync-rl", String(Date.now())); location.reload(); return; } }
+          document.dispatchEvent(new Event("twlab:hold")); document.dispatchEvent(new Event("tw:synced"));
+        }
+      } catch (e) {} finally { busy = false; }
+    }
+    sync(); setInterval(sync, 45000); document.addEventListener("visibilitychange", () => { if (!document.hidden) sync(); });
   }
   /* ================= sidebar extras: price alerts, holdings and P&L, market calendar, recently viewed ================= */
   function sidePlus() {
@@ -359,7 +385,7 @@
     document.addEventListener("change", e => { if (e.target.name === "disc" && e.target.closest(".sbpage")) { const v = parseFloat(e.target.value); if (v > 0 && v <= 10) { store.set("tw-fee-disc", v); holdView(); } } });
     document.addEventListener("twdash:live", () => { try { checkAlerts(); paintRecent(); holdLive(); } catch (e) {} });
     document.addEventListener("twdash:list", () => { paintRecent(); badge(); });
-    document.addEventListener("twlab:hold", badge);
+    document.addEventListener("twlab:hold", badge); document.addEventListener("tw:synced", () => { try { badge(); show(); } catch (e) {} });
     paintRecent(); badge();
   }
   /* ================= every chart and table animates when it scrolls into view ================= */

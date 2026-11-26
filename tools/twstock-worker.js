@@ -103,6 +103,15 @@ export default {
       const r = await weekNote(env, true, true);
       return r.error ? (r.daily ? fail(429, "AI_DAILY", r.error) : fail(502, "AI_FAILED", r.error)) : json(r);
     }
+    /* the owner's own data (holdings, cash, trades, events, alerts, watchlists) shared by every device: last write per key wins. No login: anyone who calls this can read and change it. */
+    if (url.pathname === "/tw/sync" && req.method === "POST") {
+      let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
+      const ALLOW = new Set(["twlab-hold", "twlab-cash", "twlab-trades", "twlab-events", "twlab-pref", "tw-palerts", "tw-fee-disc", "twtrade-watch", "twtrade-wl"]);
+      const cur = ((await pmStore(env, "kv", { k: "sync" })).v) || {}; let ch = false;
+      for (const [k, x] of Object.entries(b.set || {})) { if (!ALLOW.has(k) || !x || typeof x.t !== "number" || x.v === undefined) continue; if (!cur[k] || x.t > cur[k].t) { cur[k] = { v: x.v, t: x.t }; ch = true; } }
+      if (ch) { if (JSON.stringify(cur).length > 120000) return fail(413, "TOO_BIG", "Too much data to sync"); await pmStore(env, "kv", { k: "sync", set: cur }); }
+      return json({ data: cur }, 200, { "Cache-Control": "no-store" });
+    }
     if (url.pathname === "/tw/alerts/sync" && req.method === "POST") {
       let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
       if (!dev) return fail(400, "BAD_DEVICE", "No device id");
