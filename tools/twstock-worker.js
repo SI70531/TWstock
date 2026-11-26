@@ -573,8 +573,8 @@ async function pmNight() {
   return f || rep ? { quote: f && { name: f.n, session: f.sess, last: f.z, previousClose: f.y, high: f.h, low: f.l, volume: f.v, time: f.tm, source: f.via || "taifex report" }, report: rep } : null;
 }
 const PM_SYMS = [["^GSPC", "S&P 500"], ["^IXIC", "Nasdaq"], ["^DJI", "道瓊"], ["^SOX", "費城半導體"], ["TSM", "台積電 ADR"], ["^VIX", "VIX"], ["^TNX", "美 10 年債殖利率"], ["TWD=X", "美元兌新台幣"], ["DX-Y.NYB", "美元指數"], ["CL=F", "原油"], ["NVDA", "輝達"], ["^TWII", "加權指數"], ["^N225", "日經"]];
-async function pmWorld() {
-  const r = await fetch("https://query1.finance.yahoo.com/v7/finance/spark?range=5d&interval=1d&symbols=" + encodeURIComponent(PM_SYMS.map(x => x[0]).join(",")), { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
+async function pmWorld(withHist) {
+  const r = await fetch("https://query1.finance.yahoo.com/v7/finance/spark?range=" + (withHist ? "1mo" : "5d") + "&interval=1d&symbols=" + encodeURIComponent(PM_SYMS.map(x => x[0]).join(",")), { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
   if (!r.ok) return [];
   const j = await r.json();
   const rows = j && j.spark && Array.isArray(j.spark.result) ? j.spark.result.map(x => ({ s: x.symbol, d: (x.response || [])[0] || {} })) : Object.entries(j || {}).map(([s, d]) => ({ s, d: d || {} }));
@@ -582,7 +582,7 @@ async function pmWorld() {
     const m = d.meta || d, q = (d.indicators && d.indicators.quote && d.indicators.quote[0]) || {}, cl = (q.close || d.close || []).filter(v => v > 0);
     const last = twNum(m.regularMarketPrice) || cl[cl.length - 1], prev = cl.length > 1 ? cl[cl.length - 2] : twNum(m.chartPreviousClose);
     const nm = (PM_SYMS.find(x => x[0] === s) || [s, s])[1], t = m.regularMarketTime ? new Date((m.regularMarketTime + 8 * 3600) * 1000).toISOString().slice(0, 16).replace("T", " ") : "";
-    return last > 0 ? { name: nm, symbol: s, last: Math.round(last * 100) / 100, changePct: prev > 0 ? Math.round((last / prev - 1) * 10000) / 100 : null, asOfTaipei: t } : null;
+    return last > 0 ? { name: nm, symbol: s, last: Math.round(last * 100) / 100, changePct: prev > 0 ? Math.round((last / prev - 1) * 10000) / 100 : null, asOfTaipei: t, ...(withHist ? { hist: cl.slice(-22).map(v => Math.round(v * 100) / 100) } : {}) } : null;
   }).filter(Boolean);
 }
 async function pmInst() {
@@ -1086,7 +1086,7 @@ const codeOf = url => { const c = String(url.searchParams.get("c") || "").trim()
 
 /* US indices, SOX, FX, oil and the 10-year yield (the same list the pre-market note reads) */
 async function twWorldRoute(json, fail) {
-  const rows = await twCached("worldrows", 300000, () => pmWorld()).catch(() => []);
+  const rows = await twCached("worldrows2", 300000, () => pmWorld(true)).catch(() => []);
   if (!rows.length) return fail(502, "NO_DATA", "國際行情暫時讀不到");
   return json({ at: Date.now(), rows }, 200, { "Cache-Control": "public, max-age=120" });
 }

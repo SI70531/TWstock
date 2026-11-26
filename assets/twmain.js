@@ -395,7 +395,7 @@
   function buildOverview() {
     $("#dpOverview").innerHTML = `
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}<em class="ixen">${i.en}</em></span><span class="ixsrc"></span></h3>
-        <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}${US4.map(u => `<div class="dcard ixcard usx" data-us="${esc(u[0])}"><h3><span class="ixn">${u[1]}<em class="ixen">${u[2]}</em></span><span class="ixsrc">美股</span></h3><div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div></div>`).join("")}</div>
+        <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}${US4.map(u => `<div class="dcard ixcard usx" data-us="${esc(u[0])}"><h3><span class="ixn">${u[1]}<em class="ixen">${u[2]}</em></span><span class="ixsrc">美股</span></h3><div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3></div>
         <button type="button" class="btn pmgo">分析</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert" hidden></p></div>
@@ -1148,6 +1148,13 @@
       const p = r.changePct, prev = ok(p) ? r.last / (1 + p / 100) : NaN, d = r.last - prev, t = tone(ok(p) ? p : 0), big = $(".big", c), bt = fmt(r.last, 2);
       if (big.textContent !== bt) big.textContent = bt; big.className = "big " + t;
       const ct = ok(p) ? `${arrow(p)} ${fmt(Math.abs(d), 2)} (${pct(p)})` : "—", cg = $(".ixchg", c); if (cg.textContent !== ct) cg.textContent = ct; cg.className = "sub ixchg " + t;
+      const sv = $("svg.spark", c), hs = Array.isArray(r.hist) ? r.hist : [];
+      if (sv && hs.length > 2) {
+        const lo = Math.min(...hs), hi = Math.max(...hs), sp = hi - lo || 1, Yv = v => (26 - (v - lo) / sp * 24).toFixed(1), pth = $("path", sv), sig = hs.join();
+        if (sv.dataset.sg !== sig) { sv.dataset.sg = sig; pth.setAttribute("d", hs.map((v, k) => (k ? "L" : "M") + (k / (hs.length - 1) * 76).toFixed(2) + " " + Yv(v)).join("")); }
+        const bl = $(".spbase", sv); bl.setAttribute("y1", Yv(hs[0])); bl.setAttribute("y2", Yv(hs[0]));
+        sv.setAttribute("class", "spark " + (hs[hs.length - 1] >= hs[0] ? "up" : "down"));
+      }
       $(".ixhl", c).textContent = r.asOfTaipei ? "UTC+8 " + r.asOfTaipei.slice(5).replace("-", "/") : "";
     });
   }
@@ -2201,7 +2208,7 @@
   }
   function drawSpark() {
     $$(".ixcard .spark").forEach((svg, i) => {
-      if (!$(".cd", svg)) return;
+      const pp = $("path", svg); if (!pp || !pp.getAttribute("d")) return;
       svg.animate([{ clipPath: "inset(-4px 100% -4px 0)" }, { clipPath: "inset(-4px -4px -4px 0)" }], { duration: 900, delay: 400 + i * 80, easing: "ease-out", fill: "backwards" });
     });
   }
