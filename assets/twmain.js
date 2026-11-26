@@ -570,12 +570,12 @@
       const cd = CH[i.k + ":tick"];   /* no live quote from the Worker: fall back on the chart's last bar (Yahoo, a little delayed) */
       if (!i.rt && cd && cd.last > 0) Object.assign(i, { z: cd.last, y: cd.prev, h: cd.high, l: cd.low, tm: cd.at ? new Date(cd.at + 8 * 3600e3).toISOString().slice(11, 19) : "", src: "延遲" });
       const d = ok(i.z) && ok(i.y) ? i.z - i.y : NaN, t = tone(d), big = $(".big", c);
-      if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); const ix = $(".ixn", c), tt = sub ? i.name + "（" + sub + "）" : i.name; if (ix.dataset.t !== tt) { ix.dataset.t = tt; ix.innerHTML = esc(tt) + `<em class="ixen">${i.en}</em>`; } }
+      if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); const ix = $(".ixn", c), tt = sub ? i.name + " (" + sub + ")" : i.name; if (ix.dataset.t !== tt) { ix.dataset.t = tt; ix.innerHTML = esc(tt) + `<em class="ixen">${i.en}</em>`; } }
       $(".ixsrc", c).textContent = i.src ? i.src + (i.tm ? " " + i.tm.slice(0, 5) : "") : "";
       const bt = ok(i.z) ? fmt(i.z, 2) : "—";
       if (big.dataset.txt !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.dataset.txt = bt; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }
       big.dataset.z = ok(i.z) ? i.z : ""; big.className = "big " + t + (big.classList.contains("fl-up") ? " fl-up" : big.classList.contains("fl-down") ? " fl-down" : "");
-      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)}（${pct(d / i.y * 100)}）` : (isFut(i.k) && DB.rt === false ? "需要部署新版 Worker" : DB.list.length ? "讀不到資料" : "載入中…"), cg = $(".ixchg", c);
+      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (isFut(i.k) && DB.rt === false ? "需要部署新版 Worker" : DB.list.length ? "讀不到資料" : "載入中…"), cg = $(".ixchg", c);
       if (cg.textContent !== ct) cg.textContent = ct;
       cg.className = "sub ixchg " + t;
       const ht = i.h > 0 && i.l > 0 ? `高 ${fmt(i.h, 2)}　低 ${fmt(i.l, 2)}` : "", hl = $(".ixhl", c); if (hl.textContent !== ht) hl.textContent = ht;
@@ -1146,7 +1146,7 @@
       const c = $(`.ixcard[data-us="${u[0]}"]`), r = rows.find(x => x.symbol === u[0]); if (!c || !r) return;
       const p = r.changePct, prev = ok(p) ? r.last / (1 + p / 100) : NaN, d = r.last - prev, t = tone(ok(p) ? p : 0), big = $(".big", c), bt = fmt(r.last, 2);
       if (big.textContent !== bt) big.textContent = bt; big.className = "big " + t;
-      const ct = ok(p) ? `${arrow(p)} ${fmt(Math.abs(d), 2)}（${pct(p)}）` : "—", cg = $(".ixchg", c); if (cg.textContent !== ct) cg.textContent = ct; cg.className = "sub ixchg " + t;
+      const ct = ok(p) ? `${arrow(p)} ${fmt(Math.abs(d), 2)} (${pct(p)})` : "—", cg = $(".ixchg", c); if (cg.textContent !== ct) cg.textContent = ct; cg.className = "sub ixchg " + t;
       $(".ixhl", c).textContent = r.asOfTaipei ? "UTC+8 " + r.asOfTaipei.slice(5).replace("-", "/") : "";
     });
   }
@@ -1864,7 +1864,7 @@
     const vol = isFut(k) ? (ok(it.v) || ok(d.volume) ? fmt(ok(d.volume) ? d.volume : it.v) + " 口" : "—") : ok(d.volume) ? fmt(d.volume / 1e8, 1) + " 億股" : "—";
     const kv = (a, b, c) => `<div class="snap ixkv"><span>${a}</span><b class="${c || ""}">${b}</b></div>`;
     panel.innerHTML = `
-      <div class="ixdhead"><div><h3>${esc(it.name)}<em class="ixen">${it.en}</em>${it.label ? "（" + esc(it.label.replace(/^臺指期\s*/, "")) + "）" : ""}</h3>
+      <div class="ixdhead"><div><h3>${esc(it.name)}<em class="ixen">${it.en}</em>${it.label ? " (" + esc(it.label.replace(/^臺指期\s*/, "")) + ")" : ""}</h3>
           <div class="ixdnow"><b class="big ${t}">${ok(z) ? fmt(z, dg) : "—"}</b><span class="${t}">${ok(ch) ? `${arrow(ch)} ${fmt(Math.abs(ch), dg)}（${pct(ch / y * 100)}）` : ""}</span><span class="sub">${esc(it.src || "")} ${esc((it.tm || "").slice(0, 5))}</span></div></div>
         <div class="chips">${[["tick", sessName.replace(/（.*/, "") + "走勢"], ["3mo", "日線 3 個月"], ["1y", "日線 1 年"]].map(([v, l]) => `<button type="button" class="chip" data-ixr="${v}" aria-pressed="${v === r}">${l}</button>`).join("")}
           <button type="button" class="btn ixclose" aria-label="關閉">×</button></div></div>
