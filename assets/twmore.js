@@ -177,7 +177,7 @@
     document.addEventListener("twdash:list", () => { if ($("#dpList .cm") && !$("#dpList .cm").hidden) cmPaint(false); });
     setInterval(ritualTick, 1000); ritualTick();
     swipe(); pull(); keys();
-    sideToggle();
+    sideToggle(); popAnim();
     window.TWDash.ritual = ritualShow;      /* TWDash.ritual("open") plays the opening animation for a look */
   }
   /* the left menu opens and closes; the choice is remembered. Closed: the top tabs take over navigation. */
@@ -188,6 +188,30 @@
     let h = false; try { h = localStorage.getItem("tw.sbhide") === "1"; } catch (e) {}
     b.addEventListener("click", () => set(!document.body.classList.contains("sbhide")));
     document.body.appendChild(b); set(h);
+  }
+  /* everything that pops open animates: detail panels, menus, tips and dialogs; chart lines inside the index panel draw in */
+  function popAnim() {
+    const POP = ".ixdetail, .hmtip, .ktip, .thmenu, .kbcard, .sresults, .searchbox, [role=dialog], [role=menu], [role=listbox], [role=tooltip], .popover, .menu-pop";
+    const seen = new WeakMap(), isOpen = el => !el.hidden && getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden" && +getComputedStyle(el).opacity > 0.01;
+    const IN = [{ opacity: 0, transform: "translateY(14px) scale(.97)" }, { opacity: 1, transform: "none" }];
+    const pop = el => { try { el.animate(IN, { duration: 380, easing: "cubic-bezier(.2,.8,.2,1)" }); } catch (e) {} };
+    let clk = 0; document.addEventListener("click", e => { if (e.target.closest && e.target.closest(".ixcard, .ixdetail button")) clk = Date.now(); }, true);
+    const draw = root => {
+      if (Date.now() - clk > 1500) return;   /* live refreshes redraw the chart quietly; only a click on a card or range plays the animation */
+      $$(".ixline", root).forEach(l => { if (l.dataset.dr) return; l.dataset.dr = "1"; l.setAttribute("pathLength", "1"); l.style.strokeDasharray = "1"; const a = l.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 800, easing: "cubic-bezier(.215,.61,.355,1)" }); a.onfinish = () => { l.style.strokeDasharray = ""; }; });
+      $$(".ixarea", root).forEach(a => { if (a.dataset.dr) return; a.dataset.dr = "1"; a.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: 250, easing: "ease-out", fill: "backwards" }); });
+      $$(".ixbk", root).forEach(g => { if (g.dataset.dr) return; g.dataset.dr = "1"; g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400 }); });
+    };
+    const check = el => { const now = isOpen(el), was = seen.get(el); seen.set(el, now); if (now && was === false) { pop(el); if (el.matches(".ixdetail")) draw(el); } };
+    $$(POP).forEach(el => seen.set(el, isOpen(el)));
+    new MutationObserver(ms => {
+      const todo = new Set();
+      ms.forEach(m => {
+        if (m.type === "attributes") { const t = m.target; if (t.matches && t.matches(POP)) todo.add(t); if (m.attributeName === "aria-expanded" && t.getAttribute("aria-expanded") === "true" && t.classList && t.classList.contains("ixcard")) { try { t.animate([{ transform: "scale(.96)" }, { transform: "scale(1.02)" }, { transform: "none" }], { duration: 360, easing: "ease-out" }); } catch (e) {} } }
+        else m.addedNodes.forEach(n => { if (n.nodeType !== 1) return; if (n.matches(POP)) { seen.set(n, false); todo.add(n); } else if (n.querySelectorAll) n.querySelectorAll(POP).forEach(x => { seen.set(x, false); todo.add(x); }); const d = n.closest && n.closest(".ixdetail"); if (d && (n.matches(".ixfig") || n.querySelector(".ixfig"))) draw(d); });
+      });
+      todo.forEach(check);
+    }).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "class", "style", "aria-expanded"] });
   }
   if (window.TWDash && window.TWDash.api) start(); else document.addEventListener("twdash:ready", start);
 })();
