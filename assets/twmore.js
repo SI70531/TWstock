@@ -361,22 +361,22 @@
       let dv = [], ag = []; try { dv = await dvLoad(); } catch (e) {} try { ag = await agmLoad(); } catch (e) {}
       const ev = []; dv.forEach(r => ev.push({ ...r, t: "ex" })); ag.forEach(r => ev.push({ ...r, t: "agm" }));
       const shown = ev.filter(e => !CMINE || mine(e.code)), byD = {}; shown.forEach(e => (byD[e.d] = byD[e.d] || []).push(e));
-      const mp = CY + "-" + String(CM + 1).padStart(2, "0"), inM = shown.filter(e => e.d.startsWith(mp)), exM = inM.filter(e => e.t === "ex"), agM = inM.filter(e => e.t === "agm");
-      const myEx = ev.filter(e => e.t === "ex" && e.d.startsWith(mp) && HM.has(e.code) && e.cash > 0), income = myEx.reduce((a, e) => a + e.cash * HM.get(e.code), 0);
-      $(".sbsm", root).innerHTML = `<div><span>本月除權息</span><b>${exM.length}</b><small>${CMINE ? "我的" : "全部"}檔數</small></div><div><span>本月股東會</span><b>${agM.length}</b><small>${CMINE ? "我的" : "全部"}場數</small></div><div><span>我的預估股息</span><b class="${income ? "up" : ""}">${income ? Math.round(income).toLocaleString("en-US") : "—"}</b><small>${myEx.length ? myEx.length + " 檔持股除息" : "本月沒有持股除息"}</small></div>`;
+      const T0 = taipei().iso, T1 = (() => { const d = new Date(T0 + "T00:00:00"); d.setMonth(d.getMonth() + 1); return ymd(d.getFullYear(), d.getMonth(), d.getDate()); })(), mp = CY + "-" + String(CM + 1).padStart(2, "0"), inM = shown.filter(e => CMODE === "list" ? (e.d >= T0 && e.d <= T1) : e.d.startsWith(mp)), exM = inM.filter(e => e.t === "ex"), agM = inM.filter(e => e.t === "agm");
+      const myEx = ev.filter(e => e.t === "ex" && (CMODE === "list" ? (e.d >= T0 && e.d <= T1) : e.d.startsWith(mp)) && HM.has(e.code) && e.cash > 0), income = myEx.reduce((a, e) => a + e.cash * HM.get(e.code), 0);
+      $(".sbsm", root).innerHTML = `<div><span>${CMODE === "list" ? "未來一個月" : "本月"}除權息</span><b>${exM.length}</b><small>${CMINE ? "我的" : "全部"}檔數</small></div><div><span>${CMODE === "list" ? "未來一個月" : "本月"}股東會</span><b>${agM.length}</b><small>${CMINE ? "我的" : "全部"}場數</small></div><div><span>我的預估股息</span><b class="${income ? "up" : ""}">${income ? Math.round(income).toLocaleString("en-US") : "—"}</b><small>${myEx.length ? myEx.length + " 檔持股除息" : (CMODE === "list" ? "未來一個月" : "本月") + "沒有持股除息"}</small></div>`;
       $$("[data-cmine]", root).forEach(b => b.setAttribute("aria-pressed", String((b.dataset.cmine === "1") === CMINE))); $$("[data-cmode]", root).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cmode === CMODE)));
-      $(".sbch b", root).textContent = `${CY} 年 ${CM + 1} 月`;
+      $(".sbch b", root).textContent = CMODE === "list" ? `${T0.slice(5).replace("-", "/")} – ${T1.slice(5).replace("-", "/")}（未來一個月）` : `${CY} 年 ${CM + 1} 月`; $$("[data-cm]", root).forEach(b => { b.hidden = CMODE === "list"; });
       const evHTML = e => { const mineTag = mine(e.code) ? "<i>我的</i>" : "", sh = HM.get(e.code);
         if (e.t === "ex") return `<button type="button" class="sbev ex" data-go="${esc(e.code)}"><u class="dx"></u><b>${esc(e.name)}</b> ${esc(e.code)} 除${/權/.test(e.kind) && !/息/.test(e.kind) ? "權" : "息"}<span>${e.cash ? "現金 " + e.cash + " 元" : ""}${e.stock ? "　股票 " + e.stock : ""}${sh && e.cash > 0 ? "　預估領 " + Math.round(e.cash * sh).toLocaleString("en-US") + " 元（" + sh.toLocaleString("en-US") + " 股）" : ""}</span>${mineTag}</button>`;
         return `<button type="button" class="sbev ag" data-go="${esc(e.code)}"><u class="da"></u><b>${esc(e.name)}</b> ${esc(e.code)} ${esc(e.kind || "股東會")}<span>${e.cash ? "預擬現金股利 " + e.cash + " 元" : ""}${e.stop1 ? "　停止過戶 " + e.stop1.slice(5).replace("-", "/") + "–" + (e.stop2 || "").slice(5).replace("-", "/") : ""}</span>${mineTag}</button>`; };
       const dayHead = d => { const dt = new Date(d + "T00:00:00"); return `${dt.getMonth() + 1}/${dt.getDate()}（週${"日一二三四五六"[dt.getDay()]}）`; };
       const g = $(".sbgrid", root), out = $(".sbday", root);
       if (CMODE === "list") {
-        const days = Object.keys(byD).filter(d => d.startsWith(mp)).sort();
-        const legalDays = Object.keys(L).filter(d => d.startsWith(mp) && !byD[d]).sort();
+        const y2 = +T1.slice(0, 4), LL = { ...legal(+T0.slice(0, 4)), ...(y2 !== +T0.slice(0, 4) ? legal(y2) : {}) };
+        const hol2 = y2 !== CY ? { ...hol, ...(await holidays(y2)) } : hol;
+        const inR = d => d >= T0 && d <= T1, all = [...new Set([...Object.keys(byD), ...Object.keys(LL)])].filter(inR).sort();
         g.hidden = true; g.innerHTML = "";
-        out.innerHTML = (days.length ? days.map(d => `<div class="sbld"><h4>${dayHead(d)}${hol[d] ? "　休市：" + esc(hol[d]) : ""}</h4>${byD[d].slice(0, 60).map(evHTML).join("")}${(L[d] || []).map(t => `<p class="sbev lg"><u class="dl"></u><em class="sbt">${esc(t)}</em></p>`).join("")}</div>`).join("") : (legalDays.length ? "" : `<p class="sub">${CMINE ? "這個月沒有你的持股或自選股的事件。切到「全部」可以看所有公司。" : "這個月沒有已知的事件。"}</p>`))
-          + legalDays.map(d => `<div class="sbld"><h4>${dayHead(d)}</h4>${L[d].map(t => `<p class="sbev lg"><u class="dl"></u><em class="sbt">${esc(t)}</em></p>`).join("")}</div>`).join("");
+        out.innerHTML = all.length ? all.map(d => `<div class="sbld"><h4>${dayHead(d)}${hol2[d] ? "　休市：" + esc(hol2[d]) : ""}</h4>${(byD[d] || []).slice(0, 60).map(evHTML).join("")}${(LL[d] || []).map(t => `<p class="sbev lg"><u class="dl"></u><em class="sbt">${esc(t)}</em></p>`).join("")}</div>`).join("") : `<p class="sub">${CMINE ? "未來一個月沒有你的持股或自選股的事件。切到「全部」可以看所有公司。" : "未來一個月沒有已知的事件。"}</p>`;
         out.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.2,.8,.2,1)" });
         return;
       }
