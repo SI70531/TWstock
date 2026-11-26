@@ -1160,7 +1160,7 @@
       if (!rows.length) throw 0;
       usPaint(rows);
       const dg = r => (/殖利率/.test(r.name) ? 3 : r.last >= 1000 ? 0 : 2);
-      el.innerHTML = `<div class="wdgrid">${rows.map(r => `<div class="wdcell"><span>${esc(r.name)}</span><b>${fmt(r.last, dg(r))}</b><i class="${/VIX/.test(r.name) ? tone(-r.changePct) : tone(r.changePct)}">${r.changePct == null ? "—" : pct(r.changePct)}</i></div>`).join("")}</div>`;
+      el.innerHTML = `<div class="wdgrid">${rows.filter(r => !/^(S&P 500|Nasdaq|道瓊|費城半導體|加權指數)$/.test(r.name) && !/^\^(GSPC|IXIC|DJI|SOX|TWII)$/.test(r.symbol || "")).map(r => `<div class="wdcell"><span>${esc(r.name)}</span><b>${fmt(r.last, dg(r))}</b><i class="${/VIX/.test(r.name) ? tone(-r.changePct) : tone(r.changePct)}">${r.changePct == null ? "—" : pct(r.changePct)}</i></div>`).join("")}</div>`;
       const t = rows.map(r => r.asOfTaipei).filter(Boolean).sort().pop(); $("#dpOverview .wdn").textContent = t ? t.slice(5).replace("-", "/") + " 更新" : "";
     } catch (e) { el.innerHTML = `<p class="sub">國際行情需要部署新版 Worker，或暫時讀不到。</p>`; }
   }
