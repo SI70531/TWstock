@@ -5,7 +5,7 @@
      GET  /tw/news?c=2330&n=台積電    news headlines and the company's material announcements
      GET  /tw/premarket              the latest pre-market note
      POST /tw/analyze {d, code, name, facts}   the AI analyst team (one AI call)
-     POST /tw/alerts/sync {d, watch, hold}     the codes the trading-hours alerts watch (the first device that syncs owns the list)
+     POST /tw/alerts/sync {d, watch, hold, price, opt}  what the trading-hours alerts watch, the price alerts and which messages are on (the first device that syncs owns the list)
      POST /tw/premarket/run                    write a pre-market note now (one AI call, a few per hour for the whole site)
      GET  /tw/close                  the latest close summary
      POST /tw/close/run                        write a close summary now (shares the pre-market limit)
@@ -73,7 +73,10 @@ export default {
       let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
       if (!dev) return fail(400, "BAD_DEVICE", "No device id");
       const clean = a => [...new Set((Array.isArray(a) ? a : []).map(v => String(v).trim()).filter(v => /^[0-9A-Z]{4,6}$/.test(v)))].slice(0, 60);
-      return json(await pmStore(env, "watch", { who, watch: clean(b.watch), hold: clean(b.hold) }));
+      const price = (Array.isArray(b.price) ? b.price : []).map(a => ({ id: String((a && a.id) || "").replace(/[^0-9a-z]/gi, "").slice(0, 20), code: String((a && a.code) || "").trim(), op: String((a && a.op) || ""), v: Number(a && a.v) || 0 }))
+        .filter(a => a.id && /^[0-9A-Z]{4,6}$/.test(a.code) && (/^ma(20|60)$/.test(a.op) || (/^(ge|le)$/.test(a.op) && a.v > 0))).slice(0, 30);
+      const opt = {}; ALERT_OPTS.forEach(k => { if (b.opt && b.opt[k] === false) opt[k] = false; });
+      return json(await pmStore(env, "watch", { who, watch: clean(b.watch), hold: clean(b.hold), price, opt }));
     }
     if (url.pathname === "/tw/premarket/run" && req.method === "POST") {
       const q = await guard(env, "pmrun", "ai", { hr: PM_HOUR, day: PM_DAY });
@@ -490,8 +493,8 @@ export class Daily {
     if (op === "watch") {
       const owner = await st.get("ownerDev");
       if (owner && owner !== b.who) return Response.json({ ok: false, owner: false });
-      await st.put("ownerDev", b.who); await st.put("wl", { watch: b.watch, hold: b.hold, at: Date.now() });
-      return Response.json({ ok: true, owner: true, n: new Set([...b.watch, ...b.hold]).size });
+      await st.put("ownerDev", b.who); await st.put("wl", { watch: b.watch, hold: b.hold, price: b.price || [], opt: b.opt || {}, at: Date.now() });
+      return Response.json({ ok: true, owner: true, n: new Set([...b.watch, ...b.hold]).size, price: (b.price || []).length });
     }
     if (op === "wl") return Response.json((await st.get("wl")) || { watch: [], hold: [] });
     if (op === "bell") { const k = "bell:" + b.kind, was = await st.get(k); if (was === b.day) return Response.json({ first: false }); await st.put(k, b.day); return Response.json({ first: true }); }
@@ -680,6 +683,7 @@ async function premarket(env, notify) {
 /* Telegram: the bot token is the TG_TOKEN secret; the chat is whoever first sent the bot a message (kept after that) */
 async function pmTelegram(env, a, day) {
   if (!env.TG_TOKEN) return "no TG_TOKEN";
+  if (!(await tgOn(env, "notes"))) return "off";
   const api = m => "https://api.telegram.org/bot" + env.TG_TOKEN + "/" + m;
   let { chat } = await pmStore(env, "chat");
   if (!chat) {
@@ -717,6 +721,22 @@ async function tgSend(env, text) {
 }
 const hesc = v => String(v == null ? "" : v).replace(/[<>&]/g, c => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" })[c]);
 const IDX_STEP = 1.5, STK_STEP = 5;
+/* Telegram messages the owner can switch off on the site (all on unless set to false); their own price alerts are always sent */
+const ALERT_OPTS = ["stock", "index", "news", "bell", "notes"];
+const tgOn = async (env, k) => ((await pmStore(env, "wl").catch(() => ({}))).opt || {})[k] !== false;
+/* the average of the last n closes, today's price included, and whether the previous close was still on or above its own average:
+   "跌破" is the day the price goes from one side to the other, not every day it stays below */
+async function maCross(code, n, price, today) {
+  const rows = await twCached("ma:" + code, 3600000, async () => {
+    let r = await histRows(code, "TW").catch(() => []);
+    if (r.length < 20) r = await histRows(code, "TWO").catch(() => []);
+    if (r.length < 20) throw new Error("no bars");          /* not cached: tried again on the next tick */
+    return r;
+  });
+  const cl = rows.filter(r => r[0] < today).map(r => r[4]); if (cl.length < n) return null;
+  const avg = a => a.reduce((x, y) => x + y, 0) / a.length, ma = avg(cl.slice(-(n - 1)).concat([price]));
+  return { ma, crossed: price < ma && cl[cl.length - 1] >= avg(cl.slice(-n)) };
+}
 /* which session is open now (Taipei); weekends: no day session, night session runs Monday–Friday evenings into the next morning */
 function twSession(d) {
   const t = new Date(d.getTime() + 8 * 3600e3), wd = t.getUTCDay(), m = t.getUTCHours() * 60 + t.getUTCMinutes();
@@ -736,18 +756,32 @@ async function watchTick(env, now) {
     if (lv && (Math.abs(lv) > Math.abs(prev) || Math.sign(lv) !== Math.sign(prev || lv))) { S.lv[key] = lv; msgs.push(line); }
   };
   const sg = v => (v > 0 ? "+" : "") + v.toFixed(2) + "%", arrow = v => (v > 0 ? "🔺" : "🔻");
-  const wl = await pmStore(env, "wl"), codes = [...new Set([...(wl.hold || []), ...(wl.watch || [])])];
+  const wl = await pmStore(env, "wl"), codes = [...new Set([...(wl.hold || []), ...(wl.watch || [])])], on = k => (wl.opt || {})[k] !== false;
+  const price = wl.price || [], quoted = [...new Set([...codes, ...price.map(a => a.code)])];
   if (ses.s === "day") {
     const idx = await twMis(["tse_t00.tw"]).catch(() => []), x = idx.find(r => r.c === "t00");
     let z = x && x.z, y = x && x.y;
     if (!(z > 0 && y > 0)) { const yq = await twYahoo(["^TWII"]).catch(() => []); if (yq[0]) { z = yq[0].z; y = yq[0].y; } }
-    if (z > 0 && y > 0) { const p = (z / y - 1) * 100; fire("TAIEX", p, IDX_STEP, `${arrow(p)} <b>加權指數 ${sg(p)}</b>　${z.toFixed(2)}（${p > 0 ? "+" : ""}${(z - y).toFixed(0)} 點）`); }
-    if (codes.length) {
-      let q = await twMis(codes.map(c => "tse_" + c + ".tw")).catch(() => []);
-      const have = new Set(q.filter(r => r.z > 0).map(r => r.c)), miss = codes.filter(c => !have.has(c));
-      if (miss.length) q = q.filter(r => r.z > 0).concat(await twYahoo(miss).catch(() => []));
-      q.forEach(r => {
-        if (!(r.z > 0 && r.y > 0)) return;
+    if (z > 0 && y > 0 && on("index")) { const p = (z / y - 1) * 100; fire("TAIEX", p, IDX_STEP, `${arrow(p)} <b>加權指數 ${sg(p)}</b>　${z.toFixed(2)}（${p > 0 ? "+" : ""}${(z - y).toFixed(0)} 點）`); }
+    if (quoted.length) {
+      let q = await twMis(quoted.flatMap(c => ["tse_" + c + ".tw", "otc_" + c + ".tw"])).catch(() => []);
+      const have = new Set(q.filter(r => r.z > 0).map(r => r.c)), miss = quoted.filter(c => !have.has(c));
+      if (miss.length) q = q.filter(r => r.z > 0).concat(await twYahooTW(miss).catch(() => []));
+      const today = ses.day.replace(/-/g, ""), by = new Map(q.filter(r => r.z > 0).map(r => [r.c, r]));
+      for (const a of price) {
+        const r = by.get(a.code), key = "pa:" + a.id;
+        if (!r || S.lv[key] || (r.d && r.d !== today)) continue;       /* once a day, and only on a quote from today */
+        let hit = "";
+        if (a.op === "ge" && r.z >= a.v) hit = "漲到 " + a.v;
+        else if (a.op === "le" && r.z <= a.v) hit = "跌到 " + a.v;
+        else if (a.op === "ma20" || a.op === "ma60") {
+          const m = await maCross(a.code, a.op === "ma20" ? 20 : 60, r.z, today).catch(() => null);
+          if (m && m.crossed) hit = "跌破" + (a.op === "ma20" ? "月線" : "季線") + "（約 " + m.ma.toFixed(2) + "）";
+        }
+        if (hit) { S.lv[key] = 1; msgs.push(`🔔 <b>到價提醒：${hesc(r.n || a.code)}（${a.code}）${hit}</b>　現價 ${r.z}`); }
+      }
+      if (on("stock")) q.forEach(r => {
+        if (!(r.z > 0 && r.y > 0) || !codes.includes(r.c)) return;
         const p = (r.z / r.y - 1) * 100, tag = (wl.hold || []).includes(r.c) ? "持股" : "自選", nm = r.n || r.c;
         if (p >= 9.4) fire(r.c + ":lim", 1, 1, `🚀 <b>${hesc(nm)}（${r.c}）漲停</b> ${r.z}　[${tag}]`);
         else if (p <= -9.4) fire(r.c + ":lim", -1, 1, `🧊 <b>${hesc(nm)}（${r.c}）跌停</b> ${r.z}　[${tag}]`);
@@ -756,10 +790,10 @@ async function watchTick(env, now) {
     }
   } else {
     const f = await twFut().catch(() => null);
-    if (f && f.src === "night" && f.z > 0 && f.y > 0) { const p = (f.z / f.y - 1) * 100; fire("TXN", p, IDX_STEP, `${arrow(p)} <b>台指期夜盤 ${sg(p)}</b>　${f.z}（${p > 0 ? "+" : ""}${(f.z - f.y).toFixed(0)} 點）`); }
+    if (on("index") && f && f.src === "night" && f.z > 0 && f.y > 0) { const p = (f.z / f.y - 1) * 100; fire("TXN", p, IDX_STEP, `${arrow(p)} <b>台指期夜盤 ${sg(p)}</b>　${f.z}（${p > 0 ? "+" : ""}${(f.z - f.y).toFixed(0)} 點）`); }
   }
   /* news and the watched companies' material announcements, judged by the AI every 15 minutes */
-  if (now.getTime() - (S.newsAt || 0) >= 14 * 60000) {
+  if (on("news") && now.getTime() - (S.newsAt || 0) >= 14 * 60000) {
     S.newsAt = now.getTime();
     const ev = await watchNews(env, codes, S).catch(() => []);
     ev.forEach(e => msgs.push(`${e.impact === "利多" ? "🟥" : e.impact === "利空" ? "🟩" : "⚠️"} <b>${hesc(e.title)}</b>\n${hesc(e.why)}${e.link ? `\n<a href="${hesc(e.link)}">來源</a>` : ""}`));
@@ -855,20 +889,21 @@ async function twOtc(json, fail) {
 async function twHist(url, json, fail) {
   const code = String(url.searchParams.get("c") || ""), ex = url.searchParams.get("x") === "TW" ? "TW" : "TWO";
   if (!/^[0-9A-Z]{4,6}$/.test(code)) return fail(400, "BAD_CODE", "Bad stock code");
-  const out = await twCached("hist:" + code + ex, 1800000, async () => {
-    const u = "https://tw.stock.yahoo.com/_td-stock/api/resource/FinanceChartService.ApacLibraCharts;symbols=" + encodeURIComponent(JSON.stringify([code + "." + ex])) + ";type=day;period=d";
-    const r = await fetch(u, { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
-    if (!r.ok) throw new Error("Yahoo " + r.status);
-    const c = ((await r.json())[0] || {}).chart || {}, q = (c.indicators && c.indicators.quote && c.indicators.quote[0]) || {}, t = c.timestamp || [];
-    const rows = [];
-    t.forEach((ts, i) => {
-      const d = new Date((ts + 8 * 3600) * 1000).toISOString().slice(0, 10).replace(/-/g, "");
-      const o = q.open && q.open[i], h = q.high && q.high[i], l = q.low && q.low[i], cl = q.close && q.close[i];
-      if (o > 0 && h > 0 && l > 0 && cl > 0) rows.push([d, o, h, l, cl, q.volume ? q.volume[i] || 0 : 0]);
-    });
-    return { code, rows };
-  }).catch(e => ({ error: String(e.message || e) }));
+  const out = await twCached("hist:" + code + ex, 1800000, async () => ({ code, rows: await histRows(code, ex) })).catch(e => ({ error: String(e.message || e) }));
   return out.error ? fail(502, "SOURCE", out.error) : json(out, 200, { "Cache-Control": "no-store" });
+}
+async function histRows(code, ex) {
+  const u = "https://tw.stock.yahoo.com/_td-stock/api/resource/FinanceChartService.ApacLibraCharts;symbols=" + encodeURIComponent(JSON.stringify([code + "." + ex])) + ";type=day;period=d";
+  const r = await fetch(u, { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
+  if (!r.ok) throw new Error("Yahoo " + r.status);
+  const c = ((await r.json())[0] || {}).chart || {}, q = (c.indicators && c.indicators.quote && c.indicators.quote[0]) || {}, t = c.timestamp || [];
+  const rows = [];
+  t.forEach((ts, i) => {
+    const d = new Date((ts + 8 * 3600) * 1000).toISOString().slice(0, 10).replace(/-/g, "");
+    const o = q.open && q.open[i], h = q.high && q.high[i], l = q.low && q.low[i], cl = q.close && q.close[i];
+    if (o > 0 && h > 0 && l > 0 && cl > 0) rows.push([d, o, h, l, cl, q.volume ? q.volume[i] || 0 : 0]);
+  });
+  return rows;
 }
 
 /* Yahoo Taiwan quote list: real-time for 上市, 上櫃 and 興櫃 alike; each code is asked as .TWO, then the rest as .TW */
@@ -899,7 +934,7 @@ async function twYahooTW(codes) {
 async function bellNotice(env, now) {
   const t = new Date(now.getTime() + 8 * 3600e3), wd = t.getUTCDay(), m = t.getUTCHours() * 60 + t.getUTCMinutes();
   if (wd < 1 || wd > 5) return;
-  const kind = m >= 541 && m <= 545 ? "open" : m >= 811 && m <= 816 ? "close" : null; if (!kind) return;
+  const kind = m >= 541 && m <= 545 ? "open" : m >= 811 && m <= 816 ? "close" : null; if (!kind || !(await tgOn(env, "bell"))) return;
   const day = t.toISOString().slice(0, 10);
   const idx = await twMis(["tse_t00.tw"]).catch(() => []), ix = idx.find(x => x.c === "t00");
   let z = ix && ix.z, y = ix && ix.y, o = ix && ix.o, h = ix && ix.h, l = ix && ix.l;

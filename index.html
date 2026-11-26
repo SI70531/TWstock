@@ -34,6 +34,7 @@
   <link rel="stylesheet" href="./assets/twconsole.css">
   <link rel="stylesheet" href="./assets/twui.css">
   <link rel="stylesheet" href="./assets/twpulse.css">
+  <link rel="stylesheet" href="./assets/twmore.css">
 </head>
 <body>
 <div class="aurora" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
@@ -65,6 +66,13 @@
         <button type="button" role="tab" data-p="dpPre" aria-selected="false">盤前分析</button>
         <button type="button" role="tab" data-p="dpList" aria-selected="false">股票</button>
         <button type="button" role="tab" data-p="dpStock" aria-selected="false">個股分析</button>
+        <button type="button" role="tab" data-p="dpCmp" aria-selected="false">比較</button>
+        <button type="button" role="tab" data-p="dpScan" aria-selected="false">選股器</button>
+        <button type="button" role="tab" data-p="dpBt" aria-selected="false">回測</button>
+        <button type="button" role="tab" data-p="dpSim" aria-selected="false">模擬交易</button>
+        <button type="button" role="tab" data-p="dpHold" aria-selected="false">我的持股</button>
+        <button type="button" role="tab" data-p="dpLog" aria-selected="false">紀錄回顧</button>
+        <button type="button" role="tab" data-p="dpCal" aria-selected="false">行事曆</button>
       </div>
       <div class="dpanels">
         <div class="dpanel" id="dpOverview" role="tabpanel"></div>
@@ -72,12 +80,22 @@
         <div class="dpanel" id="dpList" role="tabpanel"></div>
         <div class="dpanel" id="dpWatch" role="tabpanel"></div>
         <div class="dpanel" id="dpStock" role="tabpanel"></div>
+        <div class="dpanel" id="dpCmp" role="tabpanel"></div>
+        <div class="dpanel" id="dpScan" role="tabpanel"></div>
+        <div class="dpanel" id="dpBt" role="tabpanel"></div>
+        <div class="dpanel" id="dpSim" role="tabpanel"></div>
+        <div class="dpanel" id="dpLog" role="tabpanel"></div>
+        <div class="dpanel" id="dpHold" role="tabpanel"></div>
+        <div class="dpanel" id="dpCal" role="tabpanel"></div>
       </div>
     </section>
   </main>
 </div>
 
 <script src="./assets/twlab.js"></script>
+<script src="./assets/twscan.js"></script>
+<script src="./assets/twdata.js"></script>
+<script src="./assets/twmore.js"></script>
 <script src="./assets/twmain.js"></script>
 <script src="./assets/twapp.js"></script>
 <script src="./assets/twui.js"></script>

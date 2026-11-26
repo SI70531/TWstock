@@ -1,23 +1,20 @@
-/* TWstock 研究室: research tools that work on real closing data and on what the user enters in this browser.
-   持股風險   holdings (kept only in this browser), P&L at the latest price, concentration by stock and industry,
+/* TWstock 我的持股 and 行事曆, plus the research numbers the AI team reads.
+   我的持股   持股風險: holdings (kept only in this browser), P&L at the latest price, concentration by stock and industry,
               correlation and beta against 0050 from daily bars, a market −20% stress test and three rebalancing plans.
-   交易日誌   trades (kept only in this browser): win rate, payoff, profit factor, expectancy, streaks, hold time of
+              交易日誌: trades (kept only in this browser): win rate, payoff, profit factor, expectancy, streaks, hold time of
               winners vs losers, trades without a stop or against the plan, and rules derived only from the record.
-   技術情境   daily and weekly structure for one stock: support, resistance, trend line, moving averages, momentum,
-              and bull / range / bear scenarios with the conditions that make or break each one (not a forecast).
-   策略回測   four rule sets on up to 36 months of daily bars, signals on the close and fills at the next open,
-              fees, tax and slippage, in-sample vs out-of-sample, buy-and-hold for comparison, CSV export.
-   同業比較   P/E, P/B, yield and revenue growth side by side, with the industry so non-comparable rows stand out.
-   敏感度     a small free-cash-flow model with three cases and a discount-rate × growth grid (no probabilities).
-   事件日曆   events with source and the hypothesis to check, a weekly checklist, fact and guess kept apart.
-   提示詞     the 12 research prompts, filled in with this page's data, ready to copy into Claude.
+   行事曆     ex-dividend dates (TWSE) and the monthly revenue deadline for the followed and held stocks, then the user's own
+              events with source and the hypothesis to check, a weekly checklist, fact and guess kept apart.
+   研究資料   technical scenarios, 10,000 bootstrap replays and four backtests for one stock, computed without any screen
+              and sent along with the AI analysis (window.TWLab.research).
    Nothing here places orders or promises a result. */
 (function () {
   "use strict";
   let A = null;                                       /* twmain's shared helpers, set on twdash:ready */
-  const box = () => document.getElementById("dpLab");
-  const $ = (s, r = box()) => r.querySelector(s);
-  const $$ = (s, r = box()) => Array.from(r.querySelectorAll(s));
+  let ROOT = null;                                    /* the panel being drawn or clicked: 我的持股 or 行事曆 */
+  const pane = id => document.getElementById(id);
+  const $ = (s, r = ROOT) => r.querySelector(s);
+  const $$ = (s, r = ROOT) => Array.from(r.querySelectorAll(s));
   const ok = Number.isFinite;
   const r2 = v => (ok(v) ? Math.round(v * 100) / 100 : null);
   const mean = a => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : NaN);
@@ -26,35 +23,13 @@
   const today = () => { const d = new Date(Date.now() + 8 * 3600e3); return d.toISOString().slice(0, 10); };
   const dayNum = s => Date.parse(String(s).replace(/^(\d{4})(\d{2})(\d{2})$/, "$1-$2-$3") + "T00:00:00Z") / 864e5;
   const iso = ds => ds.slice(0, 4) + "-" + ds.slice(4, 6) + "-" + ds.slice(6);
-  const K = { hold: "twlab-hold", cash: "twlab-cash", pref: "twlab-pref", trades: "twlab-trades", events: "twlab-events", tool: "twlab-tool", dcf: "twlab-dcf", bt: "twlab-bt", peers: "twlab-peers", mc: "twlab-mc", check: "twlab-check" };
+  const K = { hold: "twlab-hold", cash: "twlab-cash", pref: "twlab-pref", trades: "twlab-trades", events: "twlab-events", view: "twlab-view", check: "twlab-check" };
   const get = (k, d) => A.store.get(k, d), set = (k, v) => { A.store.set(k, v); if (k === K.hold) document.dispatchEvent(new Event("twlab:hold")); };
-
-  const TOOLS = [
-    ["hold", "持股風險", "集中度、相關性、β、市場下跌 20% 壓力測試與再平衡比較", "#5"],
-    ["journal", "交易日誌", "勝率、盈虧比、獲利因子、持有時間與違反規則的交易", "#6"],
-    ["tech", "技術情境", "日線＋週線的支撐壓力、趨勢線與偏多／盤整／偏空條件", "#2"],
-    ["bt", "策略回測", "含手續費、證交稅、滑價，樣本內外分開看", "#4"],
-    ["mc", "時光機", "拿過去 N 天的真實走勢隨機重播一萬次：先碰停利、先碰停損、還是都沒碰到", "#4+"],
-    ["peer", "同業比較", "本益比、淨值比、殖利率、營收年增並排，標出不可比", "#9"],
-    ["dcf", "敏感度分析", "保守／基準／樂觀三種假設與折現率×成長率表", "#10"],
-    ["cal", "事件日曆", "財報、法說、股東會：日期、來源、要驗證的假設", "#11"],
-    ["prompt", "提示詞", "12 個研究提示詞，自動帶入本頁資料，一鍵複製", "#1–12"],
-  ];
 
   /* ---------------- shared data ---------------- */
   const IND_NAME = { "01": "水泥", "02": "食品", "03": "塑膠", "04": "紡織纖維", "05": "電機機械", "06": "電器電纜", "08": "玻璃陶瓷", "09": "造紙", "10": "鋼鐵", "11": "橡膠", "12": "汽車", "14": "建材營造", "15": "航運", "16": "觀光餐旅", "17": "金融保險", "18": "貿易百貨", "19": "綜合", "20": "其他", "21": "化學", "22": "生技醫療", "23": "油電燃氣", "24": "半導體", "25": "電腦及週邊", "26": "光電", "27": "通信網路", "28": "電子零組件", "29": "電子通路", "30": "資訊服務", "31": "其他電子", "35": "綠能環保", "36": "數位雲端", "37": "運動休閒", "38": "居家生活" };
-  const INDUSTRY = { map: null, busy: null };
-  function loadIndustry() {
-    if (INDUSTRY.map) return Promise.resolve(INDUSTRY.map);
-    if (INDUSTRY.busy) return INDUSTRY.busy;
-    INDUSTRY.busy = A.J("https://openapi.twse.com.tw/v1/opendata/t187ap03_L").then(rows => {
-      const m = new Map();
-      rows.forEach(x => { const c = String(x["公司代號"] || "").trim(), k = String(x["產業別"] || "").trim().padStart(2, "0"); if (c) m.set(c, IND_NAME[k] || ("產業 " + k)); });
-      INDUSTRY.map = m; return m;
-    }, () => { INDUSTRY.map = new Map(); return INDUSTRY.map; });
-    return INDUSTRY.busy;
-  }
-  const industryOf = (code, manual) => manual || (/^00/.test(code) ? "ETF" : INDUSTRY.map && INDUSTRY.map.get(code)) || "未知";
+  /* the industry codes come with otc.json (see twmain.js) */
+  const industryOf = (code, manual) => manual || (/^00/.test(code) ? "ETF" : IND_NAME[A.industryCode(code)] || "未知");
   const nameOf = code => { const s = A.DB.by.get(code); return s ? s.name : code; };
   const priceOf = h => (ok(h.px) && h.px > 0 ? h.px : (A.DB.by.get(h.code) || {}).price);
 
@@ -80,26 +55,14 @@
 
   /* ---------------- small drawing helpers (figures draw themselves when shown) ---------------- */
   function drawIn(scope) {
-    const root = scope || box(); if (!root || !box().classList.contains("on")) return;
+    const root = scope || ROOT; if (!root || !root.closest(".dpanel.on")) return;
     $$(".lbar i", root).forEach((b, i) => b.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 600, delay: 120 + i * 50, easing: "cubic-bezier(.2,.9,.3,1)", fill: "backwards" }));
-    $$("path.ldraw", root).forEach((p, i) => { const L = p.getTotalLength ? p.getTotalLength() : 0; if (!L) return; p.style.strokeDasharray = L; p.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 1000, delay: 250 + i * 200, easing: "ease-out", fill: "backwards" }); });
     $$(".lheat td[data-v]", root).forEach((c, i) => c.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 300, delay: 100 + i * 25, fill: "backwards" }));
     A.rise($$(".lrise", root), 50, 60);
   }
   const io = "IntersectionObserver" in window ? new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { io.unobserve(e.target); drawIn(e.target); } }), { threshold: 0.2 }) : null;
   function watchIn(root) { if (!root) return; if (io) $$(".lfig", root).forEach(f => io.observe(f)); else drawIn(root); }
   const bar = (v, max, cls) => `<span class="lbar"><i class="${cls || ""}" style="width:${Math.max(0, Math.min(100, max ? v / max * 100 : 0)).toFixed(1)}%"></i></span>`;
-  function lineSVG(series, opt = {}) {
-    const W = 640, H = opt.h || 200, P = 30, all = series.flatMap(s => s.v.filter(ok));
-    if (all.length < 2) return "";
-    let lo = Math.min(...all), hi = Math.max(...all); if (hi === lo) { hi += 1; lo -= 1; }
-    const n = Math.max(...series.map(s => s.v.length)), X = i => P + i / Math.max(1, n - 1) * (W - P - 6), Y = v => 8 + (hi - v) / (hi - lo) * (H - 26);
-    const ticks = [lo, (lo + hi) / 2, hi].map(v => `<line class="gridl" x1="${P}" x2="${W - 6}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="0" y="${(Y(v) + 4).toFixed(1)}">${opt.fmt ? opt.fmt(v) : A.fmt(v, 0)}</text>`).join("");
-    const paths = series.map(s => `<path class="ldraw ${s.cls}" d="${s.v.map((v, i) => (ok(v) ? (i && ok(s.v[i - 1]) ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1) : "")).join("")}"/>`).join("");
-    const base = ok(opt.base) && opt.base > lo && opt.base < hi ? `<line class="lbase" x1="${P}" x2="${W - 6}" y1="${Y(opt.base)}" y2="${Y(opt.base)}"/>` : "";
-    const split = ok(opt.split) ? `<line class="lsplit" x1="${X(opt.split)}" x2="${X(opt.split)}" y1="4" y2="${H - 16}"/><text x="${X(opt.split) + 4}" y="${H - 4}">樣本外 →</text>` : "";
-    return `<svg class="lfig" viewBox="0 0 ${W} ${H}" role="img" aria-label="${A.esc(opt.label || "")}">${ticks}${base}${split}${paths}</svg>`;
-  }
   const kv = (k, v, t) => `<div class="snap lrise"><span>${k}</span><b class="${t || ""}">${v}</b></div>`;
   const note = t => "";   /* explanations are not shown (the user asked for none) */
   const csvCell = v => { const s = String(v == null ? "" : v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
@@ -150,7 +113,91 @@
       </div>
       <div class="dcard lrise"><div class="lhead"><div><h3>相關性、β 與壓力測試</h3></div>
         <button type="button" class="aigo" data-act="hrisk" ${H.length ? "" : "disabled"}>計算</button></div>
-        <p class="sub lmsg"></p><div class="lrisk"></div></div>`;
+        <p class="sub lmsg"></p><div class="lrisk"></div></div>
+      <div class="dcard lrise"><div class="lhead"><div><h3>資產走勢與大盤比較</h3></div>
+        <button type="button" class="aigo" data-act="hcurve" ${H.length ? "" : "disabled"}>畫出走勢</button></div>
+        <p class="sub lcmsg" role="status"></p><div class="lcurve"></div></div>
+      <div class="dcard lrise"><div class="lhead"><div><h3>今年股利收入（估算）</h3></div>
+        <button type="button" class="aigo" data-act="hdiv" ${H.length ? "" : "disabled"}>計算</button></div>
+        <p class="sub ldmsg" role="status"></p><div class="ldiv"></div></div>
+      <div class="dcard lrise"><h3>部位試算（做多）</h3>
+        <div class="lform lsize">
+          <label>代號（選填）<input class="in" name="zcode" inputmode="numeric"></label>
+          <label>進場價 <input class="in" name="zin" inputmode="decimal"></label>
+          <label>停損價 <input class="in" name="zstop" inputmode="decimal"></label>
+          <label>總資金（元）<input class="in" name="zcap" inputmode="decimal" value="${Math.round(holdRows().total) || ""}"></label>
+          <label>單筆最多虧總資金 % <input class="in" name="zrisk" inputmode="decimal" value="${get(K.pref, {}).risk || 1}"></label>
+        </div>
+        <div class="lsizeout"><p class="sub">填入進場價、停損價與總資金。</p></div></div>`;
+  }
+
+  /* ---- what today's holdings would have done over six months, next to 0050 (not the account's real history) ---- */
+  async function holdCurve() {
+    const root = ROOT, q = s => root.querySelector(s), msg = q(".lcmsg"), { rows, cash } = holdRows();
+    const live = rows.filter(r => ok(r.mv));
+    if (!live.length) { msg.textContent = "沒有可計算市值的持股。"; return; }
+    const codes = [...new Set(live.map(r => r.code).concat(["0050"]))], series = new Map();
+    for (let i = 0; i < codes.length; i++) {
+      msg.textContent = `讀取日線 ${i + 1}/${codes.length}（${nameOf(codes[i])}）… 第一次會比較久，之後有快取。`;
+      series.set(codes[i], await bars(codes[i], 7));
+    }
+    if (!root.querySelector(".lcurve")) return;
+    const used = live.filter(r => (series.get(r.code) || []).length > 20), left = live.filter(r => !used.includes(r));
+    const bench = series.get("0050") || [];
+    if (!used.length || bench.length < 20) { msg.textContent = "日線不足，暫時畫不出來。"; return; }
+    /* from the first day every used holding and 0050 have a price; a day without a trade keeps the last close */
+    const start = used.map(r => series.get(r.code)[0][0]).concat([bench[0][0]]).sort().pop();
+    const maps = used.map(r => new Map(series.get(r.code).map(c => [c[0], c[4]]))), last = used.map(() => NaN);
+    used.forEach((r, i) => series.get(r.code).forEach(c => { if (c[0] <= start) last[i] = c[4]; }));
+    const days = bench.filter(c => c[0] >= start);
+    const value = days.map(c => cash + used.reduce((a, r, i) => { const px = maps[i].get(c[0]); if (ok(px)) last[i] = px; return a + last[i] * r.shares; }, 0));
+    const mine = days.map((c, i) => [c[0], (value[i] / value[0] - 1) * 100]), mkt = days.map(c => [c[0], (c[4] / days[0][4] - 1) * 100]);
+    const gap = mine[mine.length - 1][1] - mkt[mkt.length - 1][1];
+    q(".lcurve").innerHTML = `<div class="lcchart"></div>${kv("目前持股組合", A.pct(mine[mine.length - 1][1]), A.tone(mine[mine.length - 1][1]))}${kv("0050", A.pct(mkt[mkt.length - 1][1]), A.tone(mkt[mkt.length - 1][1]))}${kv("差距（百分點）", A.signed(gap, 2), A.tone(gap))}`;
+    window.TWData.lineChart(q(".lcchart"), [{ name: "目前持股組合", pts: mine }, { name: "0050", pts: mkt }], { label: "目前持股回推與 0050 的漲跌幅", fmt: v => A.fmt(v, 1) + "%" });
+    msg.textContent = `假設從 ${iso(start)} 起就持有現在的股數與現金。這是回推，不是你帳戶的實際績效；未含股利與交易成本，價格未還原分割。` + (left.length ? `日線不足未計入：${left.map(r => r.name).join("、")}。` : "");
+  }
+
+  /* ---- this year's cash dividends on today's share counts: TWSE results so far, plus the announced notice ---- */
+  async function holdDividends() {
+    const root = ROOT, q = s => root.querySelector(s), msg = q(".ldmsg"), H = get(K.hold, []);
+    if (!A.DB.live) { msg.textContent = "目前是示意資料，無法計算。"; return; }
+    msg.textContent = "讀取除權息資料…";
+    const t = today(), now = t.replace(/-/g, "");
+    let past, next;
+    try { [past, next] = await Promise.all([window.TWData.dividends(now.slice(0, 4) + "0101", now), loadExDiv()]); }
+    catch (e) { msg.textContent = "除權息資料暫時讀不到，請稍後再試。"; return; }
+    if (!root.querySelector(".ldiv")) return;
+    const list = [];
+    H.forEach(h => {
+      past.filter(r => r.code === h.code).forEach(r => list.push({ code: h.code, date: iso(r.date), per: r.kind === "息" ? r.value : NaN, kind: r.kind, shares: h.shares, done: true }));
+      next.filter(r => r.code === h.code && r.date > t && r.date.slice(0, 4) === t.slice(0, 4)).forEach(r => { const m = r.info.match(/現金股利 ([\d.]+) 元/); list.push({ code: h.code, date: r.date, per: m ? +m[1] : NaN, kind: r.kind.replace("除", ""), shares: h.shares, done: false }); });
+    });
+    list.sort((a, b) => (a.date < b.date ? -1 : 1));
+    const sum = done => list.filter(x => x.done === done && ok(x.per)).reduce((a, x) => a + x.per * x.shares, 0);
+    const cost = H.reduce((a, h) => a + h.cost, 0), all = sum(true) + sum(false);
+    q(".ldiv").innerHTML = list.length ? kv("已除息", A.fmt(Math.round(sum(true))) + " 元") + kv("已公告、尚未除息", A.fmt(Math.round(sum(false))) + " 元") + kv("合計占持股總成本", cost ? A.fmt(all / cost * 100, 2) + "%" : "—") +
+      `<div class="ltblwrap"><table class="mtbl ltbl"><thead><tr><th class="l">商品</th><th>除權息日</th><th>狀態</th><th>每股現金</th><th>估計金額</th></tr></thead><tbody>${list.map(x => `<tr><td class="l nm"><b>${A.esc(nameOf(x.code))}</b><span>${A.esc(x.code)}</span></td><td>${x.date}</td><td>${x.done ? "已除" : "預告"}${x.kind === "息" ? "" : "・" + A.esc(x.kind)}</td><td>${ok(x.per) ? A.fmt(x.per, 2) : "未列入"}</td><td>${ok(x.per) ? A.fmt(Math.round(x.per * x.shares)) : "—"}</td></tr>`).join("")}</tbody></table></div>`
+      : `<p class="sub">持股今年沒有查到除權息。</p>`;
+    msg.textContent = "用目前股數估算，不是實際入帳金額：除息日之後才買的也會算進去。只含上市證券，未扣所得稅、健保補充費與匯費；除權或權息混合的場次不列金額。";
+  }
+
+  /* ---- how many shares fit a stop: the loss at the stop, fees and tax included, stays inside the chosen share of capital ---- */
+  function sizePosition() {
+    const out = $(".lsizeout"), v = n => parseFloat($(`[name="${n}"]`).value), code = $('[name="zcode"]').value.trim();
+    const entry = v("zin"), stop = v("zstop"), capital = v("zcap"), risk = v("zrisk"), P = prefs();
+    if (!(entry > 0 && stop > 0 && capital > 0 && risk > 0)) { out.innerHTML = `<p class="sub">填入進場價、停損價與總資金。</p>`; return; }
+    if (stop >= entry) { out.innerHTML = `<p class="sub warn">停損價要低於進場價。</p>`; return; }
+    if (risk <= 100) set(K.pref, Object.assign(get(K.pref, {}), { risk }));
+    const fee = x => Math.max(P.minFee, Math.round(x * P.fee / 100 * P.disc)), tax = taxOf(code) / 100;
+    const lossAt = n => (n ? n * entry + fee(n * entry) - (n * stop - fee(n * stop) - Math.round(n * stop * tax)) : 0);
+    const budget = capital * risk / 100;
+    let lo = 0, hi = Math.floor(capital / entry);                  /* the most shares both the loss budget and the cash allow */
+    while (lo < hi) { const m = Math.ceil((lo + hi) / 2); if (lossAt(m) <= budget && m * entry + fee(m * entry) <= capital) lo = m; else hi = m - 1; }
+    const n = lo, value = n * entry;
+    out.innerHTML = n ? kv("最多可買", `${A.fmt(n)} 股（${A.fmt(Math.floor(n / 1000))} 張＋${A.fmt(n % 1000)} 股零股）`) + kv("投入金額（含手續費）", A.fmt(Math.round(value + fee(value))) + " 元") + kv("占總資金", A.fmt(value / capital * 100, 1) + "%", value / capital * 100 > (+get(K.pref, {}).cap || 25) ? "down" : "") +
+      kv("停損時虧損（含費稅）", A.fmt(Math.round(lossAt(n))) + " 元") + kv("停損距離", A.fmt((entry - stop) / entry * 100, 2) + "%") + kv("2 倍風險的目標價", A.fmt(entry + 2 * (entry - stop), A.dig(entry))) +
+      `<p class="sub">跳空跌破停損價時，實際虧損會更大。證交稅率 ${taxOf(code)}%。</p>` : `<p class="sub warn">這個虧損上限連 1 股都買不了。</p>`;
   }
   function holdRows() {
     const H = get(K.hold, []), cash = +get(K.cash, 0) || 0;
@@ -159,7 +206,9 @@
     rows.forEach(r => { r.w = total ? r.mv / total * 100 : NaN; });
     return { rows, cash, total };
   }
-  function paintHold() {
+  function paintHold(quiet) {
+    if (holdView() !== "hold") return;
+    ROOT = pane("dpHold");
     const el = $(".lhtable"); if (!el) return;
     const { rows, cash, total } = holdRows();
     if (!rows.length) return;
@@ -186,7 +235,7 @@
     const list = [...by].sort((a, b) => b[1] - a[1]), mx = list.length ? list[0][1] : 1;
     $(".lind").innerHTML = `<div class="lfig">${list.map(([k, v]) => `<div class="lbrow lrise"><span>${A.esc(k)}</span>${bar(v, mx, k === "現金" ? "cash" : "")}<b>${A.fmt(v, 1)}%</b></div>`).join("")}</div>` +
       (list[0] && list[0][0] !== "現金" && list[0][1] > 40 ? note(`「${A.esc(list[0][0])}」占 ${A.fmt(list[0][1], 0)}%：同產業的股票常一起漲跌，分散效果比檔數看起來小。`) : "");
-    watchIn(box());
+    if (!quiet) watchIn(ROOT);
   }
   async function holdRisk() {
     const msg = $(".lmsg"), out = $(".lrisk"), { rows, cash, total } = holdRows(), P = prefs();
@@ -257,6 +306,7 @@
       stopHit: ok(t.stop) && closed && t.pout < t.stop, overStop: ok(t.stop) && closed && t.pout < t.stop * 0.97 });
   }
   function paintJournal() {
+    ROOT = pane("dpHold");
     const T = get(K.trades, []).map(tradeCalc), C = T.filter(t => t.closed).sort((a, b) => (a.dout < b.dout ? -1 : 1)), F = A.fmt;
     const list = $(".ljlist"); if (!list) return;
     list.innerHTML = T.length ? `<div class="ltblwrap"><table class="mtbl ltbl"><thead><tr><th class="l">商品</th><th>進場</th><th>出場</th><th>股數</th><th>價格</th><th>淨損益</th><th>天數</th><th class="l">理由</th><th></th></tr></thead><tbody>${
@@ -288,14 +338,7 @@
       note("以上只根據你輸入的紀錄計算，樣本不足時結論很不可靠；改善紀律可以減少大虧，但不代表一定會提高獲利。");
     const mx = Math.max(...C.map(t => Math.abs(t.pnl)), 1);
     $(".ljchart").innerHTML = `<div class="lfig lpnl">${C.map(t => `<div class="lbrow lrise"><span>${A.esc(t.dout.slice(5))} ${A.esc(nameOf(t.code))}</span>${bar(Math.abs(t.pnl), mx, t.pnl > 0 ? "pos" : "neg")}<b class="${A.tone(t.pnl)}">${A.signed(t.pnl, 0)}</b></div>`).join("")}</div>`;
-    watchIn(box());
-  }
-
-  /* ================= 技術情境（日線＋週線） ================= */
-  function viewTech() {
-    return `<div class="dcard lrise"><div class="lhead"><div><h3>技術情境</h3></div>
-      <div class="lform"><input class="in lcode" value="${A.esc(A.code())}" aria-label="股票代號" inputmode="numeric"><button type="button" class="aigo" data-act="tgo">分析</button></div></div>
-      <p class="sub lmsg"></p><div class="ltech"></div></div>`;
+    watchIn(ROOT);
   }
   function weekly(cs) {
     const out = []; let key = "";
@@ -312,46 +355,6 @@
     const a = my - b * mx, res = v.map((y, i) => y - (a + b * i)), ssr = res.reduce((s, r) => s + r * r, 0), sst = v.reduce((s, y) => s + (y - my) ** 2, 0);
     return { a, b, r2: 1 - ssr / sst, sd: sd(res), at: i => a + b * i };
   }
-  async function techRun() {
-    const code = ($(".lcode").value || "").trim(), msg = $(".lmsg"), out = $(".ltech");
-    if (!A.DB.by.get(code)) { msg.textContent = "找不到這個代號（支援上市、上櫃股票與 ETF）。"; return; }
-    const cs = await bars(code, 14, (i, n) => { msg.textContent = `讀取日線 ${i}/${n} 個月…`; });
-    if (cs.length < 30) { msg.textContent = "日線不足 30 日，無法分析。"; return; }
-    const I = A.calc(cs), n = cs.length, i = n - 1, c = cs[i][4], w = weekly(cs), WI = A.calc(w), wi = w.length - 1, d2 = A.dig(c), F = (v, d = d2) => (ok(v) ? A.fmt(v, d) : "無法計算");
-    const wma = (k) => (w.length >= k ? mean(w.slice(-k).map(x => x[4])) : NaN), wma10 = wma(10), wma20 = wma(20), wma10p = w.length > 10 ? mean(w.slice(-11, -1).map(x => x[4])) : NaN;
-    const reg = regress(cs.slice(-60).map(x => x[4])), slopePct = reg.b / c * 100, k = Math.min(60, n) - 1, chanHi = reg.at(k) + 2 * reg.sd, chanLo = reg.at(k) - 2 * reg.sd;
-    const hi = m => Math.max(...cs.slice(-m).map(x => x[2])), lo = m => Math.min(...cs.slice(-m).map(x => x[3]));
-    const sup = [["MA20", I.ma20[i]], ["MA60", I.ma60[i]], ["20 日低點", lo(20)], ["60 日低點", n >= 60 ? lo(60) : NaN], ["週線 10MA", wma10], ["趨勢通道下緣", chanLo], ["前 52 週低點", w.length >= 52 ? Math.min(...w.slice(-52).map(x => x[3])) : NaN]].filter(x => ok(x[1]) && x[1] < c).sort((a, b) => b[1] - a[1]);
-    const res = [["MA20", I.ma20[i]], ["MA60", I.ma60[i]], ["20 日高點", hi(20)], ["60 日高點", n >= 60 ? hi(60) : NaN], ["週線 10MA", wma10], ["趨勢通道上緣", chanHi], ["前 52 週高點", w.length >= 52 ? Math.max(...w.slice(-52).map(x => x[2])) : NaN]].filter(x => ok(x[1]) && x[1] > c).sort((a, b) => a[1] - b[1]);
-    const S1 = sup[0], R1 = res[0], ma20up = I.ma20[i] > I.ma20[i - 5], volR = I.vma20[i] ? cs[i][5] / I.vma20[i] : NaN;
-    const bw = I.ma20.map((m, j) => (m && I.bu[j] ? (I.bu[j] - I.bl[j]) / m : null)).filter(x => x != null), bwMed = bw.slice(-120).slice().sort((a, b) => a - b)[Math.floor(Math.min(120, bw.length) / 2)];
-    const cond = (t, v) => `<li class="${v === true ? "yes" : v === false ? "no" : "na"}">${t}<em>${v === true ? "目前成立" : v === false ? "目前不成立" : "無法判斷"}</em></li>`;
-    const bull = [cond("收盤在 MA20 之上", c > I.ma20[i]), cond("MA20 比 5 日前高（月線上彎）", ma20up), cond("週收盤在週 10MA 之上", ok(wma10) ? w[wi][4] > wma10 : null), cond("MACD 柱狀為正", I.hist[i] > 0)];
-    const range = [cond(`收盤介於最近支撐 ${S1 ? F(S1[1]) : "—"} 與壓力 ${R1 ? F(R1[1]) : "—"} 之間`, !!(S1 && R1)), cond("布林通道寬度低於近半年中位數（收斂）", ok(bwMed) ? bw[bw.length - 1] < bwMed : null), cond("60 日趨勢線斜率接近 0（每日 ±0.1% 內）", Math.abs(slopePct) < 0.1)];
-    const bear = [cond("收盤在 MA20 之下", c < I.ma20[i]), cond("MA20 比 5 日前低（月線下彎）", !ma20up), cond("週收盤在週 10MA 之下", ok(wma10) ? w[wi][4] < wma10 : null), cond("MACD 柱狀為負", I.hist[i] < 0)];
-    const score = h => (h.join("").match(/class="yes"/g) || []).length + " / " + h.length;
-    const sc = (title, cls, items, valid, fail, track) => `<div class="lscen ${cls} lrise"><h4>${title}<span>${score(items)} 條件成立</span></h4><ul>${items.join("")}</ul><p><b>成立後的延續訊號：</b>${valid}</p><p><b>失效條件：</b>${fail}</p><p class="sub"><b>要追蹤：</b>${track}</p></div>`;
-    const span = Math.min(120, n), show = cs.slice(-span), off = n - span;
-    out.innerHTML = `
-      <div class="lgrid2">
-        <div>${kv("資料", `${iso(cs[0][0])} 到 ${iso(cs[i][0])}，日線 ${n} 根、週線 ${w.length} 根`)}${kv("收盤", F(c))}
-          ${kv("日線均線", `MA5 ${F(I.ma5[i])}・MA20 ${F(I.ma20[i])}・MA60 ${F(I.ma60[i])}`)}${kv("週線均線", `10 週 ${F(wma10)}（${ok(wma10p) ? (wma10 > wma10p ? "上彎" : "下彎") : "無法計算"}）・20 週 ${F(wma20)}`)}
-          ${kv("60 日趨勢線", `斜率每日 ${A.signed(slopePct, 2)}%，R² ${A.fmt(reg.r2, 2)}（${reg.r2 < 0.3 ? "趨勢不明顯" : slopePct > 0 ? "上升趨勢" : "下降趨勢"}）`, slopePct > 0 ? "up" : "down")}
-          ${kv("日 KD／週 KD", `${A.fmt(I.K[i], 0)}/${A.fmt(I.D[i], 0)}・${w.length >= 9 ? A.fmt(WI.K[wi], 0) + "/" + A.fmt(WI.D[wi], 0) : "無法計算"}`)}
-          ${kv("RSI14 日／週", `${F(I.rsi[i], 1)}・${w.length > 15 ? F(WI.rsi[wi], 1) : "無法計算"}`)}${kv("MACD 柱 日／週", `${A.signed(I.hist[i], 2)}・${w.length > 35 ? A.signed(WI.hist[wi], 2) : "無法計算（週線不足 35 根）"}`)}
-          ${kv("量能", ok(volR) ? `今日量是 20 日均量 ${A.fmt(volR, 2)} 倍` : "無法計算")}
-          ${kv("支撐（由近到遠）", sup.slice(0, 3).map(x => `${F(x[1])} ${x[0]}`).join("、") || "下方無明確支撐")}${kv("壓力（由近到遠）", res.slice(0, 3).map(x => `${F(x[1])} ${x[0]}`).join("、") || "在近期高點之上")}</div>
-        <div>${lineSVG([{ v: show.map(x => x[4]), cls: "lc" }, { v: I.ma20.slice(off), cls: "lm20" }, { v: I.ma60.slice(off), cls: "lm60" }, { v: show.map((_, j) => (j >= span - Math.min(60, n) ? reg.at(j - (span - Math.min(60, n))) : null)), cls: "ltr" }], { h: 380, label: "收盤、MA20、MA60 與 60 日趨勢線", fmt: v => A.fmt(v, d2) })}
-          <p class="sub"><i class="lg lc"></i>收盤 <i class="lg lm20"></i>MA20 <i class="lg lm60"></i>MA60 <i class="lg ltr"></i>60 日趨勢線（迴歸）</p></div>
-      </div>
-      <div class="lscens">
-        ${sc("偏多情境", "bull", bull, R1 ? `放量（≥ 1.5 倍均量）站上 ${F(R1[1])}（${R1[0]}）` : "維持在近期高點之上", S1 ? `收盤跌破 ${F(S1[1])}（${S1[0]}）` : "收盤跌回 MA20 之下", "日 KD 是否高檔鈍化、週 10MA 是否持續上彎、量能")}
-        ${sc("盤整情境", "flat", range, "價格在區間內來回、量縮", `收盤離開 ${S1 ? F(S1[1]) : "支撐"}–${R1 ? F(R1[1]) : "壓力"} 區間且量 ≥ 1.5 倍均量`, "布林通道寬度、區間上下緣的反應")}
-        ${sc("偏空情境", "bear", bear, S1 ? `跌破 ${F(S1[1])}（${S1[0]}）後無法站回` : "持續創低", R1 ? `收盤站回 ${F(R1[1])}（${R1[0]}）` : "收盤站回 MA20", "週 10MA 是否下彎、RSI 是否進入 30 以下、法人連續賣超")}
-      </div>
-      ${note("「條件成立」只描述現在的價格結構，不是預測，也不代表接下來會照這個情境走。週線由日線合成（週一到週五），指標以收盤計算。")}`;
-    msg.textContent = ""; watchIn(out); drawIn(out);
-  }
 
   /* ================= 策略回測 ================= */
   const STRATS = {
@@ -360,23 +363,7 @@
     brk: { name: "突破", p: [["n", "創 N 日新高買進", 20], ["m", "跌破 M 日低點賣出", 10]], help: "收盤高於前 N 日最高價買進，低於前 M 日最低價賣出。" },
     kd: { name: "KD 交叉", p: [["k0", "K 低於此值的黃金交叉才買", 30], ["k1", "K 高於此值的死亡交叉才賣（0 = 任何）", 0]], help: "K 由下往上穿過 D 買進，由上往下穿過 D 賣出。" },
   };
-  function viewBT() {
-    const s = Object.assign({ code: A.code(), strat: "ma", months: 24, stop: 0, prm: {} }, get(K.bt, {})), P = prefs();
-    return `<div class="dcard lrise"><h3>策略回測</h3>
-      <div class="lform lbform">
-        <label>代號 <input class="in" name="code" value="${A.esc(s.code)}" inputmode="numeric"></label>
-        <label>策略 <select class="in" name="strat">${Object.entries(STRATS).map(([k, v]) => `<option value="${k}" ${k === s.strat ? "selected" : ""}>${v.name}</option>`).join("")}</select></label>
-        <label>期間 <select class="in" name="months">${[12, 24, 36].map(m => `<option value="${m}" ${m === +s.months ? "selected" : ""}>${m} 個月</option>`).join("")}</select></label>
-        <span class="lprm">${STRATS[s.strat].p.map(([k, t, d]) => `<label>${t} <input class="in" name="p_${k}" inputmode="decimal" value="${s.prm[k] != null ? s.prm[k] : d}"></label>`).join("")}</span>
-        <label>停損 %（0 = 不設）<input class="in" name="stop" inputmode="decimal" value="${s.stop}"></label>
-        <label>手續費 % <input class="in" name="fee" inputmode="decimal" value="${P.fee}"></label>
-        <label>手續費折數 <input class="in" name="disc" inputmode="decimal" value="${P.disc}"></label>
-        <label>滑價 %（單邊）<input class="in" name="slip" inputmode="decimal" value="${P.slip}"></label>
-        <button type="button" class="aigo" data-act="bgo">回測</button>
-      </div>
-      
-      <p class="sub lmsg"></p><div class="lbt"></div></div>`;
-  }
+
   function backtest(cs, strat, prm, cost) {
     const I = A.calc(cs), cl = I.cl, n = cs.length, sig = new Array(n).fill(0);
     const smaN = k => A.sma(cl, k);
@@ -408,56 +395,7 @@
     const gw = w.reduce((a, x) => a + x.ret, 0), gl = -l.reduce((a, x) => a + x.ret, 0);
     return { n: t.length, win: t.length ? w.length / t.length * 100 : NaN, pf: gl ? gw / gl : (gw ? Infinity : NaN), mdd: mdd * 100, avg: t.length ? mean(t.map(x => x.ret)) : NaN, tot: seg.length ? (seg[seg.length - 1] / (from ? eq[from - 1] || seg[0] : 1) - 1) * 100 : NaN };
   }
-  async function btRun() {
-    const f = name => $(`.lbform [name="${name}"]`), code = f("code").value.trim(), strat = f("strat").value, months = +f("months").value, msg = $(".lmsg"), out = $(".lbt");
-    const prm = {}; STRATS[strat].p.forEach(([k, , d]) => { const el = f("p_" + k); const v = el ? parseFloat(el.value) : d; prm[k] = ok(v) ? v : d; });
-    const P = Object.assign(prefs(), { fee: parseFloat(f("fee").value) || 0, disc: parseFloat(f("disc").value) || 1, slip: parseFloat(f("slip").value) || 0 }); set(K.pref, Object.assign(get(K.pref, {}), { fee: P.fee, disc: P.disc, slip: P.slip }));
-    const stop = Math.max(0, parseFloat(f("stop").value) || 0);
-    set(K.bt, { code, strat, months, stop, prm });
-    if (!A.DB.by.get(code)) { msg.textContent = "找不到這個代號（支援上市、上櫃股票與 ETF）。"; return; }
-    const cs = await bars(code, months, (i, n) => { msg.textContent = `讀取日線 ${i}/${n} 個月…（證交所每月一次查詢，第一次會比較久）`; });
-    if (cs.length < 80) { msg.textContent = "日線不足 80 日，回測沒有意義。"; return; }
-    const cost = { fee: P.fee / 100 * P.disc, tax: taxOf(code) / 100, slip: P.slip / 100, stop: stop / 100 };
-    const { trades, eq } = backtest(cs, strat, prm, cost), n = cs.length, cut = Math.floor(n * 0.7);
-    const all = stats(trades, eq, 0, n), ins = stats(trades, eq, 0, cut), oos = stats(trades, eq, cut, n), bh = cs[n - 1][4] / cs[0][1] - 1;
-    const F = (v, d = 1, s = "") => (ok(v) ? A.fmt(v, d) + s : v === Infinity ? "無虧損" : "—");
-    const row = (k, s) => `<tr class="lrise"><td class="l">${k}</td><td>${s.n}</td><td>${F(s.win, 1, "%")}</td><td>${F(s.pf, 2)}</td><td class="down">${F(s.mdd, 1, "%")}</td><td class="${A.tone(s.avg)}">${F(s.avg, 2, "%")}</td><td class="${A.tone(s.tot)}">${F(s.tot, 1, "%")}</td></tr>`;
-    const warn = [];
-    if (all.n < 30) warn.push(`只有 ${all.n} 筆交易，樣本太少，勝率與獲利因子很容易是運氣。`);
-    if (ok(ins.tot) && ok(oos.tot) && ins.tot > 0 && oos.tot < 0) warn.push("樣本內賺錢、樣本外虧損：典型的過度擬合跡象，參數可能只適合過去。");
-    if (all.tot < bh * 100) warn.push(`策略報酬 ${F(all.tot, 1, "%")} 低於同期買進持有 ${F(bh * 100, 1, "%")}。`);
-    out.innerHTML = `
-      <div class="ltblwrap"><table class="mtbl ltbl"><thead><tr><th class="l">區間</th><th>交易次數</th><th>勝率</th><th>獲利因子</th><th>最大回撤</th><th>平均每筆</th><th>累積報酬</th></tr></thead><tbody>
-        ${row(`全部 ${iso(cs[0][0])}～${iso(cs[n - 1][0])}`, all)}${row(`樣本內（前 70%）`, ins)}${row(`樣本外（後 30%，自 ${iso(cs[cut][0])}）`, oos)}
-        <tr class="lrise"><td class="l">買進持有（開盤買、最後收盤）</td><td>1</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="${A.tone(bh)}">${F(bh * 100, 1, "%")}</td></tr></tbody></table></div>
-      ${lineSVG([{ v: eq.map(v => v * 100), cls: "lc" }, { v: cs.map(c => c[4] / cs[0][1] * 100), cls: "lm60" }], { label: "策略淨值與買進持有", base: 100, split: cut, fmt: v => A.fmt(v, 0) })}
-      <p class="sub"><i class="lg lc"></i>策略淨值（起點 100，已扣成本） <i class="lg lm60"></i>買進持有</p>
-      ${warn.length ? `<div class="lwarn lrise">${warn.map(w => `<p>${w}</p>`).join("")}</div>` : ""}
-      <div class="lform"><button type="button" class="btn" data-act="bcsv">下載交易明細 CSV</button><button type="button" class="btn" data-act="bdata">下載使用的日線 CSV</button></div>
-      ${note(`檢查：前視偏誤＝訊號用收盤、隔日開盤成交，已避免；過度擬合＝請比較樣本內外，並試試相鄰參數是否結果相近；未計入除權息（股價除息會被當成下跌）、漲跌停無法成交與最低手續費 ${prefs().minFee} 元。過去績效不代表未來。`)}`;
-    BTLAST = { code, strat, prm, stop, cost, trades, cs };
-    msg.textContent = `完成：${STRATS[strat].name} ${JSON.stringify(prm)}${stop ? "，停損 " + stop + "%" : ""}`;
-    watchIn(out); drawIn(out);
-  }
-  let BTLAST = null;
 
-
-  /* ================= 時光機（歷史日報酬自助抽樣，重播一萬次） ================= */
-  function viewMC() {
-    const s = Object.assign({ code: A.code(), entry: "", tp: 8, sl: 5, days: 20, look: 60 }, get(K.mc, {}));
-    return `<div class="dcard lrise"><h3>時光機</h3>
-      
-      <div class="lform lmform">
-        <label>代號 <input class="in" name="code" value="${A.esc(s.code)}" inputmode="numeric"></label>
-        <label>進場價（空白＝最新收盤）<input class="in" name="entry" inputmode="decimal" value="${s.entry}"></label>
-        <label>停利 % <input class="in" name="tp" inputmode="decimal" value="${s.tp}"></label>
-        <label>停損 % <input class="in" name="sl" inputmode="decimal" value="${s.sl}"></label>
-        <label>持有最多（交易日）<input class="in" name="days" inputmode="numeric" value="${s.days}"></label>
-        <label>取樣最近（交易日）<select class="in" name="look">${[60, 120, 250].map(m => `<option value="${m}" ${m === +s.look ? "selected" : ""}>${m} 日</option>`).join("")}</select></label>
-        <button type="button" class="aigo" data-act="mgo">重播一萬次</button>
-      </div>
-      <p class="sub lmsg"></p><div class="lmc"></div></div>`;
-  }
   function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
   function simulate(cs, look, P0, tp, sl, days, runs, seed) {
     const src = cs.slice(-(look + 1)), D = [];
@@ -479,124 +417,12 @@
     const sorted = Array.from(ends).sort((a, b) => a - b), q = f => sorted[Math.floor(f * (runs - 1))];
     return { nT, nS, nN: runs - nT - nS, both, paths, up, dn, n: D.length, from: src[0][0], to: src[src.length - 1][0], q10: q(0.1), q50: q(0.5), q90: q(0.9), avgDay: hitDay.length ? mean(hitDay) : NaN };
   }
-  function mcSVG(r, P0, days) {
-    const W = 640, H = 340, P = 46, lo = r.dn - (r.up - r.dn) * 0.08, hi = r.up + (r.up - r.dn) * 0.08, d2 = A.dig(P0);
-    const X = i => P + i / days * (W - P - 70), Y = v => 10 + (hi - v) / (hi - lo) * (H - 34);
-    const hl = (v, cls, t) => `<g class="mcb"><line class="mcl ${cls}" x1="${P}" x2="${W - 70}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><rect class="mctag ${cls}" x="${W - 66}" y="${(Y(v) - 10).toFixed(1)}" width="64" height="20" rx="5"/><text class="mctx" x="${W - 34}" y="${(Y(v) + 4).toFixed(1)}">${t} ${A.fmt(v, d2)}</text></g>`;
-    const grid = [0, Math.round(days / 2), days].map(i => `<text class="mcb" x="${X(i)}" y="${H - 6}" text-anchor="middle">第 ${i} 日</text>`).join("") + [lo, P0, hi].map(v => `<g class="mcb"><line class="gridl" x1="${P}" x2="${W - 70}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text x="0" y="${(Y(v) + 4).toFixed(1)}">${A.fmt(v, d2)}</text></g>`).join("");
-    const paths = r.paths.map(p => `<path class="mcp ${p.res > 0 ? "t" : p.res < 0 ? "s" : "n"}" d="${p.v.map((v, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join("")}"/>`).join("");
-    return `<svg class="lfig mcfig" viewBox="0 0 ${W} ${H}" role="img" aria-label="時光機：${r.paths.length} 條抽樣路徑">${grid}${hl(r.up, "t", "停利")}${hl(r.dn, "s", "停損")}${paths}<circle class="mcb mcdot" cx="${X(0)}" cy="${Y(P0).toFixed(1)}" r="5"/></svg>`;
-  }
-  /* backdrop first (grid, stop/target lines, entry dot), then the paths run out from the entry point, then the result bars */
-  function mcPlay(root) {
-    const svg = root.querySelector(".mcfig"); if (!svg) return;
-    const bk = Array.from(svg.querySelectorAll(".mcb")), ps = Array.from(svg.querySelectorAll(".mcp"));
-    bk.forEach((g, i) => g.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 350, delay: i * 60, fill: "backwards" }));
-    const t0 = bk.length * 60 + 300;
-    ps.forEach((p, i) => { const L = p.getTotalLength(); p.style.strokeDasharray = L; p.animate([{ strokeDashoffset: L }, { strokeDashoffset: 0 }], { duration: 1400, delay: t0 + (i % 50) * 18, easing: "ease-out", fill: "backwards" }); });
-    const t1 = t0 + 50 * 18 + 1400;
-    Array.from(root.querySelectorAll(".mcres .lbar i")).forEach((b, i) => b.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 600, delay: t1 + i * 150, easing: "cubic-bezier(.2,.9,.3,1)", fill: "backwards" }));
-    Array.from(root.querySelectorAll(".mcres .lrise")).forEach((b, i) => b.animate([{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }], { duration: 400, delay: t1 + i * 150, fill: "backwards" }));
-  }
-  async function mcRun() {
-    const f = n => $(`.lmform [name="${n}"]`), code = f("code").value.trim(), msg = $(".lmsg"), out = $(".lmc");
-    const tp = Math.max(0.1, parseFloat(f("tp").value) || 8), sl = Math.max(0.1, Math.min(90, parseFloat(f("sl").value) || 5)), days = Math.max(1, Math.min(250, parseInt(f("days").value, 10) || 20)), look = +f("look").value || 60, entryIn = parseFloat(f("entry").value);
-    set(K.mc, { code, entry: ok(entryIn) ? entryIn : "", tp, sl, days, look });
-    if (!A.DB.by.get(code)) { msg.textContent = "找不到這個代號（支援上市、上櫃股票與 ETF）。"; return; }
-    const cs = await bars(code, Math.ceil(look / 20) + 1, (i, n) => { msg.textContent = `讀取日線 ${i}/${n} 個月…`; });
-    if (cs.length < Math.min(look, 40) + 1) { msg.textContent = `日線只有 ${cs.length} 日，不夠取樣。`; return; }
-    const last = cs[cs.length - 1][4], P0 = ok(entryIn) && entryIn > 0 ? entryIn : last, seed = Math.floor(Math.random() * 1e9);
-    msg.textContent = "重播中…"; await new Promise(r => setTimeout(r, 30));
-    const runs = 10000, r = simulate(cs, look, P0, tp / 100, sl / 100, days, runs, seed), pc = x => x / runs * 100, d2 = A.dig(P0);
-    const gap = pc(r.nT) - pc(r.nS), verdict = Math.abs(gap) < 8 ? "跟擲硬幣差不多" : gap > 0 ? "先碰停利的機會較高" : "先碰停損的機會較高";
-    const ev = (pc(r.nT) * tp - pc(r.nS) * sl) / 100;
-    const res = (t, n, cls, sub) => `<div class="mcrow lrise"><span>${t}</span><b class="${cls === "pos" ? "up" : cls === "neg" ? "down" : ""}">${A.fmt(pc(n), 1)}%</b>${bar(pc(n), 100, cls)}<em class="sub">${sub}</em></div>`;
-    out.innerHTML = `
-      ${mcSVG(r, P0, days)}
-      <p class="sub"><i class="lg mct"></i>先碰停利 <i class="lg mcs"></i>先碰停損 <i class="lg mcn"></i>期限到都沒碰（畫出其中 ${r.paths.length} 條）</p>
-      <div class="lgrid2 mcres">
-        <div>${res("先碰停利", r.nT, "pos", `+${tp}% → ${A.fmt(r.up, d2)}`)}${res("先碰停損", r.nS, "neg", `−${sl}% → ${A.fmt(r.dn, d2)}`)}${res(`${days} 日內都沒碰到`, r.nN, "", `期末中位數 ${A.fmt(r.q50, d2)}`)}
-          <div class="mcverdict lrise"><b>${verdict}</b><span class="sub">停利 ${A.fmt(pc(r.nT), 1)}% vs 停損 ${A.fmt(pc(r.nS), 1)}%；只算碰到的部分，每筆期望 ${A.signed(ev, 2)}%（未扣成本）</span></div></div>
-        <div>${kv("進場價", A.fmt(P0, d2) + (P0 === last ? "（最新收盤）" : `（最新收盤 ${A.fmt(last, d2)}）`))}${kv("取樣", `${iso(r.from)}～${iso(r.to)}，${r.n} 根日 K`)}${kv("重播", `${runs.toLocaleString()} 次 × 最多 ${days} 日・seed ${seed}`)}
-          ${kv("平均幾天碰到", ok(r.avgDay) ? A.fmt(r.avgDay, 1) + " 日" : "—")}${kv("期末價 10%／50%／90%", `${A.fmt(r.q10, d2)}／${A.fmt(r.q50, d2)}／${A.fmt(r.q90, d2)}`)}
-          ${kv("同一天兩邊都碰到", `${r.both} 次（日 K 看不出先後，保守算停損）`)}</div>
-      </div>
-      ${note("假設：未來每天的漲跌像是從最近 N 日隨機抽出來的（自助抽樣，日與日之間獨立）。它只告訴你「如果接下來跟最近差不多」會怎樣，抓不到趨勢延續、消息面、除權息、跳空與漲跌停鎖死。研究輔助用途｜不保證獲利。")}`;
-    msg.textContent = `完成：${nameOf(code)}（${code}）`;
-    mcPlay(out);
-  }
-
-  /* ================= 同業比較 ================= */
-  function viewPeer() {
-    const H = get(K.hold, []).map(h => h.code), def = get(K.peers, H.length ? H.join(" ") : "2330 2303 2454 3711 2379");
-    return `<div class="dcard lrise"><div class="lhead"><div><h3>同業估值比較</h3></div>
-      <div class="lform"><input class="in lpeers" value="${A.esc(def)}" aria-label="代號清單"><button type="button" class="aigo" data-act="pgo">比較</button></div></div>
-      <p class="sub lmsg"></p><div class="lpeer"></div></div>`;
-  }
-  async function peerRun() {
-    const codes = [...new Set(($(".lpeers").value || "").split(/[\s,，、]+/).filter(Boolean))].slice(0, 15), msg = $(".lmsg"), out = $(".lpeer");
-    set(K.peers, codes.join(" "));
-    msg.textContent = "讀取估值與產業資料…"; await Promise.all([A.loadFund(), loadIndustry()]);
-    const rows = codes.map(c => { const s = A.DB.by.get(c), f = (A.FUND.map && A.FUND.map.get(c)) || {}; return { c, name: s ? s.name : "（查無）", px: s ? s.price : NaN, ind: industryOf(c), pe: f.pe, pb: f.pb, yld: f.yld, yoy: f.yoy, ym: f.ym }; });
-    const med = k => { const v = rows.map(r => r[k]).filter(x => ok(x) && x > 0).sort((a, b) => a - b); return v.length ? v[Math.floor(v.length / 2)] : NaN; };
-    const M = { pe: med("pe"), pb: med("pb"), yld: med("yld"), yoy: med("yoy") }, F = (v, d = 2) => (ok(v) && v !== 0 ? A.fmt(v, d) : "缺");
-    const inds = [...new Set(rows.map(r => r.ind))];
-    const cell = (v, m, d, inv) => `<td class="${ok(v) && v && ok(m) ? ((inv ? v < m : v > m) ? "lhi" : "") : "lmiss"}">${F(v, d)}</td>`;
-    out.innerHTML = `<div class="ltblwrap"><table class="mtbl ltbl"><thead><tr><th class="l">公司</th><th class="l">產業</th><th>股價</th><th>本益比</th><th>股價淨值比</th><th>殖利率 %</th><th>營收年增 %</th><th class="l">營收月份</th></tr></thead><tbody>
-      ${rows.map(r => `<tr class="lrise"><td class="l nm"><b>${A.esc(r.name)}</b><span>${A.esc(r.c)}</span></td><td class="l">${A.esc(r.ind)}</td><td>${ok(r.px) ? A.fmt(r.px, A.dig(r.px)) : "缺"}</td>${cell(r.pe, M.pe, 1, true)}${cell(r.pb, M.pb, 2, true)}${cell(r.yld, M.yld, 2)}${cell(r.yoy, M.yoy, 1)}<td class="l">${A.esc(r.ym || "缺")}</td></tr>`).join("")}
-      <tr><td class="l"><b>中位數</b></td><td></td><td></td><td>${F(M.pe, 1)}</td><td>${F(M.pb, 2)}</td><td>${F(M.yld, 2)}</td><td>${F(M.yoy, 1)}</td><td></td></tr></tbody></table></div>
-      ${inds.length > 1 ? `<div class="lwarn lrise"><p>清單裡有 ${inds.length} 個產業（${inds.map(A.esc).join("、")}），商業模式與獲利結構不同，估值倍數不能直接比較。</p></div>` : ""}
-      ${note("標色＝優於清單中位數（本益比、淨值比較低；殖利率、營收年增較高）。「缺」＝證交所沒有提供，常見原因：虧損（本益比不計算）、ETF、上櫃股票。本益比用近四季 EPS，低本益比可能代表市場預期獲利下滑，不等於便宜；需要再查毛利率、負債與會計口徑才能判斷是否可比（可到「提示詞」#9 帶著這張表請 Claude 深入）。")}`;
-    msg.textContent = `資料日期：估值 ${A.DB.date ? iso(A.DB.date) : "—"}。`; watchIn(out); drawIn(out);
-  }
-
-  /* ================= 敏感度（簡易自由現金流折現） ================= */
-  const DCF0 = { code: "", rev: 1000, sh: 10, cashN: 0, r: 10, gT: 2, cases: { 保守: { g: 0, m: 8 }, 基準: { g: 8, m: 12 }, 樂觀: { g: 15, m: 15 } } };
-  function viewDCF() {
-    const d = Object.assign({}, DCF0, get(K.dcf, {}));
-    const inp = (n, t, v) => `<label>${t}<input class="in" name="${n}" inputmode="decimal" value="${v}"></label>`;
-    return `<div class="dcard lrise"><h3>財報情境與敏感度</h3>
-      <div class="lform ldform">${inp("code", "代號（取現價比較，選填）", d.code)}${inp("rev", "最近一年營收（億）", d.rev)}${inp("sh", "流通股數（億股）", d.sh)}${inp("cashN", "淨現金（億，負債多填負數）", d.cashN)}${inp("r", "折現率 %", d.r)}${inp("gT", "第 6 年起永續成長 %", d.gT)}</div>
-      <div class="ltblwrap"><table class="mtbl ltbl lcases"><thead><tr><th class="l">情境</th><th>未來 5 年營收年成長 %</th><th>自由現金流率 %（FCF／營收）</th></tr></thead><tbody>
-        ${Object.entries(d.cases).map(([k, v]) => `<tr><td class="l">${k}</td><td><input class="in" name="g_${k}" inputmode="decimal" value="${v.g}"></td><td><input class="in" name="m_${k}" inputmode="decimal" value="${v.m}"></td></tr>`).join("")}</tbody></table></div>
-      <button type="button" class="aigo" data-act="dgo">計算</button>
-      
-      <div class="ldcf"></div></div>`;
-  }
-  function dcfVal(d, g, m, r, gT) {
-    let rev = d.rev, pv = 0, fcf = 0;
-    for (let y = 1; y <= 5; y++) { rev *= 1 + g / 100; fcf = rev * m / 100; pv += fcf / (1 + r / 100) ** y; }
-    if (r <= gT) return NaN;
-    const tv = fcf * (1 + gT / 100) / ((r - gT) / 100), pvT = tv / (1 + r / 100) ** 5;
-    return { ps: (pv + pvT + d.cashN) / d.sh, tvShare: pvT / (pv + pvT) * 100 };
-  }
-  function dcfRun() {
-    const f = n => parseFloat(($(`.dcard [name="${n}"]`) || {}).value), d = { code: ($(`.dcard [name="code"]`).value || "").trim(), rev: f("rev"), sh: f("sh"), cashN: f("cashN") || 0, r: f("r"), gT: f("gT"), cases: {} };
-    Object.keys(DCF0.cases).forEach(k => { d.cases[k] = { g: f("g_" + k), m: f("m_" + k) }; });
-    const out = $(".ldcf");
-    if (![d.rev, d.sh, d.r, d.gT].every(ok) || d.sh <= 0) { out.innerHTML = note("營收、股數、折現率與永續成長率都要填。"); return; }
-    set(K.dcf, d);
-    const px = d.code && A.DB.by.get(d.code) ? A.DB.by.get(d.code).price : NaN, res = Object.entries(d.cases).map(([k, c]) => [k, c, dcfVal(d, c.g, c.m, d.r, d.gT)]);
-    const mx = Math.max(...res.map(x => (x[2] && ok(x[2].ps) ? x[2].ps : 0)), ok(px) ? px : 0);
-    const base = d.cases["基準"], rs = [-2, -1, 0, 1, 2].map(x => d.r + x), gs = [-4, -2, 0, 2, 4].map(x => base.g + x);
-    const grid = `<table class="lheat lgrid"><tr><th>折現率＼成長</th>${gs.map(g => `<th>${A.fmt(g, 0)}%</th>`).join("")}</tr>${rs.map(r => `<tr><th>${A.fmt(r, 1)}%</th>${gs.map(g => { const v = dcfVal(d, g, base.m, r, d.gT); const p = v && ok(v.ps) ? v.ps : NaN; return `<td data-v style="--a:${ok(p) && ok(px) ? Math.min(1, Math.abs(p / px - 1)).toFixed(2) : 0}" class="${ok(p) && ok(px) && p < px ? "neg" : ""}">${ok(p) ? A.fmt(p, 0) : "—"}</td>`; }).join("")}</tr>`).join("")}</table>`;
-    /* the most sensitive input: ±10% change of each base input, effect on value */
-    const b0 = dcfVal(d, base.g, base.m, d.r, d.gT).ps, sens = [["營收成長 ±2 個百分點", dcfVal(d, base.g + 2, base.m, d.r, d.gT).ps - dcfVal(d, base.g - 2, base.m, d.r, d.gT).ps],
-      ["現金流率 ±2 個百分點", dcfVal(d, base.g, base.m + 2, d.r, d.gT).ps - dcfVal(d, base.g, base.m - 2, d.r, d.gT).ps], ["折現率 ±1 個百分點", dcfVal(d, base.g, base.m, d.r - 1, d.gT).ps - dcfVal(d, base.g, base.m, d.r + 1, d.gT).ps],
-      ["永續成長 ±0.5 個百分點", dcfVal(d, base.g, base.m, d.r, d.gT + 0.5).ps - dcfVal(d, base.g, base.m, d.r, d.gT - 0.5).ps]].sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-    out.innerHTML = `<div class="lgrid2"><div class="lfig">${res.map(([k, c, v]) => `<div class="lbrow lrise"><span>${k}（成長 ${c.g}%、FCF 率 ${c.m}%）</span>${bar(v && ok(v.ps) ? v.ps : 0, mx, k === "保守" ? "neg" : k === "樂觀" ? "pos" : "")}<b>${v && ok(v.ps) ? A.fmt(v.ps, 1) : "—"}</b></div>`).join("")}
-        ${ok(px) ? `<div class="lbrow lrise"><span>現價 ${A.esc(d.code)}</span>${bar(px, mx, "cash")}<b>${A.fmt(px, A.dig(px))}</b></div>` : ""}
-        ${kv("基準情境中終值占比", ok(b0) ? A.fmt(dcfVal(d, base.g, base.m, d.r, d.gT).tvShare, 0) + "%（越高越依賴遠期假設）" : "—")}</div>
-        <div><h3 class="lsub">最敏感的變數（基準情境，每股價值變動）</h3>${sens.map(([k, v]) => kv(k, ok(v) ? A.fmt(Math.abs(v), 1) + " 元" : "—")).join("")}</div></div>
-      <h3 class="lsub">基準情境：折現率 × 營收成長的每股價值${ok(px) ? "（顏色越深＝離現價越遠，紅框＝低於現價）" : ""}</h3><div class="lfig">${grid}</div>
-      ${note("公式：每年 FCF＝營收×FCF 率，前 5 年逐年折現；第 5 年後用永續成長模型 FCF×(1+g)/(r−g) 求終值再折現；加淨現金後除以股數。三種情境是假設不是預測，這裡也不替它們指定機率。資本支出已包含在自由現金流率裡；若公司正在大量擴產，FCF 率可能暫時很低。")}`;
-    watchIn(out); drawIn(out);
-  }
 
   /* ================= 事件日曆 ================= */
   const ETYPES = ["財報", "月營收", "法說會", "股東會", "除權息", "產品發布", "產業事件", "總經數據", "其他"];
   function viewCal() {
-    return `<div class="dcard lrise"><h3>新增事件</h3>
+    return `<div class="dcard lrise"><div class="bd-h"><h3>自選與持股的公告日期</h3><span class="sub lauton"></span></div><div class="lauto"><p class="sub">載入中…</p></div></div>
+      <div class="dcard lrise"><h3>新增事件</h3>
       <div class="lform lcform">
         <input class="in" name="date" type="date" aria-label="日期（不確定就留空＝待確認）">
         <input class="in" name="code" placeholder="代號（選填）" inputmode="numeric" aria-label="代號">
@@ -611,6 +437,7 @@
       <div class="lgrid2"><div class="dcard lrise"><h3>本週檢查清單</h3><div class="lweek"></div></div><div class="dcard lrise"><h3>全部事件</h3><div class="lcal"></div></div></div>`;
   }
   function paintCal() {
+    ROOT = pane("dpCal");
     const E = get(K.events, []), el = $(".lcal"); if (!el) return;
     const t = today(), in7 = new Date(Date.parse(t) + 7 * 864e5).toISOString().slice(0, 10), done = get(K.check, {});
     const sorted = E.slice().sort((a, b) => ((a.date || "9999") < (b.date || "9999") ? -1 : 1));
@@ -626,117 +453,43 @@
       note("每週只核對兩件事：事實更新（公告、財報數字）和市場猜測分開寫；不要把事件預設為利多，也不要在沒有證據時猜價格反應。") : note("未來 7 天沒有事件，也沒有待確認或待補結果的項目。");
   }
 
-  /* ================= 提示詞（12 個，帶入本頁資料） ================= */
-  function ohlcv(code, n) { const h = A.HIST.get(code) || {}, cs = (h.cs || []).slice(-n); return cs.length ? "date,open,high,low,close,volume_lots\n" + cs.map(c => [iso(c[0]), ...c.slice(1)].join(",")).join("\n") : ""; }
-  function holdText() { const { rows, cash, total } = holdRows(); return rows.length ? rows.map(r => `${r.code} ${r.name}：${r.shares} 股，成本 ${Math.round(r.cost)} 元，市值 ${ok(r.mv) ? Math.round(r.mv) : "未知"} 元，權重 ${ok(r.w) ? r.w.toFixed(1) : "?"}%，產業 ${r.ind}`).join("\n") + `\n現金：${cash} 元；總資產約 ${Math.round(total)} 元` : ""; }
-  function tradesText() { const T = get(K.trades, []).slice(-20); return T.length ? "進場日,出場日,代號,股數,進場價,出場價,原定停損,照計畫,理由,心得\n" + T.map(t => TCOLS.map(([k]) => csvCell(t[k])).join(",")).join("\n") : ""; }
-  const P12 = [
-    ["交易點子產生器", (c, n, d) => `請根據我提供的 ${n}（${c}）及以下行情資料（資料日期 ${d}），提出 5 個值得進一步研究的交易情境。\n\n每個情境列出觸發條件、參考進場區間、目標區間、失效條件與風險報酬計算，並解釋技術面與基本面的支持理由。\n\n資料不足時先列出缺口，不要捏造價格、即時行情或勝率。區分已知事實、假設與待驗證項目。`],
-    ["自動化技術分析師", (c, n, d) => `請分析 ${n}（${c}）的日線與週線。使用我提供的 OHLCV 資料（到 ${d}），整理支撐、壓力、趨勢線、移動平均線與動能指標。\n\n分別建立偏多、盤整與偏空情境，說明各情境成立條件、失效條件與需要追蹤的訊號。\n\n請展示判斷依據；若資料無法支持某項指標，就標示無法計算，不要把情境分析當成確定預測。`],
-    ["新聞轉交易研究", (c, n) => `請整理 ${n}（${c}）的［貼上新聞內容或來源連結］，逐項列出事件日期、消息來源與已確認事實。\n\n分析可能的短期與長期影響，區分市場已知資訊與新增資訊，並列出利多、利空及可能推翻判斷的後續事件。\n\n不要在缺乏依據時預測漲跌幅。若無法讀取來源或取得最新消息，請直說並向我索取原文。`],
-    ["交易策略回測分析師", (c, n) => { const b = BTLAST && BTLAST.code === c ? `${STRATS[BTLAST.strat].name}，參數 ${JSON.stringify(BTLAST.prm)}，停損 ${BTLAST.stop}%` : "［策略規則］"; return `請協助回測 ${b}，標的是 ${n}（${c}），期間為［起迄日期］。先確認進出場、部位、交易成本（手續費 ${prefs().fee}%×${prefs().disc} 折、證交稅 ${taxOf(c)}%）與滑價假設。\n\n若可執行並取得資料，請列出勝率、獲利因子、最大回撤、交易次數與平均報酬，並提供可重現的程式與資料來源。\n\n若不能實際執行，只提供回測程式與步驟，不要編造績效。請檢查前視偏誤、過度擬合及樣本外表現。`; }],
-    ["投資組合風險管理", () => `請分析我的組合：\n${holdText() || "［股票代號、配置比例、現金比例］"}\n我的投資期間是［期間］，可承受的損失是總資產的 ${prefs().tol}%。\n\n檢查產業、區域、幣別及單一標的集中度，並指出可能的共同風險因子。相關性若需要資料，先告訴我所需期間與頻率。\n\n建立市場下跌 20% 的壓力測試假設，說明限制，再比較不同再平衡方案的風險、成本與取捨，不保證避開虧損。`],
-    ["交易日誌分析師", () => `請檢視我最近 20 筆交易：\n${tradesText() || "［進出場時間、價格、部位、成本、結果及當時理由］"}\n\n找出重複錯誤、未遵守規則的情況、錯失機會與可能的行為偏誤。把紀錄能證明的事，和你的推測分開。\n\n最後提出 3 條可執行、可追蹤的個人交易規則，附上檢核方式。樣本不足時請明確提醒，不要宣稱一定能提高獲利。`],
-    ["財報與基本面研究員", (c, n) => `請根據 ${n}（${c}）的［公司財報／年報／法說會資料］，分析營收、毛利率、營業利益、現金流、負債與股本變化。\n\n比較［指定期間］的趨勢，列出成長來源、一次性項目、潛在風險與需要追問管理層的問題。每個重要數字註明來源與期間。\n\n若涉及估值，請列出假設、同業可比性的限制與敏感度；不要自行補上缺失財務數據。`],
-    ["投資論點反方審查", (c, n) => `這是我的投資論點：［貼上內容］（標的：${n} ${c}）。請擔任反方研究員，檢查前提、證據、估值假設及我可能忽略的風險。\n\n列出最有力的反對理由、可能的替代解釋，以及哪些新資訊會讓原論點失效。不要為了反對而捏造問題。\n\n最後整理一份追蹤清單：要觀察的指標、查證來源、更新頻率與重新評估條件。資訊不足就先提出問題。`],
-    ["同業估值比較", (c, n) => `請根據［${get(K.peers, c)}］與我提供的［財報、股價及日期］，比較同業的營收成長、利潤率、負債與估值。\n\n選擇適合該產業的估值指標，說明各公司的商業模式、會計口徑與成長階段是否可比。不要只因本益比較低就判定便宜。\n\n用表格呈現數據來源、計算方式及缺失資料，列出估值差異的可能原因與需要進一步查證的問題。`],
-    ["財報情境與敏感度分析", (c, n) => `請根據 ${n}（${c}）的［公司資料］建立保守、基準、樂觀三種情境，列出營收成長、利潤率、資本支出與折現假設。\n\n比較不同假設對現金流與估值範圍的影響，找出最敏感的變數，並說明假設的依據與限制。\n\n若無法執行計算，提供可重現的公式與步驟，不要捏造結果。情境不是價格預測，也不要替三種情境隨意指定機率。`],
-    ["事件追蹤與研究日曆", () => `請依［持股／觀察名單：${get(K.hold, []).map(h => h.code).join("、") || "請填入"}］與［指定期間］，整理需要追蹤的財報、法說會、產品發布、股東會及重要產業事件。\n\n每項註明日期、官方來源、要驗證的投資假設，以及事件前後應更新的資料。找不到已確認日期時請標示待確認。\n\n建立每週檢查清單，區分事實更新與市場猜測。不要把事件必然解讀為利多，也不要在沒有證據時預測價格反應。`],
-    ["研究資料查核員", () => `請檢查這份投資研究：［貼上內容與來源］。逐項核對重要數字、日期、單位、財報期間與引用來源。\n\n找出過期資料、前後矛盾、未支持的推論，以及把相關性當成因果的地方。將結果分成已核實、待核實與有誤三類。\n\n能讀取來源時附上可核對的出處；不能讀取就向我索取原文。最後列出修正清單，不要把未查到資料當成已證明錯誤。`],
-  ];
-  function viewPrompt() {
-    const i = +get("twlab-pi", 1);
-    return `<div class="dcard lrise"><h3>研究提示詞</h3>
-      <div class="chips lpchips">${P12.map((p, k) => `<button type="button" class="chip" data-act="ppick" data-i="${k}" aria-pressed="${k === i}">${k + 1}. ${p[0]}</button>`).join("")}</div>
-      <div class="lform"><label>股票 <input class="in lpcode" value="${A.esc(A.code())}" inputmode="numeric"></label><label class="lcheck"><input type="checkbox" class="lpdata" checked><span>附上本頁已讀取的資料（OHLCV、技術數據、基本面）</span></label></div>
-      <textarea class="in lptext" rows="16" aria-label="提示詞"></textarea>
-      <div class="lform"><button type="button" class="aigo" data-act="pcopy">複製</button><span class="sub lmsg"></span></div>
-      ${note("提示詞來自 Denghao 的貼文（研究輔助用途｜資料需查證｜不保證獲利）。方括號［］是需要你自己貼上的內容。複製後貼到 Claude 使用。")}</div>`;
+  /* dates nobody has to type: TWSE's ex-dividend notice and the monthly revenue deadline (the 10th, moved past a weekend) */
+  const EXDIV = { rows: null, busy: null };
+  function loadExDiv() {
+    if (EXDIV.rows) return Promise.resolve(EXDIV.rows);
+    if (EXDIV.busy) return EXDIV.busy;
+    EXDIV.busy = A.J("https://www.twse.com.tw/rwd/zh/exRight/TWT48U?response=json").then(j => {
+      if (j.stat !== "OK" || !Array.isArray(j.data)) throw new Error("no notice");
+      const ix = k => j.fields.findIndex(f => f.includes(k)), iD = ix("除權除息日期"), iC = ix("股票代號"), iN = ix("名稱"), iK = j.fields.indexOf("除權息"), iS = ix("無償配股率"), iM = ix("現金股利");
+      EXDIV.rows = j.data.map(r => {
+        const m = String(r[iD]).match(/^(\d{3})\D(\d{2})\D(\d{2})/), cash = parseFloat(r[iM]), stock = parseFloat(r[iS]);
+        return m && { date: (+m[1] + 1911) + "-" + m[2] + "-" + m[3], code: String(r[iC]).trim(), name: String(r[iN]).trim(), kind: "除" + String(r[iK]).trim(),
+          info: [cash > 0 ? "現金股利 " + +cash.toFixed(4) + " 元" : "", stock > 0 ? "無償配股率 " + +stock.toFixed(6) : ""].filter(Boolean).join("・") };
+      }).filter(Boolean);
+      EXDIV.busy = null; return EXDIV.rows;
+    }).catch(e => { EXDIV.busy = null; throw e; });
+    return EXDIV.busy;
   }
-  async function paintPrompt() {
-    const ta = $(".lptext"); if (!ta) return;
-    const i = +get("twlab-pi", 1), code = ($(".lpcode").value || A.code()).trim(), s = A.DB.by.get(code), name = s ? s.name : code, d = A.DB.date ? iso(A.DB.date) : "";
-    let text = P12[i][1](code, name, d);
-    if ($(".lpdata").checked && s && [0, 1, 2, 6, 7, 9].includes(i)) {
-      if (!A.HIST.get(code)) { $(".lmsg").textContent = "讀取這檔的日線…"; await A.loadHist(code); await A.loadFund(); $(".lmsg").textContent = ""; }
-      const F = A.facts(code), csv = ohlcv(code, i === 1 ? 140 : 60);
-      text += `\n\n---\n以下是 TWstock 從臺灣證券交易所公開資料整理的數據（資料日期 ${d}，${A.DB.live ? "收盤資料" : "示意資料，不可用於分析"}；未經你驗證）：\n` + (F ? "技術與基本面摘要（JSON）：\n" + JSON.stringify(F) + "\n" : "") + (csv ? `\n日線 OHLCV（成交量單位：張）：\n${csv}` : "");
+  function revenueDue(from) {
+    const y = +from.slice(0, 4), m = +from.slice(5, 7) - 1;
+    for (let k = 0; ; k++) {
+      const d = new Date(Date.UTC(y, m + k, 10)); while (d.getUTCDay() % 6 === 0) d.setUTCDate(d.getUTCDate() + 1);
+      const s = d.toISOString().slice(0, 10); if (s >= from) return s;
     }
-    ta.value = text;
   }
-
-  /* ---------------- shell: card menu → one tool, a button back to the menu ---------------- */
-  const VIEWS = { hold: [viewHold, () => { loadIndustry().then(paintHold); paintHold(); }], journal: [viewJournal, paintJournal], tech: [viewTech, () => {}], bt: [viewBT, () => {}], mc: [viewMC, () => {}], peer: [viewPeer, () => {}], dcf: [viewDCF, () => { if (get(K.dcf, null)) dcfRun(); }], cal: [viewCal, paintCal], prompt: [viewPrompt, paintPrompt] };
-  let TOOL = null;
-  function menu() {
-    TOOL = null; set(K.tool, "");
-    box().innerHTML = `<div class="lmenu">${TOOLS.map(([k, t, d, n]) => `<button type="button" class="dcard lcard lrise" data-tool="${k}"><b>${t}</b></button>`).join("")}</div>`;
-    A.rise($$(".lrise"), 50);
+  const myCodes = () => new Set(A.lists().flat().concat(get(K.hold, []).map(h => h.code)));
+  async function paintAuto() {
+    const panel = pane("dpCal"), el = panel.querySelector(".lauto"); if (!el) return;
+    const t = today(), mine = myCodes(), held = new Set(get(K.hold, []).map(h => h.code));
+    const due = { date: revenueDue(t), kind: "月營收", name: "上月營收公布期限", info: "每月 10 日前，遇週末順延" };
+    let list = [], failed = !A.DB.live;
+    if (A.DB.live) { try { list = (await loadExDiv()).filter(r => r.date >= t && mine.has(r.code)); } catch (e) { failed = true; } }
+    if (!el.isConnected) return;
+    const rows = list.concat([due]).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    panel.querySelector(".lauton").textContent = failed ? "" : `除權息 ${list.length} 筆`;
+    el.innerHTML = (failed ? `<p class="sub warn">除權息資料暫時讀不到。</p>` : !list.length ? `<p class="sub">自選與持股目前沒有已公告的除權息。</p>` : "") +
+      rows.map(r => `<div class="levent lauto-row"><div><b>${A.esc(r.date)}</b><span class="ntag">${A.esc(r.kind)}</span>${r.code ? `<button type="button" class="chip" data-act="copen" data-code="${A.esc(r.code)}">${A.esc(r.name)} ${A.esc(r.code)}</button>${held.has(r.code) ? `<span class="sub">持股</span>` : ""}` : `<span>${A.esc(r.name)}</span>`}</div>${r.info ? `<p class="sub">${A.esc(r.info)}</p>` : ""}</div>`).join("");
   }
-  function openTool(k) {
-    if (!VIEWS[k]) return menu();
-    TOOL = k; set(K.tool, k);
-    const t = TOOLS.find(x => x[0] === k);
-    box().innerHTML = `<div class="ltop"><button type="button" class="btn" data-act="back">← 研究室</button><h2>${t[1]}</h2></div>${VIEWS[k][0]()}<div class="lback"><button type="button" class="btn" data-act="back">← 回到研究室</button></div>`;
-    VIEWS[k][1](); A.rise($$(".lrise"), 40); watchIn(box()); box().scrollIntoView({ block: "nearest" });
-  }
-  function readCSV(input, done) { const f = input.files && input.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => done(parseCSV(String(r.result).replace(/^﻿/, ""))); r.readAsText(f); }
-  function bind() {
-    const B = box();
-    B.addEventListener("click", e => {
-      const card = e.target.closest("[data-tool]"); if (card) return openTool(card.dataset.tool);
-      const a = e.target.closest("[data-act]"); if (!a || a.tagName === "INPUT") return;
-      const act = a.dataset.act, val = n => (($(`[name="${n}"]`) || {}).value || "").trim();
-      if (act === "back") return menu();
-      if (act === "hadd") {
-        const code = val("code"), shares = parseFloat(val("shares")), cost = parseFloat(val("cost")), px = parseFloat(val("px"));
-        if (!code || !(shares > 0) || !(cost > 0)) { alertMsg("代號、股數、總成本都要填（股數與成本要大於 0）。"); return; }
-        const H = get(K.hold, []).filter(h => h.code !== code); H.push({ code, shares, cost, px: ok(px) ? px : null, ind: val("ind") || "" }); set(K.hold, H); openTool("hold"); return;
-      }
-      if (act === "hdel") { set(K.hold, get(K.hold, []).filter(h => h.code !== a.dataset.code)); openTool("hold"); return; }
-      if (act === "hrisk") { saveHoldPrefs(); a.disabled = true; holdRisk().finally(() => { a.disabled = false; }); return; }
-      if (act === "hcsv") return download("twstock-holdings.csv", "代號,股數,總成本,手動現價,產業\n" + get(K.hold, []).map(h => [h.code, h.shares, h.cost, h.px == null ? "" : h.px, h.ind].map(csvCell).join(",")).join("\n"));
-      if (act === "jadd") {
-        const t = { id: uid() }; TCOLS.forEach(([k]) => { t[k] = val(k); }); ["qty", "pin", "pout", "stop"].forEach(k => { t[k] = parseFloat(t[k]); });
-        if (!t.code || !t.din || !(t.qty > 0) || !(t.pin > 0)) { alertMsg("至少要填進場日、代號、股數、進場價。"); return; }
-        if (ok(t.pout) && !t.dout) { alertMsg("有出場價就要填出場日。"); return; }
-        set(K.trades, get(K.trades, []).concat([t])); openTool("journal"); return;
-      }
-      if (act === "jdel") { set(K.trades, get(K.trades, []).filter(t => t.id !== a.dataset.id)); paintJournal(); return; }
-      if (act === "jcsv") return download("twstock-journal.csv", TCOLS.map(c => c[1]).join(",") + "\n" + get(K.trades, []).map(t => TCOLS.map(([k]) => csvCell(ok(t[k]) || typeof t[k] === "string" ? t[k] : "")).join(",")).join("\n"));
-      if (act === "tgo") { a.disabled = true; techRun().finally(() => { a.disabled = false; }); return; }
-      if (act === "mgo") { a.disabled = true; mcRun().catch(err => { $(".lmsg").textContent = "出錯了：" + err.message; }).finally(() => { a.disabled = false; }); return; }
-      if (act === "bgo") { a.disabled = true; btRun().finally(() => { a.disabled = false; }); return; }
-      if (act === "bcsv" && BTLAST) return download(`backtest-${BTLAST.code}-${BTLAST.strat}.csv`, "進場日,出場日,進場價(含滑價),出場價(含滑價),淨報酬%,持有日,未平倉\n" + BTLAST.trades.map(t => [iso(t.din), t.dout ? iso(t.dout) : "", t.pin.toFixed(2), t.pout.toFixed(2), t.ret.toFixed(3), t.days, t.open ? "Y" : ""].join(",")).join("\n") + `\n\n# 參數,${csvCell(JSON.stringify({ strat: BTLAST.strat, prm: BTLAST.prm, stop: BTLAST.stop, cost: BTLAST.cost }))}\n# 資料來源,臺灣證券交易所 STOCK_DAY`);
-      if (act === "bdata" && BTLAST) return download(`ohlcv-${BTLAST.code}.csv`, "date,open,high,low,close,volume_lots\n" + BTLAST.cs.map(c => [iso(c[0]), ...c.slice(1)].join(",")).join("\n"));
-      if (act === "pgo") { a.disabled = true; peerRun().finally(() => { a.disabled = false; }); return; }
-      if (act === "dgo") return dcfRun();
-      if (act === "cadd") {
-        const e2 = { id: uid(), date: val("date"), code: val("code"), type: val("type"), title: val("title"), src: val("src"), hyp: val("hyp"), upd: val("upd") };
-        if (!e2.title) { alertMsg("請填事件名稱。"); return; }
-        set(K.events, get(K.events, []).concat([e2])); openTool("cal"); return;
-      }
-      if (act === "cdel") { set(K.events, get(K.events, []).filter(x => x.id !== a.dataset.id)); paintCal(); return; }
-      if (act === "ppick") { set("twlab-pi", +a.dataset.i); $$(".lpchips .chip").forEach(c => c.setAttribute("aria-pressed", String(c === a))); paintPrompt(); return; }
-      if (act === "pcopy") { const ta = $(".lptext"); (navigator.clipboard ? navigator.clipboard.writeText(ta.value) : Promise.reject()).then(() => { $(".lmsg").textContent = "已複製。"; }, () => { ta.select(); document.execCommand && document.execCommand("copy"); $(".lmsg").textContent = "已選取，請手動複製。"; }); return; }
-    });
-    B.addEventListener("change", e => {
-      const t = e.target, act = t.dataset && t.dataset.act;
-      if (act === "hin") readCSV(t, rows => { const H = rows.slice(/[^\d.\s,]/.test(rows[0].join("")) && !/^\d/.test(rows[0][0]) ? 1 : 0).map(r => ({ code: String(r[0]).trim(), shares: parseFloat(r[1]), cost: parseFloat(r[2]), px: ok(parseFloat(r[3])) ? parseFloat(r[3]) : null, ind: (r[4] || "").trim() })).filter(h => h.code && h.shares > 0 && h.cost > 0); set(K.hold, H); openTool("hold"); });
-      if (act === "jin") readCSV(t, rows => { const T = rows.filter(r => /\d{4}-\d{2}-\d{2}/.test(r[0])).map(r => { const o = { id: uid() }; TCOLS.forEach(([k], i) => { o[k] = (r[i] || "").trim(); }); ["qty", "pin", "pout", "stop"].forEach(k => { o[k] = parseFloat(o[k]); }); return o; }).filter(x => x.code && x.qty > 0 && x.pin > 0); set(K.trades, get(K.trades, []).concat(T)); openTool("journal"); });
-      if (act === "ccheck") { const c = get(K.check, {}); c[t.dataset.k] = t.checked; set(K.check, c); }
-      if (act === "cfact" || act === "cguess") { set(K.events, get(K.events, []).map(x => (x.id === t.dataset.id ? Object.assign(x, act === "cfact" ? { fact: t.value } : { guess: t.value }) : x))); paintCal(); }
-      if (t.name === "strat" && TOOL === "bt") { const s = get(K.bt, {}); s.strat = t.value; s.prm = {}; set(K.bt, s); openTool("bt"); }
-      if (/^(cash|tol|cap)$/.test(t.name) && TOOL === "hold") { saveHoldPrefs(); paintHold(); }
-      if (t.classList.contains("lpdata") || t.classList.contains("lpcode")) paintPrompt();
-    });
-  }
-  function saveHoldPrefs() {
-    const v = n => parseFloat(($(`[name="${n}"]`) || {}).value);
-    if (ok(v("cash"))) set(K.cash, v("cash")); else set(K.cash, 0);
-    set(K.pref, Object.assign(get(K.pref, {}), ok(v("tol")) ? { tol: v("tol") } : {}, ok(v("cap")) ? { cap: v("cap") } : {}));
-  }
-  function alertMsg(t) { let m = $(".lalert"); if (!m) { m = document.createElement("p"); m.className = "sub warn lalert"; m.setAttribute("role", "status"); const f = $(".dcard"); f && f.appendChild(m); } m.textContent = t; }
 
   /* ---------------- research pack for the AI team: every tool's numbers for one stock, no UI ---------------- */
   async function research(code, onStep) {
@@ -754,8 +507,8 @@
       trend60dSlopePctPerDay: r2v(reg.b / c * 100), trend60dR2: r2v(reg.r2), weeklyMA10: r2v(wma10), weeklyMA10Rising: ok(wma10p) ? wma10 > wma10p : null,
       weeklyRsi: w.length > 15 ? r2v(A.calc(w).rsi[w.length - 1]) : null,
     };
-    /* time machine: 10,000 bootstrap replays of the last 60 days, the user's saved target / stop */
-    const mp = Object.assign({ tp: 8, sl: 5, days: 20, look: 60 }, get(K.mc, {})), sim = simulate(cs, Math.min(mp.look, n - 1), c, mp.tp / 100, mp.sl / 100, mp.days, 10000, 19);
+    /* time machine: 10,000 bootstrap replays of the last 60 days, +8% target and −5% stop over 20 trading days */
+    const mp = { tp: 8, sl: 5, days: 20, look: 60 }, sim = simulate(cs, Math.min(mp.look, n - 1), c, mp.tp / 100, mp.sl / 100, mp.days, 10000, 19);
     out.timeMachine = { method: `bootstrap of the last ${sim.n} daily bars, 10000 replays, up to ${mp.days} trading days from ${r2v(c)}`, targetPct: mp.tp, stopPct: mp.sl,
       targetFirstPct: r2v(sim.nT / 100), stopFirstPct: r2v(sim.nS / 100), neitherPct: r2v(sim.nN / 100), endPriceP10: r2v(sim.q10), endPriceP50: r2v(sim.q50), endPriceP90: r2v(sim.q90) };
     /* backtests of the four built-in strategies with default settings and Taiwan costs, 70/30 split */
@@ -773,19 +526,83 @@
     if (T.length) { const C = T.filter(t => t.closed); out.myTrades = { closed: C.length, open: T.length - C.length, winPct: C.length ? r2v(C.filter(t => t.pnl > 0).length / C.length * 100) : null, netPnl: Math.round(C.reduce((a, t) => a + t.pnl, 0)), withoutStop: T.filter(t => !ok(t.stop)).length }; }
     const t0 = today(), ev = get(K.events, []).filter(e => (!e.code || e.code === code) && (!e.date || e.date >= t0)).slice(0, 6);
     if (ev.length) out.myEvents = ev.map(e => ({ date: e.date || "TBD", type: e.type, title: e.title, hypothesis: e.hyp || "" }));
-    const d = get(K.dcf, null);
-    if (d && d.code === code && d.cases) { const v = dcfVal(Object.assign({}, DCF0, d), d.cases["基準"].g, d.cases["基準"].m, d.r, d.gT); if (v && ok(v.ps)) out.myValuation = { baseCaseValuePerShare: r2v(v.ps), discountRatePct: d.r, growthPct: d.cases["基準"].g }; }
     return out;
   }
-  window.TWLab = { research: (code, onStep) => (A ? research(code, onStep) : Promise.resolve(null)) };
+  window.TWLab = { research: (code, onStep) => (A ? research(code, onStep) : Promise.resolve(null)), bars, backtest, stats, STRATS, prefs, taxOf };
+
+  /* ---------------- shell: 我的持股 has two views, 行事曆 is one page ---------------- */
+  const HOLD_VIEWS = [["hold", "持股風險", viewHold], ["journal", "交易日誌", viewJournal]];
+  const holdView = () => (get(K.view, "hold") === "journal" ? "journal" : "hold");
+  function showHold(v) {
+    set(K.view, v); ROOT = pane("dpHold");
+    const view = HOLD_VIEWS.find(x => x[0] === holdView());
+    ROOT.innerHTML = `<div class="chips lviews">${HOLD_VIEWS.map(([k, t]) => `<button type="button" class="chip" data-view="${k}" aria-pressed="${k === view[0]}">${t}</button>`).join("")}</div>${view[2]()}`;
+    if (view[0] === "journal") paintJournal(); else paintHold();
+    ROOT = pane("dpHold"); A.rise($$(".lrise"), 40); watchIn(ROOT);
+  }
+  function showCal() {
+    ROOT = pane("dpCal");
+    ROOT.innerHTML = viewCal();
+    paintCal(); paintAuto();
+    A.rise($$(".lrise"), 40);
+  }
+  function readCSV(input, done) { const f = input.files && input.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => done(parseCSV(String(r.result).replace(/^﻿/, ""))); r.readAsText(f); }
+  function onClick(e) {
+    ROOT = e.currentTarget;
+    const view = e.target.closest("[data-view]"); if (view) return showHold(view.dataset.view);
+    const a = e.target.closest("[data-act]"); if (!a || a.tagName === "INPUT") return;
+    const act = a.dataset.act, val = n => (($(`[name="${n}"]`) || {}).value || "").trim();
+    if (act === "copen") return A.openStock(a.dataset.code);
+      if (act === "hadd") {
+        const code = val("code"), shares = parseFloat(val("shares")), cost = parseFloat(val("cost")), px = parseFloat(val("px"));
+        if (!code || !(shares > 0) || !(cost > 0)) { alertMsg("代號、股數、總成本都要填（股數與成本要大於 0）。"); return; }
+        const H = get(K.hold, []).filter(h => h.code !== code); H.push({ code, shares, cost, px: ok(px) ? px : null, ind: val("ind") || "" }); set(K.hold, H); showHold("hold"); return;
+      }
+      if (act === "hdel") { set(K.hold, get(K.hold, []).filter(h => h.code !== a.dataset.code)); showHold("hold"); return; }
+      if (act === "hrisk") { saveHoldPrefs(); a.disabled = true; holdRisk().finally(() => { a.disabled = false; }); return; }
+      if (act === "hcurve") { saveHoldPrefs(); a.disabled = true; holdCurve().finally(() => { a.disabled = false; }); return; }
+      if (act === "hdiv") { a.disabled = true; holdDividends().finally(() => { a.disabled = false; }); return; }
+      if (act === "hcsv") return download("twstock-holdings.csv", "代號,股數,總成本,手動現價,產業\n" + get(K.hold, []).map(h => [h.code, h.shares, h.cost, h.px == null ? "" : h.px, h.ind].map(csvCell).join(",")).join("\n"));
+      if (act === "jadd") {
+        const t = { id: uid() }; TCOLS.forEach(([k]) => { t[k] = val(k); }); ["qty", "pin", "pout", "stop"].forEach(k => { t[k] = parseFloat(t[k]); });
+        if (!t.code || !t.din || !(t.qty > 0) || !(t.pin > 0)) { alertMsg("至少要填進場日、代號、股數、進場價。"); return; }
+        if (ok(t.pout) && !t.dout) { alertMsg("有出場價就要填出場日。"); return; }
+        set(K.trades, get(K.trades, []).concat([t])); showHold("journal"); return;
+      }
+      if (act === "jdel") { set(K.trades, get(K.trades, []).filter(t => t.id !== a.dataset.id)); paintJournal(); return; }
+      if (act === "jcsv") return download("twstock-journal.csv", TCOLS.map(c => c[1]).join(",") + "\n" + get(K.trades, []).map(t => TCOLS.map(([k]) => csvCell(ok(t[k]) || typeof t[k] === "string" ? t[k] : "")).join(",")).join("\n"));
+      if (act === "cadd") {
+        const e2 = { id: uid(), date: val("date"), code: val("code"), type: val("type"), title: val("title"), src: val("src"), hyp: val("hyp"), upd: val("upd") };
+        if (!e2.title) { alertMsg("請填事件名稱。"); return; }
+        set(K.events, get(K.events, []).concat([e2])); showCal(); return;
+      }
+      if (act === "cdel") { set(K.events, get(K.events, []).filter(x => x.id !== a.dataset.id)); paintCal(); return; }
+  }
+  function onChange(e) {
+    ROOT = e.currentTarget;
+    const t = e.target, act = t.dataset && t.dataset.act;
+      if (act === "hin") readCSV(t, rows => { const H = rows.slice(/[^\d.\s,]/.test(rows[0].join("")) && !/^\d/.test(rows[0][0]) ? 1 : 0).map(r => ({ code: String(r[0]).trim(), shares: parseFloat(r[1]), cost: parseFloat(r[2]), px: ok(parseFloat(r[3])) ? parseFloat(r[3]) : null, ind: (r[4] || "").trim() })).filter(h => h.code && h.shares > 0 && h.cost > 0); set(K.hold, H); showHold("hold"); });
+      if (act === "jin") readCSV(t, rows => { const T = rows.filter(r => /\d{4}-\d{2}-\d{2}/.test(r[0])).map(r => { const o = { id: uid() }; TCOLS.forEach(([k], i) => { o[k] = (r[i] || "").trim(); }); ["qty", "pin", "pout", "stop"].forEach(k => { o[k] = parseFloat(o[k]); }); return o; }).filter(x => x.code && x.qty > 0 && x.pin > 0); set(K.trades, get(K.trades, []).concat(T)); showHold("journal"); });
+      if (act === "ccheck") { const c = get(K.check, {}); c[t.dataset.k] = t.checked; set(K.check, c); }
+      if (act === "cfact" || act === "cguess") { set(K.events, get(K.events, []).map(x => (x.id === t.dataset.id ? Object.assign(x, act === "cfact" ? { fact: t.value } : { guess: t.value }) : x))); paintCal(); }
+    if (/^(cash|tol|cap)$/.test(t.name)) { saveHoldPrefs(); paintHold(); }
+    if (/^z(code|in|stop|cap|risk)$/.test(t.name)) sizePosition();
+  }
+  function saveHoldPrefs() {
+    const v = n => parseFloat(($(`[name="${n}"]`) || {}).value);
+    if (ok(v("cash"))) set(K.cash, v("cash")); else set(K.cash, 0);
+    set(K.pref, Object.assign(get(K.pref, {}), ok(v("tol")) ? { tol: v("tol") } : {}, ok(v("cap")) ? { cap: v("cap") } : {}));
+  }
+  function alertMsg(t) { let m = $(".lalert"); if (!m) { m = document.createElement("p"); m.className = "sub warn lalert"; m.setAttribute("role", "status"); const f = $(".dcard"); f && f.appendChild(m); } m.textContent = t; }
 
   /* ---------------- start (twmain dispatches twdash:ready once its helpers exist) ---------------- */
   document.addEventListener("twdash:ready", () => {
-    A = window.TWDash && window.TWDash.api; if (!A || !box()) return;
-    bind();
-    const t = get(K.tool, ""); t ? openTool(t) : menu();
-    const det = box().closest("details");
-    if (det) det.addEventListener("toggle", () => { if (det.open) { requestAnimationFrame(() => drawIn(box())); if (TOOL === "hold") paintHold(); } });
+    A = window.TWDash && window.TWDash.api; if (!A || !pane("dpHold") || !pane("dpCal")) return;
+    [pane("dpHold"), pane("dpCal")].forEach(p => { p.addEventListener("click", onClick); p.addEventListener("change", onChange); });
+    showHold(holdView()); showCal();
   });
-  document.addEventListener("twdash:list", () => { if (TOOL === "hold") paintHold(); });
+  /* opening a tab redraws it with the latest prices and watchlists; live ticks only refresh the holdings figures */
+  document.addEventListener("twdash:tab", e => { if (!A) return; if (e.detail === "dpHold") showHold(holdView()); if (e.detail === "dpCal") showCal(); });
+  document.addEventListener("twdash:list", () => { if (!A) return; paintHold(true); paintAuto(); if (holdView() === "journal") paintJournal(); paintCal(); });
+  document.addEventListener("twdash:live", () => { if (A && pane("dpHold").classList.contains("on")) paintHold(true); });
 })();

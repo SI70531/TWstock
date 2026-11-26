@@ -1,4 +1,4 @@
-/* TWstock: the whole app in three tabs.
+/* TWstock: the main app. 選股器 is in twscan.js, 我的持股 and 行事曆 are in twlab.js.
    總覽      four indices (TAIEX, TAIEX futures, electronics, finance), a market strip, and every TWSE-listed stock in one
              searchable, sortable list (price, change, volume, ★ to follow).
    自選股    the followed stocks as cards.
@@ -121,6 +121,8 @@
     let j = null;
     try { j = await J("https://raw.githubusercontent.com/SI70531/TWstock/data/otc.json"); } catch (e) { j = await J(`${WORKER}/tw/otc`); }
     if (j && j.ind && typeof j.ind === "object") INDMAP = j.ind;
+    if (j && j.rev && typeof j.rev === "object") REVMAP = j.rev;
+    if (j && j.futoi) DB.futoi = j.futoi;
     return (j.list || []).map(([c, n, z, ch, o, h, l, v, m]) => Object.assign(mk(c, n, z == null ? NaN : z, ch == null ? NaN : ch, o == null ? NaN : o, h == null ? NaN : h, l == null ? NaN : l, v), { mkt: m }))
       .filter(s => s.code && s.name);
   }
@@ -247,16 +249,22 @@
     if (FUND.map || !DB.live) return Promise.resolve();
     if (FUND.busy) return FUND.busy;
     FUND.busy = (async () => {
+      /* valuation from TWSE's daily report (its open-data copy refuses pages on other sites), the newest day that has one */
       const m = new Map();
-      try { (await J("https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL")).forEach(x => m.set(String(x.Code), { pe: num(x.PEratio), yld: num(x.DividendYield), pb: num(x.PBratio) })); } catch (e) {}
-      try {
-        (await J("https://openapi.twse.com.tw/v1/opendata/t187ap05_L")).forEach(x => {
-          const c = String(pick(x, "公司代號") || ""), o = m.get(c) || {};
-          o.rev = num(pick(x, "當月營收")) / 1e5; o.yoy = num(pick(x, "去年同月增減")); o.ym = String(pick(x, "資料年月") || "");
-          if (c) m.set(c, o);
-        });
-      } catch (e) {}
-      FUND.map = m; FUND.busy = null;
+      const start = DB.date ? new Date(+DB.date.slice(0, 4), +DB.date.slice(4, 6) - 1, +DB.date.slice(6)) : new Date();
+      for (let back = 0; back < 6 && !m.size; back++) {
+        const d = new Date(start.getTime() - back * 864e5), ds = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+        try {
+          const j = await J(`https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d?date=${ds}&selectType=ALL&response=json`);
+          if (j.stat !== "OK" || !j.data || !j.data.length) { await wait(400); continue; }
+          const ix = k => j.fields.findIndex(f => f.includes(k)), iC = ix("證券代號"), iY = ix("殖利率"), iP = ix("本益比"), iB = ix("股價淨值比");
+          j.data.forEach(r => m.set(String(r[iC]).trim(), { pe: num(r[iP]), yld: num(r[iY]), pb: num(r[iB]) }));
+        } catch (e) { break; }
+      }
+      const valued = m.size > 0;
+      Object.entries(REVMAP || {}).forEach(([c, [rev, yoy, ym]]) => m.set(c, Object.assign(m.get(c) || {}, { rev, yoy: yoy == null ? NaN : yoy, ym })));
+      if (valued) FUND.map = m;                    /* a failed read is tried again next time */
+      FUND.busy = null;
     })();
     return FUND.busy;
   }
@@ -288,6 +296,10 @@
   function rtCodes() {
     if (cur === "dpWatch") return WATCH.slice(0, 80);
     if (cur === "dpStock") return [CODE];
+    if (cur === "dpCmp") return (store.get("twcmp-codes", []) || []).slice(0, 4);
+    if (cur === "dpSim") { const a = store.get("twsim", null), c = [...new Set([...((a && a.pos) || []).map(p => p.code), (a && a.pick) || ""])].filter(Boolean).slice(0, 70); if (c.length) return c; }
+    if (cur === "dpScan") { const c = $$("#dpScan tbody tr[data-code]").slice(0, 70).map(r => r.dataset.code); if (c.length) return c; }
+    if (cur === "dpHold") { const c = (store.get("twlab-hold", []) || []).map(h => h.code).slice(0, 70); if (c.length) return c; }
     return $$("#dpList .mtbl tbody tr[data-code]").slice(0, 70).map(r => r.dataset.code);
   }
   function rtApply(x) {
@@ -565,6 +577,7 @@
 
   /* ---------------- 類股熱力圖: every listed and 上櫃 stock grouped by industry, area = turnover, colour = turnover-weighted change ---------------- */
   let INDMAP = null;                               /* code → TWSE / TPEx industry code, published with otc.json */
+  let REVMAP = null;                               /* code → [monthly revenue 億, year-on-year %, ROC year-month], same file */
   const INDN = { "01": "水泥", "02": "食品", "03": "塑膠", "04": "紡織纖維", "05": "電機機械", "06": "電器電纜", "08": "玻璃陶瓷", "09": "造紙", "10": "鋼鐵", "11": "橡膠", "12": "汽車",
     "14": "建材營造", "15": "航運", "16": "觀光餐旅", "17": "金融保險", "18": "貿易百貨", "19": "綜合", "20": "其他", "21": "化學", "22": "生技醫療", "23": "油電燃氣", "24": "半導體",
     "25": "電腦週邊", "26": "光電", "27": "通信網路", "28": "電子零組件", "29": "電子通路", "30": "資訊服務", "31": "其他電子", "32": "文化創意", "33": "農業科技", "34": "電子商務",
@@ -794,7 +807,7 @@
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
       clPaint({ note: j }, true);
-      const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
+      const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent && j.sent !== "off" ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
     } catch (e) { el.insertAdjacentHTML("afterbegin", `<p class="sub warn">${esc(e.message)}</p>`); }
     b.disabled = false; b.textContent = "產生";
@@ -1055,9 +1068,7 @@
         <div class="aihead"><div><h3>AI 分析團隊</h3></div>
           <button type="button" class="aigo">開始分析</button></div>
         <p class="sub aimsg"></p><div class="aiout"></div>
-        
-        <details class="slab"><summary>研究工具（自動交給 AI）</summary><div id="dpLab" class="on"></div></details>
-      </div>`;
+              </div>`;
     const box = $("#dpStock"), inp = $(".ssearch", box), sug = $(".ssug", box);
     chartInput($(".cbox", box), box);
     inp.addEventListener("input", () => {
@@ -1068,7 +1079,6 @@
     });
     inp.addEventListener("keydown", e => { if (e.key === "Enter") { const b = $("button", sug); if (b) b.click(); } });
     box.addEventListener("click", e => {
-      if (e.target.closest("#dpLab")) return;                 /* the research tools handle their own clicks */
       const s = e.target.closest(".ssug button"); if (s) { inp.value = ""; sug.hidden = true; setStock(s.dataset.code, true); navPush(); return; }
       if (e.target.closest(".sback")) { goBack(); return; }
       const sp = e.target.closest("[data-span]"); if (sp) { SPAN = +sp.dataset.span; KV.span = SPAN; KV.end = 0; store.set("twmain-span", SPAN); drawChart(true); return; }
@@ -1222,6 +1232,7 @@
     try { store.set("twrecent", [code, ...(store.get("twrecent", []) || []).filter(c => c !== code)].slice(0, 8)); } catch (e) {}
     $(".snaplist", box).innerHTML = `<p class="sub">載入中…</p>`;
     paintAI();
+    document.dispatchEvent(new CustomEvent("twdash:stock", { detail: code }));
     if (!DB.list.length) return;
     if (!DB.by.get(code)) { $(".cbox", box).innerHTML = `<p class="mempty">找不到這檔上市股票，請用上面的搜尋換一檔。</p>`; $(".snaplist", box).innerHTML = ""; return; }
     rtPoll();
@@ -1291,14 +1302,21 @@
     alertTimer = setTimeout(async () => {
       const el = $("#dpPre .pmalert");
       const hold = (store.get("twlab-hold", []) || []).map(h => h.code);
+      const price = (store.get("twalert-price", []) || []).map(a => ({ id: a.id, code: a.code, op: a.op, v: a.v }));
+      const opt = store.get("twalert-opt", {}) || {};
+      let state;
       try {
-        const r = await fetch(WORKER + "/tw/alerts/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ d: DEVICE, watch: WATCH, hold }) });
+        const r = await fetch(WORKER + "/tw/alerts/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ d: DEVICE, watch: WATCH, hold, price, opt }) });
         const j = await r.json().catch(() => ({}));
-        if (el) el.textContent = j.ok ? `盤中警示：監控大盤、台指期與 ${j.n} 檔股票，有大漲跌或重大消息會傳 Telegram。`
-          : j.owner === false ? "盤中警示只監控擁有者裝置的股票。" : "盤中警示：同步失敗。";
-      } catch (e) { if (el) el.textContent = "盤中警示：同步失敗。"; }
+        /* a Worker from before price alerts answers without "price": those are not being watched yet */
+        state = j.ok ? { ok: true, n: j.n, price: j.price, old: j.price === undefined } : j.owner === false ? { ok: false, owner: false } : { ok: false };
+      } catch (e) { state = { ok: false }; }
+      if (el) el.textContent = state.ok ? `盤中警示：監控大盤、台指期與 ${state.n} 檔股票，有大漲跌或重大消息會傳 Telegram。`
+        : state.owner === false ? "盤中警示只監控擁有者裝置的股票。" : "盤中警示：同步失敗。";
+      document.dispatchEvent(new CustomEvent("twdash:alertsync", { detail: state }));
     }, 1500);
   }
+  document.addEventListener("twalert:change", alertSync);
   document.addEventListener("twlab:hold", alertSync);
 
 
@@ -1458,6 +1476,7 @@
   /* ---------------- AI pre-market note (written by the Worker at 05:30, or on request) ---------------- */
   function pmPaint(j, animate) {
     if (j && j.note) { PMN = j.note; boardSig = boardSig ? "x" : ""; try { paintBoard(); } catch (e) {} }
+    if (j && j.note) document.dispatchEvent(new CustomEvent("twdash:premarket", { detail: j }));
     const el = $("#dpPre .pmout"); if (!el) return;
     const n = j && j.note;
     if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有分析，05:30 會自動產生。</p>`; return; }
@@ -1488,7 +1507,7 @@
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
       pmPaint({ note: j }, true);
-      const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
+      const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent && j.sent !== "off" ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
     } catch (e) {
       /* a long run can outlast the connection even though the note was written: look for it before saying it failed */
@@ -1555,6 +1574,7 @@
       try { lab = window.TWLab ? await TWLab.research(code, (i, n) => { if (code === CODE) msg.textContent = `整理研究資料（讀日線 ${i}/${n} 個月）…`; }) : null; } catch (e) { lab = null; }
       if (code === CODE) msg.textContent = "五位分析師正在讀數據、研究資料與新聞，大約需要 20 到 40 秒。";
       const F = facts(cs); if (lab) F.research = lab;
+      if (window.TWData) { const mg = await TWData.marginFacts(code).catch(() => null); if (mg) F.marginTrading = mg; }
       const r = await fetch(WORKER + "/tw/analyze", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ d: DEVICE, code, name: s.name, facts: F, fresh }) });
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) {
@@ -1562,6 +1582,7 @@
         throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : st >= 500 ? "Google 的 AI 現在太忙，過幾分鐘再按一次" : "AI 暫時沒有回應，過幾分鐘再試"));
       }
       AI.set(code, { at: j.at || Date.now(), data: j });
+      document.dispatchEvent(new CustomEvent("twdash:ai", { detail: { code, name: s.name, at: j.at || Date.now(), price: F.close, barDate: F.date, taiex: F.market.taiex, analysis: j.analysis } }));
       if (code === CODE) { paintAI(); rise(Array.from($(".aiout", box).children), 90); }
     } catch (e) {
       /* a failed 重新分析 keeps the analysis already on screen */
@@ -1663,6 +1684,7 @@
       if (cur === "dpWatch") { paintWatch(false); rise($$(".wcard", panel), 60, 80); }
       if (cur === "dpStock" && !same) { if (HIST.get(CODE)) drawChart(true); else setStock(CODE, true); }
     }
+    if (!same) document.dispatchEvent(new CustomEvent("twdash:tab", { detail: cur }));
     rtPoll();
   }
   function drawSpark() {
@@ -1731,7 +1753,7 @@
 
   /* ---------- the command palette (Ctrl+K): any stock, any tab, light / dark ---------- */
   let pal = null;
-  const PAGES = [["dpOverview", "總覽", "大盤、熱力圖、法人、注意股"], ["dpPre", "盤前分析", "AI 盤前與收盤摘要"], ["dpList", "股票", "清單與自選1–5"], ["dpStock", "個股分析", "K 線、籌碼、AI 團隊"]];
+  const PAGES = [["dpOverview", "總覽", "大盤、熱力圖、法人、注意股"], ["dpPre", "盤前分析", "AI 盤前與收盤摘要"], ["dpList", "股票", "清單與自選1–5"], ["dpStock", "個股分析", "K 線、籌碼、AI 團隊"], ["dpCmp", "比較", "2 到 4 檔並排"], ["dpScan", "選股器", "用條件篩股票"], ["dpBt", "回測", "策略的歷史結果"], ["dpSim", "模擬交易", "虛擬資金練習下單"], ["dpHold", "我的持股", "持股風險、股利、交易日誌"], ["dpLog", "紀錄回顧", "AI 判斷對照實際走勢"], ["dpCal", "行事曆", "除權息、月營收、我的事件"]];
   function palOpen() {
     if (pal) { $("input", pal).focus(); return; }
     pal = document.createElement("div"); pal.className = "pal"; pal.setAttribute("role", "dialog"); pal.setAttribute("aria-modal", "true"); pal.setAttribute("aria-label", "搜尋");
@@ -1786,8 +1808,8 @@
   function helpToggle() {
     if (help) { const el = help; help = null; el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120 }).onfinish = () => el.remove(); return; }
     help = document.createElement("div"); help.className = "pal"; help.setAttribute("role", "dialog"); help.setAttribute("aria-label", "快捷鍵");
-    const K = [["Ctrl", "K"], ["/"], ["1"], ["2"], ["3"], ["4"], ["↑", "↓"], ["Enter"], ["右鍵"], ["拖曳"], ["滾輪"], ["雙擊"], ["Esc"], ["?"]];
-    const T = ["搜尋股票、切換頁面或外觀", "跳到搜尋框", "總覽", "盤前分析", "股票", "個股分析", "在股票清單上下移動", "打開選到的股票", "任何股票：開啟、加自選、複製代號（手機長按）", "K 線：平移（開啟「趨勢線」時改成畫線）", "K 線：縮放", "K 線：還原", "關閉面板或選單", "顯示這張表"];
+    const K = [["Ctrl", "K"], ["/"], ["1"], ["2"], ["3"], ["4"], ["5"], ["6"], ["7"], ["8"], ["9"], ["0"], ["↑", "↓"], ["Enter"], ["右鍵"], ["拖曳"], ["滾輪"], ["雙擊"], ["Esc"], ["?"]];
+    const T = ["搜尋股票、切換頁面或外觀", "跳到搜尋框", "總覽", "盤前分析", "股票", "個股分析", "比較", "選股器", "回測", "模擬交易", "我的持股", "在股票清單上下移動", "打開選到的股票", "任何股票：開啟、加自選、複製代號（手機長按）", "K 線：平移（開啟「趨勢線」時改成畫線）", "K 線：縮放", "K 線：還原", "關閉面板或選單", "顯示這張表"];
     help.innerHTML = `<div class="pal-box keys"><div class="pal-in"><b>快捷鍵</b><button type="button" class="key-x" aria-label="關閉"><kbd>Esc</kbd></button></div><div class="pal-list">${K.map((k, i) => `<div class="key-row"><span>${k.map(x => `<kbd>${x}</kbd>`).join(" ")}</span><span>${T[i]}</span></div>`).join("")}</div></div>`;
     document.body.appendChild(help);
     help.addEventListener("pointerdown", e => { if (e.target === help) helpToggle(); });
@@ -1799,7 +1821,7 @@
     if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing || pal) return;
     const t = e.target; if (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || "")) return;
     if (e.key === "?") { e.preventDefault(); helpToggle(); return; }
-    if (/^[1-4]$/.test(e.key) && !help) { e.preventDefault(); open(PAGES[+e.key - 1][0], true); }
+    if (/^[0-9]$/.test(e.key) && !help) { e.preventDefault(); open(PAGES[(+e.key || 10) - 1][0], true); }
   });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) rtPoll(); });
   /* "/" jumps to the search box from anywhere: the stock page's own box there, the list's everywhere else */
@@ -1820,9 +1842,9 @@
     else { navLock = true; open(saved || "dpOverview", false); navLock = false; try { history.replaceState({ tw: 1, p: cur, code: CODE }, "", navHash()); } catch (e) {} }
   });
   window.TWDash = { replay: () => open(cur, false),
-    /* shared with the 研究室 tab (assets/twlab.js) */
-    api: { DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
-      store, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
+    /* shared with 選股器 (assets/twscan.js) and 我的持股 / 行事曆 (assets/twlab.js) */
+    api: { DB, FUND, CHIP, IDX, HIST, STRK, loadStreak, lists: () => LISTS, industryCode: c => (INDMAP ? INDMAP[c] : undefined), calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
+      store, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), MKT, marketOpen, quoteNow, rtPoll, taipei, ymd, slash, monthsBack, loadMonth, loadMarket, alertSync, WORKER, J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
   document.dispatchEvent(new Event("twdash:ready"));
 
   (async () => {

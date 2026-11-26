@@ -1,4 +1,6 @@
-"""Writes otc.json: every 上櫃 (TPEx main board) and 興櫃 (emerging) stock with its latest price.
+"""Writes otc.json: every 上櫃 (TPEx main board) and 興櫃 (emerging) stock with its latest price, every company's
+industry code, listed companies' latest monthly revenue (TWSE open data refuses pages on other sites too),
+and foreign investors' open interest in TAIEX futures (TAIFEX).
 TPEx open data cannot be read by pages on other sites and refuses Cloudflare, so a GitHub Actions job
 runs this and publishes the file on the `data` branch, which the site reads from raw.githubusercontent.com."""
 import json, re, sys, urllib.request
@@ -46,5 +48,27 @@ for url, kc, ki in [("https://openapi.twse.com.tw/v1/opendata/t187ap03_L", "公�
     except Exception as e:  # the heat map just misses that market until the next run
         print("industry list failed:", url, e)
 
-json.dump({"date": date, "list": out, "ind": ind}, open(sys.argv[1], "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
-print(len(out), "stocks,", len(ind), "industries")
+# latest monthly revenue of listed companies: code -> [revenue (NT$ 100 million), year-on-year %, ROC year-month]
+rev = {}
+try:
+    for x in get("https://openapi.twse.com.tw/v1/opendata/t187ap05_L"):
+        c = str(x.get("公司代號", "")).strip()
+        amount, yoy = num(x.get("營業收入-當月營收")), num(x.get("營業收入-去年同月增減(%)"))
+        if c and amount is not None:
+            rev[c] = [round(amount / 1e5, 2), None if yoy is None else round(yoy, 2), str(x.get("資料年月", ""))]
+except Exception as e:  # the page shows revenue as missing until the next run
+    print("revenue list failed:", e)
+
+# foreign investors' net open interest in TAIEX futures, newest trading day (TAIFEX open data does not allow other sites either)
+futoi = None
+try:
+    for x in get("https://openapi.taifex.com.tw/v1/MarketDataOfMajorInstitutionalTradersDetailsOfFuturesContractsBytheDate"):
+        if x.get("ContractCode") == "臺股期貨" and str(x.get("Item", "")).startswith("外資"):
+            net = num(x.get("OpenInterest(Net)"))
+            if net is not None:
+                futoi = {"date": str(x.get("Date", "")), "foreign": int(net)}
+except Exception as e:  # the page shows it as missing until the next run
+    print("futures open interest failed:", e)
+
+json.dump({"date": date, "list": out, "ind": ind, "rev": rev, "futoi": futoi}, open(sys.argv[1], "w", encoding="utf-8"), ensure_ascii=False, separators=(",", ":"))
+print(len(out), "stocks,", len(ind), "industries,", len(rev), "revenues, futures", futoi)
