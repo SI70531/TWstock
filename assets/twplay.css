@@ -350,3 +350,6 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 .srange[data-tone="up"] .srb i { background: var(--color-up); } .srange[data-tone="down"] .srb i { background: var(--color-down); }
 .srb b { position: absolute; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; background: var(--color-paper, #fff); border: 3px solid var(--color-ink); transition: left .6s cubic-bezier(.2,.8,.2,1); }
 @media (max-width: 860px) { .shead .srange { grid-column: 1; grid-row: auto; } .shead .sflagline { grid-row: auto; } }
+.sbtitle { margin: 0 0 4px; font-size: var(--text-xl, 1.3rem); }
+.sbpage { display: grid; gap: 12px; align-content: start; } .sbpage .sbmb { display: grid; gap: 12px; }
+.side nav .sbn { margin-left: auto; position: relative; z-index: 1; }

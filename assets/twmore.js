@@ -219,10 +219,9 @@
       hold: '<rect x="3.5" y="7" width="17" height="12" rx="2.5"/><path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7M3.5 12.5h17"/>',
       cal: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'
     };
-    const tools = document.createElement("div"); tools.className = "sb-tools";
-    tools.innerHTML = [["alert", "價格提醒"], ["hold", "持股與損益"], ["cal", "市場日曆"]].map(([k, t]) => `<button type="button" data-sbt="${k}"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg><span>${t}</span><em class="sbn" hidden></em></button>`).join("");
-    nav.after(tools);
-    const rec = document.createElement("div"); rec.className = "sb-recent"; rec.innerHTML = '<div class="sb-h">最近瀏覽</div><div class="sb-rlist"></div>'; tools.after(rec);
+    const PID = { alert: "dpAlert", hold: "dpHold", cal: "dpCal" }, tools = nav;
+    $$("nav button", side).forEach(bt => { if (/^(dpAlert|dpHold)$/.test(bt.dataset.p)) bt.insertAdjacentHTML("beforeend", '<em class="sbn" hidden></em>'); });
+    const rec = document.createElement("div"); rec.className = "sb-recent"; rec.innerHTML = '<div class="sb-h">最近瀏覽</div><div class="sb-rlist"></div>'; nav.after(rec);
     const tone = v => (v > 0 ? "up" : v < 0 ? "down" : "flat"), num = v => (Number.isFinite(v) ? v : NaN), sgn = (v, d = 0) => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
     const px = c => { const x = DB.by.get(c); return x ? num(x.price) : NaN; };
     const nm = c => { const x = DB.by.get(c); return x ? x.name : c; };
@@ -237,23 +236,21 @@
     }
     window.addEventListener("hashchange", noteHash); noteHash();
 
-    /* ----- modal shell ----- */
+    /* ----- pages (each is a tab like 總覽 / 分析 / 股票) ----- */
     let cur = null;
-    function modal(title, body, cls) {
-      if (cur) closeM(true);
-      const el = document.createElement("div"); el.className = "sbm"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", title);
-      el.innerHTML = `<div class="sbmc ${cls || ""}"><div class="sbmh"><h3>${title}</h3><button type="button" class="sbmx" aria-label="關閉">×</button></div><div class="sbmb">${body}</div></div>`;
-      el.addEventListener("click", e => { if (e.target === el || e.target.closest(".sbmx")) closeM(); });
-      document.body.appendChild(el); cur = el; return el;
+    const isOn = k => A.tabNow && A.tabNow() === PID[k];
+    function page(k, title, body) {
+      const el = document.getElementById(PID[k]); if (!el) return null;
+      if (!$(".sbpage", el)) el.innerHTML = `<div class="dcard sbpage"><div class="sbmb"></div></div>`;
+      const b = $(".sbmb", el); b.innerHTML = body; el.dataset.k = k; cur = el; return el;
     }
-    function closeM(now) { const el = cur; if (!el) return; cur = null; if (now) { el.remove(); return; } el.hidden = true; setTimeout(() => el.remove(), 320); }
-    document.addEventListener("keydown", e => { if (e.key === "Escape" && cur) closeM(); });
+    const closeM = () => {};
 
     /* ----- price alerts ----- */
     const AK = "tw-palerts", alerts = () => store.get(AK, []) || [];
     function badge() {
-      const act = alerts().filter(a => a.on).length, b = $('[data-sbt="alert"] .sbn', tools); b.hidden = !act; b.textContent = act;
-      const H = store.get("twlab-hold", []) || [], hb = $('[data-sbt="hold"] .sbn', tools);
+      const act = alerts().filter(a => a.on).length, b = $('nav [data-p="dpAlert"] .sbn', side); if (!b) return; b.hidden = !act; b.textContent = act;
+      const H = store.get("twlab-hold", []) || [], hb = $('nav [data-p="dpHold"] .sbn', side);
       let day = 0, n = 0; H.forEach(h => { const x = DB.by.get(h.code); if (x && Number.isFinite(x.chg) && h.shares > 0) { day += x.chg * h.shares; n++; } });
       hb.hidden = !n; hb.textContent = sgn(day); hb.className = "sbn " + tone(day);
     }
@@ -267,16 +264,15 @@
     function checkAlerts() {
       const L = alerts(); let ch = false;
       L.forEach(a => { if (!a.on) return; const p = px(a.code); if (!Number.isFinite(p)) return; if ((a.op === "above" && p >= a.px) || (a.op === "below" && p <= a.px)) { a.on = false; a.at = Date.now(); a.hit = p; ch = true; ping(a, p); } });
-      if (ch) { store.set(AK, L); if (cur && cur.dataset.k === "alert") alertView(); }
+      if (ch) { store.set(AK, L); if (isOn("alert")) alertView(); }
       badge();
     }
     function alertView() {
-      const L = alerts(), body = `
+      const L = alerts(), body = `<h3 class="sbtitle">價格提醒</h3>
         <form class="sbf" data-f="alert"><input name="code" placeholder="代號，例如 2330" inputmode="text" autocomplete="off" aria-label="股票代號"><select name="op" aria-label="條件"><option value="above">漲到</option><option value="below">跌到</option></select><input name="px" type="number" step="any" min="0" placeholder="價格" aria-label="價格"><button type="submit" class="btn">新增</button></form>
         <p class="sub sbhint"></p>
         <div class="sbl">${L.length ? L.map((a, i) => `<div class="sbr${a.on ? "" : " done"}"><button type="button" class="sbl-go" data-go="${esc(a.code)}"><b>${esc(nm(a.code))}</b><span>${esc(a.code)}</span></button><span>${a.op === "above" ? "漲到" : "跌到"} <b>${fmt(a.px, a.px < 50 ? 2 : 1)}</b></span><span class="sbs">${a.on ? `監控中（現價 ${Number.isFinite(px(a.code)) ? fmt(px(a.code), px(a.code) < 50 ? 2 : 1) : "—"}）` : "已觸發 " + new Date(a.at).toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span><button type="button" class="sbdel" data-del="${i}" aria-label="刪除">×</button></div>`).join("") : '<p class="sub">還沒有提醒。輸入代號、條件和價格就會開始監控，頁面開著時到價會跳通知。</p>'}</div>`;
-      if (cur && cur.dataset.k === "alert") { $(".sbmb", cur).innerHTML = body; return cur; }
-      const m = modal("價格提醒", body); m.dataset.k = "alert"; return m;
+      return page("alert", "價格提醒", body);
     }
 
     /* ----- holdings and P&L ----- */
@@ -285,13 +281,13 @@
       const H = store.get(HK, []) || [];
       const rows = H.map(h => { const p = px(h.code), mv = Number.isFinite(p) ? p * h.shares : NaN, pl = mv - h.cost; return { h, p, mv, pl, rt: pl / h.cost * 100, day: (DB.by.get(h.code) || {}).chg * h.shares }; });
       const tot = rows.reduce((a, r) => { a.cost += r.h.cost; if (Number.isFinite(r.mv)) { a.mv += r.mv; } if (Number.isFinite(r.day)) a.day += r.day; return a; }, { cost: 0, mv: 0, day: 0 });
-      return `<div class="sbsum"><div><span>總市值</span><b data-s="mv">${Number.isFinite(tot.mv) && tot.mv ? Math.round(tot.mv).toLocaleString("en-US") : "—"}</b></div><div><span>總損益</span><b data-s="pl" class="${tone(tot.mv - tot.cost)}">${rows.length ? sgn(tot.mv - tot.cost) : "—"}</b></div><div><span>報酬率</span><b data-s="rt" class="${tone(tot.mv - tot.cost)}">${tot.cost ? sgn((tot.mv / tot.cost - 1) * 100, 2) + "%" : "—"}</b></div><div><span>今日損益</span><b data-s="day" class="${tone(tot.day)}">${rows.length ? sgn(tot.day) : "—"}</b></div></div>
+      return `<h3 class="sbtitle">持股與損益</h3><div class="sbsum"><div><span>總市值</span><b data-s="mv">${Number.isFinite(tot.mv) && tot.mv ? Math.round(tot.mv).toLocaleString("en-US") : "—"}</b></div><div><span>總損益</span><b data-s="pl" class="${tone(tot.mv - tot.cost)}">${rows.length ? sgn(tot.mv - tot.cost) : "—"}</b></div><div><span>報酬率</span><b data-s="rt" class="${tone(tot.mv - tot.cost)}">${tot.cost ? sgn((tot.mv / tot.cost - 1) * 100, 2) + "%" : "—"}</b></div><div><span>今日損益</span><b data-s="day" class="${tone(tot.day)}">${rows.length ? sgn(tot.day) : "—"}</b></div></div>
         ${rows.length ? `<div class="sbtw"><table class="sbt"><thead><tr><th>股票</th><th>股數</th><th>均價</th><th>現價</th><th>市值</th><th>損益</th><th>報酬</th><th></th></tr></thead><tbody>${rows.map(r => `<tr data-c="${esc(r.h.code)}"><td><button type="button" class="sbl-go" data-go="${esc(r.h.code)}"><b>${esc(nm(r.h.code))}</b><span>${esc(r.h.code)}</span></button></td><td>${r.h.shares.toLocaleString("en-US")}</td><td>${(r.h.cost / r.h.shares).toFixed(2)}</td><td data-k="p" class="${tone((DB.by.get(r.h.code) || {}).chg)}">${Number.isFinite(r.p) ? fmt(r.p, r.p < 50 ? 2 : 1) : "—"}</td><td data-k="mv">${Number.isFinite(r.mv) ? Math.round(r.mv).toLocaleString("en-US") : "—"}</td><td data-k="pl" class="${tone(r.pl)}">${Number.isFinite(r.pl) ? sgn(Math.round(r.pl)) : "—"}</td><td data-k="rt" class="${tone(r.pl)}">${Number.isFinite(r.rt) ? sgn(r.rt, 2) + "%" : "—"}</td><td><button type="button" class="sbdel" data-hdel="${esc(r.h.code)}" aria-label="刪除">×</button></td></tr>`).join("")}</tbody></table></div>` : '<p class="sub">還沒有持股。在下面輸入代號、股數和總成本。</p>'}
         <form class="sbf" data-f="hold"><input name="code" placeholder="代號" autocomplete="off" aria-label="代號"><input name="shares" type="number" min="1" step="1" placeholder="股數" aria-label="股數"><input name="cost" type="number" min="1" step="any" placeholder="總成本（元）" aria-label="總成本"><button type="submit" class="btn">新增／更新</button></form><p class="sub sbhint">股數以「股」計（1 張 = 1,000 股）。同一代號再輸入會覆蓋。資料只存在這台裝置。</p>`;
     }
-    function holdView() { if (cur && cur.dataset.k === "hold") { $(".sbmb", cur).innerHTML = holdBody(); return cur; } const m = modal("持股與損益", holdBody(), "wide"); m.dataset.k = "hold"; return m; }
+    function holdView() { return page("hold", "持股與損益", holdBody()); }
     function holdLive() {
-      if (!cur || cur.dataset.k !== "hold") return; const H = store.get(HK, []) || []; let mv = 0, cost = 0, day = 0;
+      if (!isOn("hold")) return; const H = store.get(HK, []) || []; let mv = 0, cost = 0, day = 0;
       H.forEach(h => { const x = DB.by.get(h.code), p = px(h.code), tr = $(`tr[data-c="${h.code}"]`, cur); cost += h.cost; if (!Number.isFinite(p)) return; const v = p * h.shares, pl = v - h.cost; mv += v; day += (x.chg || 0) * h.shares;
         if (tr) { const set = (k, t, c) => { const td = $(`[data-k=${k}]`, tr); if (td && td.textContent !== t) { td.textContent = t; if (c) td.className = c; } }; set("p", fmt(p, p < 50 ? 2 : 1), tone(x.chg)); set("mv", Math.round(v).toLocaleString("en-US")); set("pl", sgn(Math.round(pl)), tone(pl)); set("rt", sgn(pl / h.cost * 100, 2) + "%", tone(pl)); } });
       const S = (k, t, c) => { const b = $(`[data-s=${k}]`, cur); if (b && b.textContent !== t) { b.textContent = t; if (c) b.className = c; } };
@@ -314,11 +310,12 @@
       return E;
     }
     async function calView() {
-      const body = `<div class="sbcal"><div class="sbch"><button type="button" class="chip" data-cm="-1" aria-label="上個月">‹</button><b></b><button type="button" class="chip" data-cm="1" aria-label="下個月">›</button><button type="button" class="chip" data-cm="0">今天</button></div><div class="sbgrid"></div><div class="sbday"></div><p class="sub sbhint">紅點＝除權息　藍點＝財報／營收申報期限　灰底＝週末或休市。除權息只列出尚未發生的場次；休市日取自證交所公告，抓不到時只標週末。</p></div>`;
-      const m = modal("市場日曆", body, "wide"); m.dataset.k = "cal"; await calPaint(); return m;
+      const body = `<h3 class="sbtitle">市場日曆</h3><div class="sbcal"><div class="sbch"><button type="button" class="chip" data-cm="-1" aria-label="上個月">‹</button><b></b><button type="button" class="chip" data-cm="1" aria-label="下個月">›</button><button type="button" class="chip" data-cm="0">今天</button></div><div class="sbgrid"></div><div class="sbday"></div><p class="sub sbhint">紅點＝除權息　藍點＝財報／營收申報期限　灰底＝週末或休市。除權息只列出尚未發生的場次；休市日取自證交所公告，抓不到時只標週末。</p></div>`;
+      const el = document.getElementById(PID.cal); if (!el || $(".sbcal", el)) { await calPaint(); return el; }
+      const m = page("cal", "市場日曆", body); await calPaint(); return m;
     }
     async function calPaint() {
-      if (!cur || cur.dataset.k !== "cal") return;
+      if (!isOn("cal")) return;
       const hol = await holidays(CY), L = legal(CY), W = new Set(A.watch()), H = new Set((store.get(HK, []) || []).map(h => h.code)); let dv = [];
       try { dv = await dvLoad(); } catch (e) {}
       const byD = {}; dv.forEach(r => (byD[r.d] = byD[r.d] || []).push(r));
@@ -338,18 +335,19 @@
     }
 
     /* ----- clicks ----- */
-    tools.addEventListener("click", e => { const b = e.target.closest("[data-sbt]"); if (!b) return; const k = b.dataset.sbt; if (k === "alert") { alertView(); } else if (k === "hold") holdView(); else calView(); });
+    const show = () => { const t = A.tabNow && A.tabNow(); if (t === PID.alert) alertView(); else if (t === PID.hold) holdView(); else if (t === PID.cal) calView(); };
+    new MutationObserver(show).observe($(".dtabs"), { subtree: true, attributes: true, attributeFilter: ["aria-selected"] }); setTimeout(show, 300);
     document.addEventListener("click", e => {
-      if (!cur || !cur.contains(e.target)) return;
-      const go = e.target.closest("[data-go]"); if (go) { const c = go.dataset.go; closeM(); A.openStock(c); return; }
+      if (!e.target.closest || !e.target.closest(".sbpage")) return;
+      const go = e.target.closest("[data-go]"); if (go) { A.openStock(go.dataset.go); return; }
       const del = e.target.closest("[data-del]"); if (del) { const L = alerts(); L.splice(+del.dataset.del, 1); store.set(AK, L); alertView(); badge(); return; }
       const hd = e.target.closest("[data-hdel]"); if (hd) { store.set(HK, (store.get(HK, []) || []).filter(h => h.code !== hd.dataset.hdel)); document.dispatchEvent(new Event("twlab:hold")); holdView(); badge(); return; }
       const cm = e.target.closest("[data-cm]"); if (cm) { const v = +cm.dataset.cm; if (!v) { CY = new Date().getFullYear(); CM = new Date().getMonth(); CSEL = taipei().iso; } else { CM += v; if (CM < 0) { CM = 11; CY--; } if (CM > 11) { CM = 0; CY++; } } calPaint(); return; }
       const dd = e.target.closest("[data-d]"); if (dd) { CSEL = dd.dataset.d; calPaint(); }
     });
     document.addEventListener("submit", e => {
-      const f = e.target.closest && e.target.closest(".sbf"); if (!f || !cur || !cur.contains(f)) return; e.preventDefault();
-      const code = f.code.value.trim().toUpperCase(), hint = $(".sbhint", cur);
+      const f = e.target.closest && e.target.closest(".sbf"); if (!f || !f.closest(".sbpage")) return; e.preventDefault();
+      const code = f.code.value.trim().toUpperCase(), hint = $(".sbhint", f.closest(".sbpage"));
       if (!DB.by.get(code)) { if (hint) hint.textContent = "找不到這個代號（要先在股票清單裡）。"; return; }
       if (f.dataset.f === "alert") { const p = parseFloat(f.px.value); if (!(p > 0)) { hint.textContent = "請輸入價格。"; return; } const L = alerts(); L.unshift({ code, op: f.op.value, px: p, on: true }); store.set(AK, L.slice(0, 40)); try { if (window.Notification && Notification.permission === "default") Notification.requestPermission(); } catch (x) {} alertView(); badge(); checkAlerts(); }
       else { const sh = parseFloat(f.shares.value), cost = parseFloat(f.cost.value); if (!(sh > 0) || !(cost > 0)) { hint.textContent = "股數和總成本都要大於 0。"; return; } const H = (store.get(HK, []) || []).filter(h => h.code !== code); const x = DB.by.get(code); H.push({ code, shares: sh, cost, px: null, ind: "" }); store.set(HK, H); document.dispatchEvent(new Event("twlab:hold")); holdView(); badge(); }
