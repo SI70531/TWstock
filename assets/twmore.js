@@ -162,7 +162,7 @@
     document.addEventListener("twdash:list", () => { if ($("#dpList .cm") && !$("#dpList .cm").hidden) cmPaint(false); });
     setInterval(ritualTick, 1000); ritualTick();
     swipe(); keys();
-    sideToggle(); popAnim(); closeAnim(); actionAnim();
+    sideToggle(); popAnim(); closeAnim(); actionAnim(); visAnim(); sortTables();
     window.TWDash.ritual = ritualShow;      /* TWDash.ritual("open") plays the opening animation for a look */
   }
   /* closing animates too: setting .hidden = true on a pop-open element first plays a short fade/sink, then hides it */
@@ -209,6 +209,72 @@
         try { el.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 320, delay: Math.min(n, 12) * 28, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }); } catch (e) {} n++;
       }));
     }).observe(document.querySelector(".app") || document.body, { subtree: true, childList: true });
+  }
+  /* ================= every chart and table animates when it scrolls into view ================= */
+  function visAnim() {
+    const SKIP = ".spark, .ixfig, .side, .sbtog, .topbar, .thbtn, .ftspark, button, .ptr, .kbhelp, .xghost";
+    const E = "cubic-bezier(.215,.61,.355,1)", seenAt = new WeakMap(), done = new WeakSet();
+    const quiet = host => { const t = seenAt.get(host); return t && Date.now() - t < 30000; };   /* live refreshes re-render a chart: only play it again after 30 s */
+    function chart(svg) {
+      const r = svg.getBoundingClientRect(); if (r.width < 90 || r.height < 36) return;
+      const host = svg.parentElement || svg; if (quiet(host) && Date.now() - lastAct > 1500) return; seenAt.set(host, Date.now());
+      let n = 0;
+      $$("path, polyline, line, rect, circle, polygon", svg).forEach(el => {
+        if (el.closest(SKIP) || n > 400) return; n++;
+        const cs = getComputedStyle(el), stroke = cs.stroke !== "none" && cs.fill === "none" || (el.tagName !== "rect" && el.tagName !== "circle" && cs.fill === "none"), tag = el.tagName;
+        try {
+          if ((tag === "path" || tag === "polyline") && cs.fill === "none" && cs.stroke !== "none") {
+            el.setAttribute("pathLength", "1"); const a0 = el.style.strokeDasharray; el.style.strokeDasharray = "1";
+            const a = el.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 900, easing: E }); a.onfinish = () => { el.style.strokeDasharray = a0; };
+          } else if (tag === "rect") {
+            const b = el.getBBox ? el.getBBox() : { height: 0 }; if (b.height > r.height * 0.95 && b.width > r.width * 0.9) return;   /* the hit area or backdrop */
+            el.style.transformBox = "fill-box"; el.style.transformOrigin = "50% 100%";
+            el.animate([{ transform: "scaleY(0)", opacity: .2 }, { transform: "scaleY(1)", opacity: 1 }], { duration: 650, delay: Math.min(n, 30) * 18, easing: E, fill: "backwards" });
+          } else if (tag === "circle") {
+            el.style.transformBox = "fill-box"; el.style.transformOrigin = "center";
+            el.animate([{ transform: "scale(0)", opacity: 0 }, { transform: "scale(1)", opacity: 1 }], { duration: 420, delay: 300 + Math.min(n, 30) * 15, easing: "cubic-bezier(.2,.9,.3,1.4)", fill: "backwards" });
+          } else if (tag === "path" || tag === "polygon") {
+            el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: 250, easing: "ease-out", fill: "backwards" });
+          } else if (tag === "line") {
+            el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, fill: "backwards" });
+          }
+        } catch (e) {}
+      });
+    }
+    const ROWS = "tbody tr, .bd-row, .sk-row, .fl-row, .cl-row, .fgr, .ftrow, .wdcell, .mcell, .newsitem, .levent, .lscen, .pnlrow, .dvday, .hrow";
+    function rows(host) {
+      if (quiet(host) && Date.now() - lastAct > 1500) return; seenAt.set(host, Date.now());
+      const list = $$(ROWS, host).filter(el => !el.closest(".side, .xghost")).slice(0, 60);
+      list.forEach((el, i) => { try { el.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 380, delay: Math.min(i, 20) * 35, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }); } catch (e) {} });
+      $$(".fgb i, .ftbar i, .bd-bar i", host).forEach(el => { try { el.style.transformOrigin = "left"; el.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 700, delay: 120, easing: E, fill: "backwards" }); } catch (e) {} });
+    }
+    let lastAct = 0; ["click", "keydown", "pointerup", "change"].forEach(t => document.addEventListener(t, () => { lastAct = Date.now(); }, true));
+    const io = new IntersectionObserver(es => es.forEach(en => {
+      if (!en.isIntersecting) return; const el = en.target; io.unobserve(el); if (done.has(el)) return; done.add(el);
+      if (el.tagName.toLowerCase() === "svg") chart(el); else rows(el);
+    }), { threshold: 0.15 });
+    const watch = root => {
+      if (!root.querySelectorAll) return;
+      const svgs = root.matches && root.matches("svg") ? [root] : $$("svg", root), hosts = (root.matches && root.matches("table") ? [root] : []).concat($$("table, .bd-list, .wdgrid, .fgrid, .fqgrid, .ftgrid, .newslist, .mstrip, .ixdstats, .snapgrid", root));
+      svgs.forEach(el => { if (!done.has(el) && !el.closest(SKIP) && !el.matches(SKIP)) io.observe(el); });
+      hosts.forEach(el => { if (!done.has(el) && !el.closest(".side, .xghost")) io.observe(el); });
+    };
+    let queued = new Set(), tick = 0;
+    new MutationObserver(ms => { ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) queued.add(n); })); if (!tick) tick = requestAnimationFrame(() => { tick = 0; const q = queued; queued = new Set(); q.forEach(watch); }); }).observe(document.querySelector(".app") || document.body, { subtree: true, childList: true });
+    watch(document.body);
+  }
+  /* tables sort when a column heading is clicked (numbers by value, text alphabetically); rows slide to their new places */
+  function sortTables() {
+    document.addEventListener("click", e => {
+      const th = e.target.closest && e.target.closest("table thead th"); if (!th) return;
+      const table = th.closest("table"), tb = table.tBodies[0]; if (!tb || table.hasAttribute("data-nosort") || tb.rows.length < 3) return;
+      const idx = th.cellIndex, dir = th.dataset.dir === "asc" ? "desc" : "asc";
+      $$("th", table).forEach(x => { delete x.dataset.dir; x.removeAttribute("aria-sort"); }); th.dataset.dir = dir; th.setAttribute("aria-sort", dir === "asc" ? "ascending" : "descending");
+      const val = tr => { const t = (tr.cells[idx] ? tr.cells[idx].textContent : "").trim(), n = parseFloat(t.replace(/[,%+＋\s]/g, "").replace(/[−–]/g, "-")); return Number.isFinite(n) ? n : t; };
+      const rs = Array.from(tb.rows), first = new Map(rs.map(r => [r, r.getBoundingClientRect().top]));
+      rs.sort((a, b) => { const x = val(a), y = val(b); const c = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), "zh-Hant"); return dir === "asc" ? c : -c; }).forEach(r => tb.appendChild(r));
+      rs.forEach(r => { const dy = first.get(r) - r.getBoundingClientRect().top; if (dy) r.animate([{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: 420, easing: "cubic-bezier(.2,.8,.2,1)" }); });
+    });
   }
   /* the left menu opens and closes; the choice is remembered. Closed: the top tabs take over navigation. */
   function sideToggle() {
