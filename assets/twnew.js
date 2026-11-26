@@ -171,7 +171,19 @@
     document.addEventListener("twdash:live", paintBasis);
     setInterval(paintBasis, 5000);
   }
-  let basisHist = [];
+  let basisHist = [], bsFirst = true;
+  /* the day's spread so far: one point per change, kept for the session so a reload keeps the line */
+  function bsTrail(d) {
+    const day = new Date().toDateString();
+    if (!Array.isArray(basisHist) || basisHist.day !== day) { basisHist = []; basisHist.day = day; }
+    if (!basisHist.length || basisHist[basisHist.length - 1] !== d) basisHist.push(d);
+    if (basisHist.length > 240) basisHist.shift();
+    const H = basisHist, W = 400, T = 120, mid = T / 2, mx = Math.max(20, ...H.map(v => Math.abs(v)));
+    const y = v => (mid - v / mx * (mid - 12)).toFixed(1);
+    const pts = H.length > 1 ? H.map((v, i) => `${(i / (H.length - 1) * W).toFixed(1)},${y(v)}`).join(" ") : `0,${y(H[0])} ${W},${y(H[0])}`;
+    const hi = Math.max(...H), lo = Math.min(...H);
+    return `<svg viewBox="0 0 ${W} ${T}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="${W}" y1="${mid}" y2="${mid}" class="bz"/><polyline points="${pts}" class="bl ${d < 0 ? "down" : "up"}${bsFirst ? " in" : ""}" vector-effect="non-scaling-stroke"/></svg><div class="bsrng"><span>最低 <b>${sg(Math.round(lo * 100) / 100)}</b></span><span>最高 <b>${sg(Math.round(hi * 100) / 100)}</b></span></div>`;
+  }
   function paintBasis() {
     const el = $(".bsout"); if (!el) return;
     const spot = A.IDX.find(i => i.k === "t00"), fut = A.IDX.find(i => i.k === "fut");
@@ -183,9 +195,11 @@
     const mx = Math.max(60, Math.abs(d)), w = Math.min(50, Math.abs(d) / mx * 50);
     const html = `<div class="bsrow"><span>台指期</span><b>${A.fmt(fut.z, 2)}</b></div><div class="bsrow"><span>加權指數</span><b>${A.fmt(spot.z, 2)}</b></div>
       <div class="bsdiff"><span class="aitag ${cls}">${d > 0 ? "正價差" : d < 0 ? "逆價差" : "無價差"}</span><b class="${cls}">${d > 0 ? "+" : ""}${A.fmt(d, 2)} 點</b><em class="${cls}">${p > 0 ? "+" : ""}${p.toFixed(2)}%</em></div>
-      <div class="bsbar"><i class="${cls}" style="${d >= 0 ? "left:50%" : "right:50%"};width:${w.toFixed(1)}%"></i></div>`;
+      <div class="bsbar"><i class="${cls}" style="${d >= 0 ? "left:50%" : "right:50%"};width:${w.toFixed(1)}%"></i></div>
+      <div class="bstr">${bsTrail(d)}</div>`;
     if (el.dataset.h === html) return; const first = !el.dataset.h; el.dataset.h = html; el.innerHTML = html;
-    if (first) { A.rise($$(".bsrow, .bsdiff", el), 60); const bar = $(".bsbar i", el); if (bar) bar.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 700, easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" }); }
+    bsFirst = false;
+    if (first) { A.rise($$(".bsrow, .bsdiff, .bstr", el), 60); const bar = $(".bsbar i", el); if (bar) bar.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 700, easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" }); }
   }
 
   /* ---------------- 分析 → 存檔: every close summary this browser has seen, kept for 90 days ---------------- */
