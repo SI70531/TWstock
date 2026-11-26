@@ -277,8 +277,8 @@
     function badge() {
       const act = alerts().filter(a => a.on).length, b = $('nav [data-p="dpAlert"] .sbn', side); if (!b) return; b.hidden = !act; b.textContent = act;
       const H = store.get("twlab-hold", []) || [], hb = $('nav [data-p="dpHold"] .sbn', side);
-      let day = 0, n = 0; H.forEach(h => { const x = DB.by.get(h.code); if (x && Number.isFinite(x.chg) && h.shares > 0) { day += x.chg * h.shares; n++; } });
-      hb.hidden = !n; hb.textContent = sgn(day); hb.className = "sbn " + tone(day);
+      let net = 0, n = 0; H.forEach(h => { const p = px(h.code); if (Number.isFinite(p) && h.shares > 0) { const v = p * h.shares, c = sell(h.code, v, h.shares); net += v - c.fee - c.tax - h.cost; n++; } });
+      hb.hidden = !n; hb.textContent = sgn(net); hb.className = "sbn " + tone(net);
     }
     function ping(a, now) {
       let host = $(".toasts"); if (!host) { host = document.createElement("div"); host.className = "toasts"; host.setAttribute("aria-live", "polite"); document.body.appendChild(host); }
