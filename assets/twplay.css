@@ -358,3 +358,6 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 
 .sbsum small { font-size: 11px; color: var(--color-muted); }
 .sbdisc { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--color-muted); } .sbdisc input { width: 70px; padding: 6px 8px; border-radius: 10px; border: 1px solid var(--glass-line-2); background: var(--glass); color: var(--color-ink); font: inherit; }
+
+.dtabs button .tabic { width: 17px; height: 17px; margin-right: 6px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.dtabs button { white-space: nowrap; }

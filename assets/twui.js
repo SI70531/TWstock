@@ -44,6 +44,9 @@
     const allTabs = $$('.dtabs button[role="tab"]'), tabs = allTabs.filter(t => !t.hidden); if (!tabs.length || $(".side")) return;
     /* sidebar */
     const side = document.createElement("aside");
+    /* the top tab bar (phones and tablets) gets the same icons as the sidebar */
+    allTabs.forEach(t => { if (!$("svg", t) && ICONS[t.dataset.p]) t.insertAdjacentHTML("afterbegin", `<svg class="tabic" viewBox="0 0 24 24" aria-hidden="true">${ICONS[t.dataset.p]}</svg>`); });
+    window.dispatchEvent(new Event("resize"));
     side.className = "side"; side.setAttribute("aria-label", "側欄");
     side.innerHTML = `<div class="sb-clock"><div class="s"><span class="statuschip" data-s="closed"><i></i><span class="ss">—</span></span></div><div class="trow"><div class="t">--:--:--</div><span class="sd"></span></div>
         <div class="sb-prog" hidden><div class="bar"><i></i></div><span></span></div>
