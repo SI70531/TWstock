@@ -162,7 +162,7 @@
     document.addEventListener("twdash:list", () => { if ($("#dpList .cm") && !$("#dpList .cm").hidden) cmPaint(false); });
     setInterval(ritualTick, 1000); ritualTick();
     swipe(); keys();
-    sideToggle(); popAnim(); closeAnim(); actionAnim(); visAnim(); sortTables(); sidePlus(); syncInit();
+    sideToggle(); instant(); popAnim(); closeAnim(); actionAnim(); visAnim(); sortTables(); sidePlus(); syncInit();
     window.TWDash.ritual = ritualShow;      /* TWDash.ritual("open") plays the opening animation for a look */
   }
   /* closing animates too: setting .hidden = true on a pop-open element first plays a short fade/sink, then hides it */
@@ -501,6 +501,22 @@
     document.body.appendChild(b); set(h);
   }
   /* everything that pops open animates: detail panels, menus, tips and dialogs; chart lines inside the index panel draw in */
+  /* mouse: act on press instead of release, so the animation starts ~80 ms sooner (touch and keyboard unchanged) */
+  function instant() {
+    const SEL = ".dtabs [data-p], .side nav [data-p], .ixcard, .chip, .sbc, [data-cmode], [data-cmine], [data-sub]";
+    let swallow = null;
+    document.addEventListener("pointerdown", e => {
+      if (e.pointerType !== "mouse" || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const t = e.target.closest && e.target.closest(SEL); if (!t || t.disabled || t.getAttribute("aria-disabled") === "true") return;
+      swallow = t; setTimeout(() => { if (swallow === t) swallow = null; }, 600);
+      t.click();
+    }, true);
+    document.addEventListener("click", e => {
+      if (!swallow || !e.isTrusted) return;
+      const t = e.target.closest && e.target.closest(SEL);
+      if (t === swallow) { swallow = null; e.stopImmediatePropagation(); e.preventDefault(); }
+    }, true);
+  }
   function popAnim() {
     const POP = ".ixdetail, .hmtip, .ktip, .thmenu, .kbcard, .sresults, .searchbox, [role=dialog], [role=menu], [role=listbox], [role=tooltip], .popover, .menu-pop";
     const seen = new WeakMap(), isOpen = el => !el.hidden && getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden" && +getComputedStyle(el).opacity > 0.01;

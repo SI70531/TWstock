@@ -1960,6 +1960,9 @@
     ixPaint(true);
     panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
+  /* warm the chart data as soon as the pointer reaches a card, so the panel has something to draw the moment it opens */
+  const ixWarm = e => { const c = e.target.closest && e.target.closest(".ixcard"); if (!c) return; const k = c.dataset.k, it = IDX.find(i => i.k === k); if (!it) return; const r = it.us ? "3mo" : "tick", key = k + ":" + (r === "tick" ? "tick" : "day"); if (!CH[key] && !ixWarm.p[key]) { ixWarm.p[key] = 1; Promise.resolve().then(() => loadChart(k, r === "tick" ? "tick" : "day")).catch(() => {}).finally(() => { delete ixWarm.p[key]; }); } };
+  ixWarm.p = {}; ["pointerover", "pointerdown", "touchstart"].forEach(t => document.addEventListener(t, ixWarm, { capture: true, passive: true }));
   async function ixPaint(animate) {
     const panel = $("#dpOverview .ixdetail"), k = IXV.k, r = IXV.r; if (!k || panel.hidden) return;
     const it = IDX.find(i => i.k === k), key = k + ":" + (r === "tick" ? "tick" : "day");
