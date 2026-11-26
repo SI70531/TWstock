@@ -64,8 +64,8 @@
   /* ---------------- state ---------------- */
   const DEFAULT_WATCH = ["2330", "2317", "2454", "2308", "2881", "0050"];
   const DB = { list: [], by: new Map(), live: false, date: "", rt: null, rtAt: "", err: "" };
-  const IDX = [{ k: "t00", name: "加權指數", en: "TAIEX" }, { k: "fut", name: "台指期", en: "TX" }, { k: "o00", name: "櫃買指數", en: "TPEx" }, { k: "exf", name: "電子期", en: "EXF" }];
-  const US4 = [["^DJI", "道瓊", "DJIA"], ["^GSPC", "標普 500", "S&P 500"], ["^IXIC", "那斯達克", "NASDAQ"], ["^SOX", "費城半導體", "SOX"]];
+  const IDX = [{ k: "t00", name: "加權指數", en: "TAIEX" }, { k: "fut", name: "台指期", en: "TX" }, { k: "o00", name: "櫃買指數", en: "TPEx" }, { k: "exf", name: "電子期", en: "EXF" },
+    { k: "dji", name: "道瓊", en: "DJIA", us: "^DJI" }, { k: "spx", name: "標普 500", en: "S&P 500", us: "^GSPC" }, { k: "ixic", name: "那斯達克", en: "NASDAQ", us: "^IXIC" }, { k: "sox", name: "費城半導體", en: "SOX", us: "^SOX" }];
   const T_START = Date.now(); setTimeout(() => { try { paintIdx(); } catch (e) {} }, 31000);   /* "讀不到資料" only after 30 seconds of trying */
   const isFut = k => k === "fut" || k === "exf";
   const MKT = { rows: null, inst: null };          /* TAIEX history rows and the institutions of the day */
@@ -395,7 +395,7 @@
   function buildOverview() {
     $("#dpOverview").innerHTML = `
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}<em class="ixen">${i.en}</em></span><span class="ixsrc"></span></h3>
-        <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}${US4.map(u => `<div class="dcard ixcard usx" data-us="${esc(u[0])}"><h3><span class="ixn">${u[1]}<em class="ixen">${u[2]}</em></span><span class="ixsrc">美股</span></h3><div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
+        <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3></div>
         <button type="button" class="btn pmgo">分析</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert" hidden></p></div>
@@ -465,7 +465,7 @@
       const pk = e.target.closest("[data-pick]"); if (pk) { openStock(pk.dataset.pick, pk); return; }
       const gt = e.target.closest("[data-goto]"); if (gt) { open(gt.dataset.goto, true); return; }
       const bd = e.target.closest(".bd-row, .bd-tile"); if (bd) { openStock(bd.dataset.code, bd); return; }
-      const xc = e.target.closest(".ixcard"); if (xc && xc.classList.contains("usx")) return; if (xc) { ixOpen(xc.dataset.k); return; }
+      const xc = e.target.closest(".ixcard"); if (xc) { ixOpen(xc.dataset.k); return; }
       const xr = e.target.closest("[data-ixr]"); if (xr) { IXV.r = xr.dataset.ixr; ixPaint(true); return; }
       if (e.target.closest(".ixclose")) { ixOpen(IXV.k); return; }
     });
@@ -568,7 +568,8 @@
   function paintIdx() {
     IDX.forEach(i => {
       const c = $(`.ixcard[data-k="${i.k}"]`); if (!c) return;
-      const cd = CH[i.k + ":tick"];   /* no live quote from the Worker: fall back on the chart's last bar (Yahoo, a little delayed) */
+      const cd = CH[i.k + ":tick"];
+      if (i.us && cd && cd.high > 0) { i.h = cd.high; i.l = cd.low; }   /* no live quote from the Worker: fall back on the chart's last bar (Yahoo, a little delayed) */
       if (!i.rt && cd && cd.last > 0) Object.assign(i, { z: cd.last, y: cd.prev, h: cd.high, l: cd.low, tm: cd.at ? new Date(cd.at + 8 * 3600e3).toISOString().slice(11, 19) : "", src: "延遲" });
       const d = ok(i.z) && ok(i.y) ? i.z - i.y : NaN, t = tone(d), big = $(".big", c);
       if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); const ix = $(".ixn", c), tt = sub ? i.name + " (" + sub + ")" : i.name; if (ix.dataset.t !== tt) { ix.dataset.t = tt; ix.innerHTML = esc(tt) + `<em class="ixen">${i.en}</em>`; } }
@@ -1143,20 +1144,12 @@
   /* ---------------- 國際行情 and 期貨籌碼 on 總覽 (through the Worker) ---------------- */
   /* the four US indices, second row of the index cards: last close (or the live quote while Wall Street trades) and the day's change */
   function usPaint(rows) {
-    US4.forEach(u => {
-      const c = $(`.ixcard[data-us="${u[0]}"]`), r = rows.find(x => x.symbol === u[0]); if (!c || !r) return;
-      const p = r.changePct, prev = ok(p) ? r.last / (1 + p / 100) : NaN, d = r.last - prev, t = tone(ok(p) ? p : 0), big = $(".big", c), bt = fmt(r.last, 2);
-      if (big.textContent !== bt) big.textContent = bt; big.className = "big " + t;
-      const ct = ok(p) ? `${arrow(p)} ${fmt(Math.abs(d), 2)} (${pct(p)})` : "—", cg = $(".ixchg", c); if (cg.textContent !== ct) cg.textContent = ct; cg.className = "sub ixchg " + t;
-      const sv = $("svg.spark", c), hs = Array.isArray(r.hist) ? r.hist : [];
-      if (sv && hs.length > 2) {
-        const lo = Math.min(...hs), hi = Math.max(...hs), sp = hi - lo || 1, Yv = v => (26 - (v - lo) / sp * 24).toFixed(1), pth = $("path", sv), sig = hs.join();
-        if (sv.dataset.sg !== sig) { sv.dataset.sg = sig; pth.setAttribute("d", hs.map((v, k) => (k ? "L" : "M") + (k / (hs.length - 1) * 76).toFixed(2) + " " + Yv(v)).join("")); }
-        const bl = $(".spbase", sv); bl.setAttribute("y1", Yv(hs[0])); bl.setAttribute("y2", Yv(hs[0]));
-        sv.setAttribute("class", "spark " + (hs[hs.length - 1] >= hs[0] ? "up" : "down"));
-      }
-      $(".ixhl", c).textContent = r.asOfTaipei ? "UTC+8 " + r.asOfTaipei.slice(5).replace("-", "/") : "";
+    IDX.filter(i => i.us).forEach(it => {
+      const r = rows.find(x => x.symbol === it.us); if (!r) return;
+      const p = r.changePct, y = ok(p) ? r.last / (1 + p / 100) : NaN, t = r.asOfTaipei ? r.asOfTaipei.slice(5).replace("-", "/") : "";
+      Object.assign(it, { z: r.last, y, tm: "", src: "美股 UTC+8 " + t, rt: true, hist: Array.isArray(r.hist) ? r.hist : null });
     });
+    paintIdx(); paintSparks();
   }
   async function wdLoad() {
     const el = $("#dpOverview .wdout"); if (!el) return;
@@ -1904,7 +1897,14 @@
   /* ---------------- index cards: intraday sparklines and a detail chart (Yahoo Taiwan through the Worker) ---------------- */
   const CH = {};                                   /* "k:r" → chart data */
   const IXV = { k: null, r: "tick" };
-  const sessOpen = k => (isFut(k) ? marketOpen() || nightOpen() : marketOpen());
+  const usOpen = () => { const m = taipei().mins; return m >= 21 * 60 + 30 || m < 5 * 60; };
+  const sessOpen = k => (isFut(k) ? marketOpen() || nightOpen() : /^(dji|spx|ixic|sox)$/.test(k) ? usOpen() : marketOpen());
+  /* when Yahoo's chart service has nothing for a US index, the Worker's month of daily closes stands in for the chart */
+  function histChart(it, r) {
+    const h = it && it.hist; if (!h || h.length < 3) return null;
+    const pts = h.map(x => [x[0], x[1], 0, null, null, null]), v = h.map(x => x[1]);
+    return { k: it.k, r, name: it.name, prev: v[0], last: v[v.length - 1], open: NaN, high: Math.max(...v), low: Math.min(...v), volume: NaN, pts, synthetic: true };
+  }
   async function loadChart(k, r) {
     const j = await J(`${WORKER}/tw/chart?k=${k}&r=${r}`);
     if (j && Array.isArray(j.pts)) CH[k + ":" + r] = j;
@@ -1918,7 +1918,7 @@
   }
   function paintSparks() {
     IDX.forEach(i => {
-      const svg = $(`.ixcard[data-k="${i.k}"] .spark`), d = CH[i.k + ":tick"]; if (!svg || !d || d.pts.length < 2) return;
+      const svg = $(`.ixcard[data-k="${i.k}"] .spark`), d = CH[i.k + ":tick"] || (i.hist && i.hist.length > 2 ? { pts: i.hist.map(h => [h[0], h[1]]), prev: i.hist[0][1] } : null); if (!svg || !d || d.pts.length < 2) return;
       const sg = d.pts.length + ":" + d.pts[d.pts.length - 1][1] + ":" + d.prev; if (svg.dataset.sg === sg) return; svg.dataset.sg = sg;
       const ys = d.pts.map(p => p[1]), base = ok(d.prev) ? d.prev : ys[0], lo = Math.min(base, ...ys), hi = Math.max(base, ...ys), span = hi - lo || 1, n = ys.length - 1;
       const Y = v => (26 - (v - lo) / span * 24).toFixed(1);
@@ -1934,7 +1934,7 @@
     const panel = $("#dpOverview .ixdetail");
     $$(".ixcard").forEach(c => c.setAttribute("aria-expanded", "false"));
     if (IXV.k === k && !panel.hidden) { panel.hidden = true; IXV.k = null; return; }
-    IXV.k = k; IXV.r = "tick"; panel.hidden = false;
+    IXV.k = k; IXV.r = (IDX.find(i => i.k === k) || {}).us ? "3mo" : "tick"; panel.hidden = false;
     $(`.ixcard[data-k="${k}"]`).setAttribute("aria-expanded", "true");
     ixPaint(true);
     panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -1942,7 +1942,7 @@
   async function ixPaint(animate) {
     const panel = $("#dpOverview .ixdetail"), k = IXV.k, r = IXV.r; if (!k || panel.hidden) return;
     const it = IDX.find(i => i.k === k), key = k + ":" + (r === "tick" ? "tick" : "day");
-    if (!CH[key] || (r !== "tick" && !CH[key].pts.length)) { panel.innerHTML = `<p class="sub">載入走勢…</p>`; try { await loadChart(k, r === "tick" ? "tick" : "day"); } catch (e) { panel.innerHTML = `<p class="sub">走勢暫時讀不到，請稍後再試。</p>`; return; } }
+    if (!CH[key] || (r !== "tick" && !CH[key].pts.length)) { panel.innerHTML = `<p class="sub">載入走勢…</p>`; try { await loadChart(k, r === "tick" ? "tick" : "day"); } catch (e) { const syn = histChart(it, r); if (syn) CH[key] = syn; else { panel.innerHTML = `<p class="sub">走勢暫時讀不到，請稍後再試。</p>`; return; } } }
     if (IXV.k !== k || IXV.r !== r) return;
     const d = CH[key], pts = r === "tick" ? d.pts : d.pts.slice(r === "3mo" ? -66 : -250);
     const z = ok(it.z) ? it.z : d.last, y = ok(it.y) ? it.y : d.prev, ch = z - y, t = tone(ch), dg = 2;
@@ -1951,7 +1951,7 @@
     const kv = (a, b, c) => `<div class="snap ixkv"><span>${a}</span><b class="${c || ""}">${b}</b></div>`;
     panel.innerHTML = `
       <div class="ixdhead"><div><h3>${esc(it.name)}<em class="ixen">${it.en}</em>${it.label ? " (" + esc(it.label.replace(/^臺指期\s*/, "")) + ")" : ""}</h3>
-          <div class="ixdnow"><b class="big ${t}">${ok(z) ? fmt(z, dg) : "—"}</b><span class="${t}">${ok(ch) ? `${arrow(ch)} ${fmt(Math.abs(ch), dg)}（${pct(ch / y * 100)}）` : ""}</span><span class="sub">${esc(it.src || "")} ${esc((it.tm || "").slice(0, 5))}</span></div></div>
+          <div class="ixdnow"><b class="big ${t}">${ok(z) ? fmt(z, dg) : "—"}</b><span class="${t}">${ok(ch) ? `${arrow(ch)} ${fmt(Math.abs(ch), dg)} (${pct(ch / y * 100)})` : ""}</span><span class="sub">${esc(it.src || "")} ${esc((it.tm || "").slice(0, 5))}</span></div></div>
         <div class="chips">${[["tick", sessName.replace(/（.*/, "") + "走勢"], ["3mo", "日線 3 個月"], ["1y", "日線 1 年"]].map(([v, l]) => `<button type="button" class="chip" data-ixr="${v}" aria-pressed="${v === r}">${l}</button>`).join("")}
           <button type="button" class="btn ixclose" aria-label="關閉">×</button></div></div>
       <div class="ixdbody"><div class="ixdchart">${ixSVG(pts, r === "tick" ? y : null, r, k)}<p class="sub ixread"></p></div>
@@ -2386,7 +2386,7 @@
     /* shared with the 研究室 tab (assets/twlab.js) */
     api: { DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
       refresh: () => Promise.all([rtPoll(), pmLoad(), pmLoad(true), clLoad()]).then(() => open(cur, true)),
-      store, openTab: p => open(p, true), lstSub: k => lstSub(k, true), tabNow: () => cur, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
+      store, openTab: p => open(p, true), lstSub: k => lstSub(k, true), tabNow: () => cur, ixk: () => IXV.k, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
   document.dispatchEvent(new Event("twdash:ready"));
 
   (async () => {

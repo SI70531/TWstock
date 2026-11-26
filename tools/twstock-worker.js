@@ -207,7 +207,7 @@ async function twFut(cid = "TXF") {
       } catch (e) {}
     }
   }
-  const ysym = cid === "TXF" ? "WTX%26" : "WEF%26", nm = cid === "TXF" ? "臺指期" : "電子期";
+  const ysym = cid === "TXF" ? "WTX%26" : "WTE%26", nm = cid === "TXF" ? "臺指期" : "電子期";
   try {
     const r = await fetch("https://tw.stock.yahoo.com/_td-stock/api/resource/StockServices.stockList;fields=avgPrice;symbols=" + ysym, { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
     const x = (await r.json())[0], raw = k => (x && x[k] && x[k].raw != null ? twNum(x[k].raw) : null);
@@ -284,7 +284,7 @@ async function twYahoo(codes) {
       const j = await r.json();
       const rows = j && j.spark && Array.isArray(j.spark.result) ? j.spark.result.map(x => ({ s: x.symbol, d: (x.response || [])[0] || {} })) : Object.entries(j || {}).map(([s, d]) => ({ s, d: d || {} }));
       rows.forEach(({ s, d }) => {
-        const m = d.meta || d, q = (d.indicators && d.indicators.quote && d.indicators.quote[0]) || {}, cl = (q.close || d.close || []).filter(v => v > 0);
+        const m = d.meta || d, q = (d.indicators && d.indicators.quote && d.indicators.quote[0]) || {}, rawc = q.close || d.close || [], tsA = d.timestamp || m.timestamp || [], cl = rawc.filter(v => v > 0), prs = rawc.map((v, i) => [tsA[i], v]).filter(x => x[1] > 0 && x[0]);
         const z = twNum(m.regularMarketPrice) || cl[cl.length - 1] || null, y = twNum(m.previousClose) || twNum(m.chartPreviousClose);
         if (!(z > 0) || !(y > 0)) return;
         const hi = (q.high || []).filter(v => v > 0), lo = (q.low || []).filter(v => v > 0), op = (q.open || []).find(v => v > 0);
@@ -582,7 +582,7 @@ async function pmWorld(withHist) {
     const m = d.meta || d, q = (d.indicators && d.indicators.quote && d.indicators.quote[0]) || {}, cl = (q.close || d.close || []).filter(v => v > 0);
     const last = twNum(m.regularMarketPrice) || cl[cl.length - 1], prev = cl.length > 1 ? cl[cl.length - 2] : twNum(m.chartPreviousClose);
     const nm = (PM_SYMS.find(x => x[0] === s) || [s, s])[1], t = m.regularMarketTime ? new Date((m.regularMarketTime + 8 * 3600) * 1000).toISOString().slice(0, 16).replace("T", " ") : "";
-    return last > 0 ? { name: nm, symbol: s, last: Math.round(last * 100) / 100, changePct: prev > 0 ? Math.round((last / prev - 1) * 10000) / 100 : null, asOfTaipei: t, ...(withHist ? { hist: cl.slice(-22).map(v => Math.round(v * 100) / 100) } : {}) } : null;
+    return last > 0 ? { name: nm, symbol: s, last: Math.round(last * 100) / 100, changePct: prev > 0 ? Math.round((last / prev - 1) * 10000) / 100 : null, asOfTaipei: t, ...(withHist ? { hist: prs.slice(-22).map(x => [x[0], Math.round(x[1] * 100) / 100]) } : {}) } : null;
   }).filter(Boolean);
 }
 async function pmInst() {
@@ -880,7 +880,7 @@ async function watchNews(env, codes, S) {
 }
 
 /* ---------- index and futures charts (Yahoo Taiwan): 1-minute bars of the session, or daily bars for about a year ---------- */
-const CHART_SYM = { t00: "^TWII", fut: "WTX&", o00: "^TWOII", exf: "WEF&", t13: "^TELI", t17: "^TFNI" };
+const CHART_SYM = { t00: "^TWII", fut: "WTX&", o00: "^TWOII", exf: "WTE&", dji: "^DJI", spx: "^GSPC", ixic: "^IXIC", sox: "^SOX", t13: "^TELI", t17: "^TFNI" };
 async function twChart(url, json, fail) {
   const k = url.searchParams.get("k"), r = url.searchParams.get("r") === "day" ? "day" : "tick", sym = CHART_SYM[k];
   if (!sym) return fail(400, "BAD_CODE", "Unknown chart");

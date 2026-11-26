@@ -189,14 +189,13 @@
     $$(".dash .big, .side .sb-ix b").forEach((el, i) => {
       if (RUN.has(el)) return;
       /* who: the stock now shown on the 個股分析 page; switching to another stock counts up from 0 */
-      const text = el.textContent, v = num(text), k = keyOf(el, i), who = el.closest("#dpStock") && A && A.code ? A.code() : "", prev = LAST.get(k);
+      const text = el.textContent, v = num(text), k = keyOf(el, i), who = el.closest("#dpStock") && A && A.code ? A.code() : el.closest(".ixdetail") && A && A.ixk ? A.ixk() : "", prev = LAST.get(k);
       LAST.set(k, { v, who, text });
       if (!Number.isFinite(v) || !prev) return;
-      /* count from the value that was just on screen (37,000 → 36,800), never from 0; a new stock or a placeholder just swaps */
-      if (prev.who !== who || !Number.isFinite(prev.v)) return;
-      const from = prev.v;
+      /* the same stock or index moving: count from the value that was on screen (37,000 → 36,800); another stock or index (or a first value): count up from 0 */
+      const from = prev.who !== who || !Number.isFinite(prev.v) ? 0 : prev.v;
       if (from === v) return;
-      roll(el, prev.text, text, v > from);
+      countTo(el, from, v, text);
     });
     $$(".dash .pxpill").forEach(el => {
       const tr = el.closest("[data-code]"), k = "px:" + (tr ? tr.dataset.code : ""), v = num(el.textContent), old = LAST.get(k);
