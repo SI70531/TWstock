@@ -567,10 +567,13 @@
       const d = ok(i.z) && ok(i.y) ? i.z - i.y : NaN, t = tone(d), big = $(".big", c);
       if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); $(".ixn", c).textContent = sub ? i.name + "（" + sub + "）" : i.name; }
       $(".ixsrc", c).textContent = i.src ? i.src + (i.tm ? " " + i.tm.slice(0, 5) : "") : "";
-      big.textContent = ok(i.z) ? fmt(i.z, 2) : "—"; big.className = "big " + t;
-      $(".ixchg", c).textContent = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)}（${pct(d / i.y * 100)}）` : (i.k === "fut" && DB.rt === false ? "需要部署新版 Worker" : DB.list.length ? "讀不到資料" : "載入中…");
-      $(".ixchg", c).className = "sub ixchg " + t;
-      $(".ixhl", c).textContent = i.h > 0 && i.l > 0 ? `高 ${fmt(i.h, 2)}　低 ${fmt(i.l, 2)}` : "";
+      const bt = ok(i.z) ? fmt(i.z, 2) : "—";
+      if (big.textContent !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }
+      big.dataset.z = ok(i.z) ? i.z : ""; big.className = "big " + t + (big.classList.contains("fl-up") ? " fl-up" : big.classList.contains("fl-down") ? " fl-down" : "");
+      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)}（${pct(d / i.y * 100)}）` : (i.k === "fut" && DB.rt === false ? "需要部署新版 Worker" : DB.list.length ? "讀不到資料" : "載入中…"), cg = $(".ixchg", c);
+      if (cg.textContent !== ct) cg.textContent = ct;
+      cg.className = "sub ixchg " + t;
+      const ht = i.h > 0 && i.l > 0 ? `高 ${fmt(i.h, 2)}　低 ${fmt(i.l, 2)}` : "", hl = $(".ixhl", c); if (hl.textContent !== ht) hl.textContent = ht;
     });
     paintSparks();
   }
@@ -1807,6 +1810,7 @@
   function paintSparks() {
     IDX.forEach(i => {
       const svg = $(`.ixcard[data-k="${i.k}"] .spark`), d = CH[i.k + ":tick"]; if (!svg || !d || d.pts.length < 2) return;
+      const sg = d.pts.length + ":" + d.pts[d.pts.length - 1][1] + ":" + d.prev; if (svg.dataset.sg === sg) return; svg.dataset.sg = sg;
       const ys = d.pts.map(p => p[1]), base = ok(d.prev) ? d.prev : ys[0], lo = Math.min(base, ...ys), hi = Math.max(base, ...ys), span = hi - lo || 1, n = ys.length - 1;
       const Y = v => (26 - (v - lo) / span * 24).toFixed(1);
       /* real candles: the day in ~28 bars; red body where the bar closed above its open, green where below, wicks for high / low */

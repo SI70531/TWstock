@@ -157,3 +157,10 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .river .rvline { stroke: var(--color-ink); }
 .rvleg { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0; font-size: var(--text-xs); color: var(--color-muted); }
 .rvleg span { display: inline-flex; align-items: center; gap: 6px; } .rvleg i { width: 14px; height: 3px; border-radius: 2px; } .rvleg i.rvk { background: var(--color-ink); height: 4px; }
+
+/* a short colour flash when an index price ticks (red up, green down, as the rest of the site) */
+@keyframes flUp { from { background: rgba(214,48,49,.28); } to { background: transparent; } }
+@keyframes flDown { from { background: rgba(36,160,90,.28); } to { background: transparent; } }
+.ixcard .big.fl-up { animation: flUp .9s ease-out; border-radius: 6px; }
+.ixcard .big.fl-down { animation: flDown .9s ease-out; border-radius: 6px; }
+@media (prefers-reduced-motion: reduce) { .ixcard .big.fl-up, .ixcard .big.fl-down { animation: none; } }
