@@ -70,7 +70,7 @@ export default {
 
     /* public market data */
     if (url.pathname === "/tw/rt" && req.method === "GET") return twRt(url, json);
-    if (url.pathname === "/tw/news" && req.method === "GET") return twNewsRoute(url, json, fail);
+    if (url.pathname === "/tw/news" && req.method === "GET") return twNewsRoute(url, json, fail, env);
     if (url.pathname === "/tw/chart" && req.method === "GET") return twChart(url, json, fail);
     if (url.pathname === "/tw/otc" && req.method === "GET") return twOtc(json, fail);
     if (url.pathname === "/tw/hist" && req.method === "GET") return twHist(url, json, fail);
@@ -331,23 +331,47 @@ async function twHeadlines(q, n, us) {
   }
   return items.sort((a, b) => b.at - a.at).slice(0, n);
 }
-/* the company's own material announcements (TWSE open data: every listed company's announcements of the day) */
-async function twAnnouncements(code) {
+/* the company's own material announcements: TWSE open data lists only today's, so each day's list is also kept (titles only, 30 days)
+   in the Durable Object and merged back in. Without it most stocks show nothing: a company files a few a year. */
+const twTaipeiDay = () => new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10).replace(/-/g, "");
+async function twAnnouncements(code, env) {
   const all = await twCached("ann", 600000, async () => {
     const r = await twFetch("https://openapi.twse.com.tw/v1/opendata/t187ap04_L", { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
     return r.ok ? await r.json() : [];
   });
   const pick = (o, sub) => { const k = Object.keys(o).find(x => x.includes(sub)); return k ? o[k] : ""; };
-  return (Array.isArray(all) ? all : []).filter(x => String(pick(x, "公司代號")).trim() === code).slice(0, 6)
-    .map(x => ({ d: twClip(pick(x, "發言日期"), 12), t: twClip(pick(x, "主旨"), 200), body: twClip(pick(x, "說明"), 500) }));
+  const rows = Array.isArray(all) ? all : [], today = twTaipeiDay();
+  const mine = rows.filter(x => String(pick(x, "公司代號")).trim() === code).map(x => ({ d: twClip(pick(x, "發言日期"), 12), t: twClip(pick(x, "主旨"), 200), body: twClip(pick(x, "說明"), 500) }));
+  if (!env || !env.DAILY) return mine.slice(0, 6);
+  try {
+    if (rows.length) await twCached("annsave:" + today, 3600000, async () => {     /* once an hour at most: the whole market's titles for today */
+      const map = {}; rows.forEach(x => { const c = String(pick(x, "公司代號")).trim(); if (c) (map[c] = map[c] || []).push([twClip(pick(x, "發言日期"), 12), twClip(pick(x, "主旨"), 80)]); });
+      await pmStore(env, "kv", { k: "ann:" + today, set: map }); return 1;
+    });
+    const out = mine.slice();
+    const days = []; for (let i = 1; i <= 30; i++) days.push(new Date(Date.now() + 8 * 3600e3 - i * 864e5).toISOString().slice(0, 10).replace(/-/g, ""));
+    const got = await Promise.all(days.map(d => twCached("annday:" + d, 3600000, async () => (await pmStore(env, "kv", { k: "ann:" + d })).v || {}).catch(() => ({}))));
+    got.forEach(m => (m[code] || []).forEach(([d, t]) => { if (!out.some(o => o.t.slice(0, 80) === t)) out.push({ d, t, body: "" }); }));
+    return out.slice(0, 10);
+  } catch (e) { return mine.slice(0, 6); }
 }
-async function twNewsRoute(url, json, fail) {
+async function twNewsRoute(url, json, fail, env) {
   const code = (url.searchParams.get("c") || "").trim(), name = twClip(url.searchParams.get("n"), 20);
   if (!/^[0-9A-Z]{4,6}$/.test(code)) return fail(400, "BAD_CODE", "Bad stock code");
-  const v = await twCached("news:" + code, 300000, async () => {
-    const [news, ann] = await Promise.all([twHeadlines((name ? name + " " : "") + code + " when:14d", 12).catch(() => []), twAnnouncements(code).catch(() => [])]);
+  const key = "news:" + code;
+  const v = await twCached(key, 300000, async () => {
+    /* the company name alone finds more than name + code; widen the window and the wording until something turns up */
+    const heads = async () => {
+      for (const q of [(name ? '"' + name + '" ' : code + " ") + "when:30d", (name ? name + " " : "") + code + " 股票", name || code]) {
+        const h = await twHeadlines(q, 12).catch(() => []); if (h.length >= 3) return h;
+        if (q === name || q === code) return h;
+      }
+      return [];
+    };
+    const [news, ann] = await Promise.all([heads(), twAnnouncements(code, env).catch(() => [])]);
     return { news, ann };
   });
+  if (!v.news.length && !v.ann.length) twCache.delete(key);          /* an empty answer may be a refusal from the source: ask again next time */
   return json({ at: Date.now(), ...v }, 200, { "Cache-Control": "no-store" });
 }
 function twPrompt(code, name, facts, news, ann, world) {

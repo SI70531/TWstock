@@ -1858,8 +1858,9 @@
     el.innerHTML = `<p class="sub">載入中…</p>`;
     try {
       const j = await J(`${WORKER}/tw/news?c=${encodeURIComponent(code)}&n=${encodeURIComponent(s ? s.name : "")}`);
-      const html = newsHTML(j.news, j.ann) || `<p class="sub">近兩週沒有找到相關新聞或公告。</p>`;
-      NEWS.set(code, html); if (code === CODE) el.innerHTML = html;
+      const real = newsHTML(j.news, j.ann), html = real || `<p class="sub">近一個月沒有找到相關新聞或公告。</p>`;
+      if (real) NEWS.set(code, html);          /* an empty answer is not kept, so opening the stock again asks again */
+      if (code === CODE) el.innerHTML = html;
     } catch (e) { if (code === CODE) el.innerHTML = `<p class="sub">新聞需要部署新版 Worker 後才會出現。</p>`; }
   }
   async function setStock(code, animate) {
