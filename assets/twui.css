@@ -314,10 +314,10 @@ p.skel, div.skel.block { min-height: 64px; }
 @keyframes mkglow { 50% { box-shadow: 0 0 26px -2px var(--color-accent), 0 0 4px var(--ring-b); } }
 
 /* neon figures: the big numbers glow in their market colour */
-.big, .sb-clock .t, .mcell b, .bd-tile span { text-shadow: 0 0 18px color-mix(in oklch, currentColor 45%, transparent), 0 0 2px color-mix(in oklch, currentColor 60%, transparent); }
-.big.up, .ixchg.up, .sb-ix b.up { text-shadow: 0 0 16px color-mix(in oklch, var(--color-up) 75%, transparent), 0 0 3px var(--color-up); }
-.big.down, .ixchg.down, .sb-ix b.down { text-shadow: 0 0 16px color-mix(in oklch, var(--color-down) 75%, transparent), 0 0 3px var(--color-down); }
-:root[data-theme="light"] .big, :root[data-theme="light"] .mcell b { text-shadow: 0 0 14px color-mix(in oklch, currentColor 25%, transparent); }
+.big, .sb-clock .t, .mcell b, .bd-tile span { text-shadow: 0 0 10px color-mix(in oklch, currentColor 22%, transparent); }
+.big.up, .ixchg.up, .sb-ix b.up { text-shadow: 0 0 8px color-mix(in oklch, var(--color-up) 35%, transparent); }
+.big.down, .ixchg.down, .sb-ix b.down { text-shadow: 0 0 8px color-mix(in oklch, var(--color-down) 35%, transparent); }
+:root[data-theme="light"] .big, :root[data-theme="light"] .mcell b { text-shadow: none; }
 .sb-clock .t { background: linear-gradient(90deg, var(--color-ink), var(--ring-c), var(--color-ink)); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: rainbow 6s linear infinite; }
 
 /* buttons and chips shimmer */
