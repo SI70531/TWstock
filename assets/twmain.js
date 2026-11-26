@@ -66,7 +66,7 @@
   const DB = { list: [], by: new Map(), live: false, date: "", rt: null, rtAt: "", err: "" };
   const IDX = [{ k: "t00", name: "加權指數", en: "TAIEX" }, { k: "fut", name: "台指期", en: "TX" }, { k: "o00", name: "櫃買指數", en: "TPEx" }, { k: "exf", name: "電子期", en: "EXF" },
     { k: "dji", name: "道瓊", en: "DJIA", us: "^DJI" }, { k: "spx", name: "標普 500", en: "S&P 500", us: "^GSPC" }, { k: "ixic", name: "那斯達克", en: "NASDAQ", us: "^IXIC" }, { k: "sox", name: "費城半導體", en: "SOX", us: "^SOX" }];
-  const T_START = Date.now(); setTimeout(() => { try { paintIdx(); } catch (e) {} }, 31000);   /* "讀不到資料" only after 30 seconds of trying */
+  const T_START = Date.now(); setTimeout(() => { try { paintIdx(); } catch (e) {} }, 31000); setTimeout(() => { try { paintIdx(); } catch (e) {} }, 6200);   /* "讀不到資料" only after 30 seconds of trying */
   const isFut = k => k === "fut" || k === "exf";
   const MKT = { rows: null, inst: null };          /* TAIEX history rows and the institutions of the day */
   let WATCH = store.get("twtrade-watch", DEFAULT_WATCH);
@@ -571,6 +571,8 @@
       const cd = CH[i.k + ":tick"];
       if (i.us && cd && cd.high > 0) { i.h = cd.high; i.l = cd.low; }   /* no live quote from the Worker: fall back on the chart's last bar (Yahoo, a little delayed) */
       if (!i.rt && cd && cd.last > 0) { const tz = cd.at ? new Date(cd.at + 8 * 3600e3).toISOString() : ""; Object.assign(i, { z: cd.last, y: cd.prev, h: cd.high, l: cd.low, tm: i.us ? "" : tz.slice(11, 19), src: i.us ? "UTC+8 " + tz.slice(5, 16).replace("-", "/").replace("T", " ") : "延遲" }); }
+      /* the first time a card shows its number, its line must be ready too, so the count-up and the line draw start together and end together (give up waiting after 6 s) */
+      if (ok(i.z) && !c.dataset.shown) { const sp = $(".spark path", c); if (!(sp && sp.getAttribute("d")) && Date.now() - T_START < 6000) { c.classList.add("ixwait"); return; } c.dataset.shown = "1"; }
       const d = ok(i.z) && ok(i.y) ? i.z - i.y : NaN, t = tone(d), big = $(".big", c);
       if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); const ix = $(".ixn", c), tt = sub ? i.name + " (" + sub + ")" : i.name; if (ix.dataset.t !== tt) { ix.dataset.t = tt; ix.innerHTML = esc(tt) + `<em class="ixen">${i.en}</em>`; } }
       $(".ixsrc", c).textContent = i.src ? i.src + (i.tm ? " " + i.tm.slice(0, 5) : "") : "";
@@ -1930,6 +1932,7 @@
       svg.setAttribute("class", "spark up");
       if (!svg.dataset.drawn) { svg.dataset.drawn = "1"; pth.setAttribute("pathLength", "1"); pth.classList.remove("spdraw"); void pth.getBoundingClientRect(); pth.classList.add("spdraw"); }
     });
+    if ($(".ixcard:not([data-shown])")) paintIdx();   /* a card was waiting for its line: show number and line together now */
   }
   function ixOpen(k) {
     const panel = $("#dpOverview .ixdetail");
