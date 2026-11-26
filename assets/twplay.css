@@ -250,3 +250,8 @@ html.vt-stk #dpStock .shead { view-transition-name: stkx; }
 /* index-card line: hidden while loading, one colour whatever the direction */
 :root .ixcard.ixwait svg.spark { display: none; }
 :root .ixcard svg.spark path, :root .ixcard svg.spark.up path, :root .ixcard svg.spark.down path { stroke: #3b82c4; }
+
+/* the line draws left to right in the same 0.7 s (ease-out cubic) as the number count-up, so both finish together */
+:root .ixcard svg.spark path.spdraw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: spdraw .7s cubic-bezier(.215,.61,.355,1) forwards; }
+@keyframes spdraw { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) { :root .ixcard svg.spark path.spdraw { animation: none; stroke-dashoffset: 0; } }
