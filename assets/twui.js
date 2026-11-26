@@ -146,11 +146,12 @@
   }
   function paintSide() {
     const side = $(".side"); if (!side || !A) return;
+    const sp = p => { const v = Number.isFinite(p) ? Math.round(p * 100) / 100 : 0; return (v < 0 ? "" : "+") + (v || 0).toFixed(2) + "%"; };
     const fmt = (v, d) => (Number.isFinite(v) ? v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }) : "—");
     A.IDX.slice(0, 2).forEach(i => {
       const p = Number.isFinite(i.z) && Number.isFinite(i.y) ? (i.z / i.y - 1) * 100 : NaN;
       $$(`.sb-ix[data-k="${i.k}"] b`).forEach(el => {
-        el.textContent = Number.isFinite(i.z) ? `${fmt(i.z, 2)}  ${Number.isFinite(p) ? (p > 0 ? "+" : "") + p.toFixed(2) + "%" : ""}` : "—";
+        el.textContent = Number.isFinite(i.z) ? `${fmt(i.z, 2)}  ${sp(p)}` : "—";
         el.className = p > 0 ? "up" : p < 0 ? "down" : "";
       });
     });
@@ -158,7 +159,7 @@
     if (box && A.DB.list.length) box.innerHTML = W.length ? W.map(c => {
       const s = A.DB.by.get(c); if (!s) return "";
       const t = s.chg > 0 ? "up" : s.chg < 0 ? "down" : "";
-      return `<button type="button" class="sb-row" data-code="${A.esc(c)}"><b>${A.esc(s.name)}</b><span class="p ${t}">${fmt(s.price, s.price < 50 ? 2 : s.price < 1000 ? 1 : 0)}</span><span>${A.esc(c)}</span><span class="p ${t}">${(s.pct > 0 ? "+" : "") + (s.pct || 0).toFixed(2)}%</span></button>`;
+      return `<button type="button" class="sb-row" data-code="${A.esc(c)}"><b>${A.esc(s.name)}</b><span class="p ${t}">${fmt(s.price, s.price < 50 ? 2 : s.price < 1000 ? 1 : 0)}</span><span>${A.esc(c)}</span><span class="p ${t}">${sp(s.pct)}</span></button>`;
     }).join("") : `<p class="sb-empty">還沒有自選股。在清單點 ★ 加入。</p>`;
     /* the aurora leans red or green with the TAIEX */
     const ix = A.IDX[0], p = Number.isFinite(ix.z) && Number.isFinite(ix.y) ? (ix.z / ix.y - 1) * 100 : 0;
