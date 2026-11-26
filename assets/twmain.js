@@ -2297,6 +2297,7 @@
   }
   function openNow(id, animate, quiet) {
     const b = tabs.find(t => t.dataset.p === id) || tabs[0], panel = document.getElementById(b.dataset.p), same = cur === b.dataset.p;
+    if (!same && cur) scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });   /* a different menu starts at the top */
     if (b.dataset.p !== "dpStock" && typeof BACK !== "undefined" && BACK) { BACK = null; showBack(); }
     tabs.forEach(t => t.setAttribute("aria-selected", t === b ? "true" : "false"));
     movePill(b, animate);
