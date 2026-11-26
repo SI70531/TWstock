@@ -1151,12 +1151,35 @@ async function twMargin(url, json, fail) {
 }
 
 /* shareholding distribution (集保戶股權分散表): one big weekly file, read once and searched as text */
+/* the TDCC file covers the whole market (tens of MB): stream it, keep only the rows of the stock asked for and stop reading there */
+async function twTdccRows(c) {
+  const r = await twFetch("https://openapi.tdcc.com.tw/v1/opendata/1-5", { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
+  if (!r.ok || !r.body) throw new Error("TDCC " + r.status);
+  const marker = new RegExp('"證券代號"\\s*:\\s*"\\s*' + c + '\\s*"'), rd = r.body.getReader(), dec = new TextDecoder(); let buf = "", found = false, grabbed = "";
+  try {
+    for (;;) {
+      const { done, value } = await rd.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      if (!found) {
+        const at = buf.search(marker);
+        if (at < 0) { buf = buf.slice(-600); continue; }
+        found = true; buf = buf.slice(Math.max(0, buf.lastIndexOf("{", at)));
+      }
+      if (found) {
+        /* stop once a later row belongs to another stock, or enough text for the 17 levels has arrived */
+        const other = [...buf.matchAll(/"證券代號"\s*:\s*"([^"]*)"/g)].some(m => m[1].trim() !== c);
+        if (other || buf.length > 17 * 320) { grabbed = buf; break; }
+      }
+    }
+    if (found && !grabbed) grabbed = buf;
+  } finally { try { await rd.cancel(); } catch (e) {} }
+  return grabbed;
+}
 async function twHolders(url, json, fail) {
   const c = codeOf(url); if (!c) return fail(400, "BAD_CODE", "Bad stock code");
-  const text = await twCached("tdcc", 6 * 3600e3, async () => { const r = await twFetch("https://openapi.tdcc.com.tw/v1/opendata/1-5", { headers: { "User-Agent": TW_UA, Accept: "application/json" } }); if (!r.ok) throw new Error("TDCC " + r.status); return r.text(); }).catch(() => null);
-  if (!text) { twCache.delete("tdcc"); return fail(502, "NO_DATA", "集保的股權分散表暫時讀不到"); }
-  const at = text.indexOf('"證券代號":"' + c + '"'); if (at < 0) return fail(404, "NO_DATA", "集保沒有這檔的股權分散資料");
-  const from = text.lastIndexOf("{", at), seg = text.slice(from, from + 17 * 260), lv = [];
+  let seg; try { seg = await twCached("tdcc:" + c, 6 * 3600e3, () => twTdccRows(c)); } catch (e) { return fail(502, "NO_DATA", "集保的股權分散表暫時讀不到"); }
+  if (!seg) { twCache.delete("tdcc:" + c); return fail(404, "NO_DATA", "集保沒有這檔的股權分散資料"); }
+  const lv = [];
   let date = "";
   for (const m of seg.matchAll(/\{[^{}]*\}/g)) {
     let o; try { o = JSON.parse(m[0]); } catch (e) { continue; }
