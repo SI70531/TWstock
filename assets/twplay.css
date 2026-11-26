@@ -277,3 +277,10 @@ input:focus, select:focus, textarea:focus { animation: focuspulse .45s ease-out;
 @keyframes focuspulse { from { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-accent) 55%, transparent); } to { box-shadow: 0 0 0 8px transparent; } }
 .dpanel { animation: dpin .35s cubic-bezier(.2,.8,.2,1); }
 @keyframes dpin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* index detail stats: label above value so long numbers never spill out of their tile */
+:root .ixdbody { grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); }
+:root .ixdstats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+:root .ixdstats .ixkv { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-width: 0; padding: 8px 12px; }
+:root .ixdstats .ixkv span { font-size: var(--text-xs); color: var(--color-muted); white-space: nowrap; }
+:root .ixdstats .ixkv b { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-md, 1rem); text-align: left; }

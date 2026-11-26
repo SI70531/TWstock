@@ -570,7 +570,7 @@
       const c = $(`.ixcard[data-k="${i.k}"]`); if (!c) return;
       const cd = CH[i.k + ":tick"];
       if (i.us && cd && cd.high > 0) { i.h = cd.high; i.l = cd.low; }   /* no live quote from the Worker: fall back on the chart's last bar (Yahoo, a little delayed) */
-      if (!i.rt && cd && cd.last > 0) Object.assign(i, { z: cd.last, y: cd.prev, h: cd.high, l: cd.low, tm: cd.at ? new Date(cd.at + 8 * 3600e3).toISOString().slice(11, 19) : "", src: "延遲" });
+      if (!i.rt && cd && cd.last > 0) { const tz = cd.at ? new Date(cd.at + 8 * 3600e3).toISOString() : ""; Object.assign(i, { z: cd.last, y: cd.prev, h: cd.high, l: cd.low, tm: i.us ? "" : tz.slice(11, 19), src: i.us ? "UTC+8 " + tz.slice(5, 16).replace("-", "/").replace("T", " ") : "延遲" }); }
       const d = ok(i.z) && ok(i.y) ? i.z - i.y : NaN, t = tone(d), big = $(".big", c);
       if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); const ix = $(".ixn", c), tt = sub ? i.name + " (" + sub + ")" : i.name; if (ix.dataset.t !== tt) { ix.dataset.t = tt; ix.innerHTML = esc(tt) + `<em class="ixen">${i.en}</em>`; } }
       $(".ixsrc", c).textContent = i.src ? i.src + (i.tm ? " " + i.tm.slice(0, 5) : "") : "";
