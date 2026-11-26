@@ -270,7 +270,7 @@
   /* ================= 總覽: 大盤籌碼溫度 ================= */
   const TP = { margin: null, tech: null, techMsg: "", techBusy: false };
   function paintTemp() {
-    const el = $("#dpOverview .xtemp"); if (!el) return;
+    const el = $(".xtemp"); if (!el) return;
     if (!A.DB.live) { el.innerHTML = msg(A.DB.list.length ? "示意資料模式下沒有籌碼資料。" : "載入中…"); return; }
     const m = TP.margin, S = (m && m.sum) || {}, T = TP.tech;
     const cell = (name, value, sub, t) => `<div class="xcell"><span>${name}</span><b>${value}</b><i class="${t || ""}">${sub}</i></div>`;
@@ -282,7 +282,7 @@
       h += cell("站上月線的股票", A.fmt(share("above20"), 1) + "%", `收盤價高於 MA20・${slash(T.date)}`) + cell("站上季線的股票", A.fmt(share("above60"), 1) + "%", "收盤價高於 MA60");
     } else h += `<div class="xcell"><span>站上月線／季線的比例</span><button type="button" class="btn" data-xtech ${TP.techBusy ? "disabled" : ""}>計算</button><i>${A.esc(TP.techMsg || "第一次約 3 分鐘，之後只讀新的日期")}</i></div>`;
     el.innerHTML = h;
-    $("#dpOverview .xtempd").textContent = m ? "上市・融資融券 " + slash(m.date) : "上市";
+    $(".xtempd").textContent = m ? "上市・融資融券 " + slash(m.date) : "上市";
   }
   async function runTempTech() {
     if (TP.techBusy) return;

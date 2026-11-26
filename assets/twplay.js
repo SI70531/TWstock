@@ -142,7 +142,7 @@
     document.addEventListener("click", async e => {
       const go = e.target.closest(".peek .pk-go"); if (go) { e.stopPropagation(); A && A.openStock(go.dataset.code); return; }
       if (e.target.closest(".peek")) { e.stopPropagation(); return; }
-      const row = e.target.closest("#dpOverview .bd-up .bd-row, #dpOverview .bd-down .bd-row, #dpOverview .bd-flag .bd-row, #dpChip .bd-strk .bd-row");
+      const row = e.target.closest(".bd-up .bd-row, .bd-down .bd-row, .bd-flag .bd-row, .bd-strk .bd-row");
       if (!row || !A) return;
       e.stopPropagation(); e.preventDefault();
       const open = row.nextElementSibling && row.nextElementSibling.classList.contains("peek") ? row.nextElementSibling : null;

@@ -497,7 +497,7 @@
     $(".anasub", pre).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) anaSub(b.dataset.sub, true); });
     anaSub(anaDefault(), false); mdGate();
     const instc = $(".inst", box), mktc = $(".mkt", box), dl = $("#dpList");
-    dl.insertAdjacentHTML("afterbegin", `<div class="anasub lsub" role="tablist" aria-label="股票">${[["ls", "清單"], ["sc", "選股"], ["rv", "營收"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
+    dl.insertAdjacentHTML("afterbegin", `<div class="anasub lsub" role="tablist" aria-label="股票">${[["ls", "清單"], ["rk", "排行"], ["sc", "選股"], ["rv", "營收"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
     mktc.dataset.sub = "ls"; dl.appendChild(mktc); instInit(instc); lstBuild(dl);
     $(".lsub", dl).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) lstSub(b.dataset.sub, true); });
     lstSub((() => { try { return sessionStorage.getItem("twlst") || "ls"; } catch (e) { return "ls"; } })(), false);
@@ -822,7 +822,7 @@
   }
   const flagTag = code => { const f = FLAGS.get(code); return f ? `<em class="sflag ${f.k}" title="${esc(f.t + "股：" + f.info)}">${f.t}</em>` : ""; };
   function paintFlagCard(animate) {
-    const card = $("#dpOverview .bd-flag"); if (!card) return;
+    const card = $(".bd-flag"); if (!card) return;
     const list = [...FLAGS.entries()].map(([c, f]) => ({ s: DB.by.get(c), f })).filter(x => x.s).sort((a, b) => (a.f.k === "punish" ? 0 : 1) - (b.f.k === "punish" ? 0 : 1) || b.s.vol - a.s.vol);
     const mineSet = new Set(LISTS.flat());
     $(".bd-n", card).textContent = FLAGS.ready ? `處置 ${list.filter(x => x.f.k === "punish").length}・注意 ${list.filter(x => x.f.k === "notice").length}` : "";
@@ -1028,8 +1028,8 @@
   let LST = "ls";
   function lstSub(k, animate) {
     const dl = $("#dpList"), bar = $(".lsub", dl); if (!bar) return;
-    if (!["ls", "sc", "rv"].includes(k)) k = "ls";
-    const order = ["ls", "sc", "rv"], prev = LST; LST = k;
+    if (!["ls", "rk", "sc", "rv"].includes(k)) k = "ls";
+    const order = ["ls", "rk", "sc", "rv"], prev = LST; LST = k;
     try { if (animate) sessionStorage.setItem("twlst", k); } catch (e) {}
     const bs = $$("[data-sub]", bar), b = bs.find(x => x.dataset.sub === k) || bs[0];
     bs.forEach(x => x.setAttribute("aria-selected", String(x === b)));
@@ -1972,9 +1972,9 @@
     $(".bd-n", box).textContent = `${fmt(live.length)} 檔`;
     $(".bd-bars", box).innerHTML = B.map((b, i) => `<button type="button" class="bd-col" data-dist="${i}" aria-label="漲跌幅 ${b[0]}：${cnt[i]} 檔，點一下在股票清單列出"><span class="bd-c">${fmt(cnt[i])}</span><i class="bd-b ${b[2]}" style="--h:${(cnt[i] / mx * 100).toFixed(1)}%"></i><span class="bd-l">${b[0]}</span></button>`).join("");
     const row = (s, v, t) => `<button type="button" class="bd-row" data-code="${esc(s.code)}"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i></span><span class="bd-px">${fmt(s.price, dig(s.price))}</span><span class="bd-v ${t}">${v}</span></button>`;
-    const up = liq.slice().sort((a, b) => b.pct - a.pct).slice(0, 8), dn = liq.slice().sort((a, b) => a.pct - b.pct).slice(0, 8), vol = live.slice().sort((a, b) => b.vol - a.vol).slice(0, 8), vmx = vol.length ? vol[0].vol : 1;
-    $(".bd-up .bd-list", box).innerHTML = up.map(s => row(s, pct(s.pct), "up")).join("");
-    $(".bd-down .bd-list", box).innerHTML = dn.map(s => row(s, pct(s.pct), "down")).join("");
+    const up = liq.slice().sort((a, b) => b.pct - a.pct).slice(0, 15), dn = liq.slice().sort((a, b) => a.pct - b.pct).slice(0, 15), vol = live.slice().sort((a, b) => b.vol - a.vol).slice(0, 8), vmx = vol.length ? vol[0].vol : 1;
+    $(".bd-up .bd-list").innerHTML = up.map(s => row(s, pct(s.pct), "up")).join("");
+    $(".bd-down .bd-list").innerHTML = dn.map(s => row(s, pct(s.pct), "down")).join("");
     ($(".bd-vol .bd-list", box) || {}).innerHTML = vol.map(s => `<button type="button" class="bd-row bd-vrow" data-code="${esc(s.code)}" style="--w:${(s.vol / vmx * 100).toFixed(1)}%"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i></span><span class="bd-px ${tone(s.chg)}">${pct(s.pct)}</span><span class="bd-v">${fmt(s.vol)}</span></button>`).join("");
     const a = PMN && PMN.analysis;
     ($(".bd-pmout", box) || {}).innerHTML = a ? `<div class="bd-call"><span class="aitag ${/高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : ""}">${esc(a.call)}</span><span class="sub">預測 ${esc(String(PMN.day).slice(5).replace("-", "/"))} 開盤・${esc(a.gap || "")}</span>${a.close && a.close.call ? `<span class="aitag ${/紅/.test(a.close.call) ? "up" : /黑/.test(a.close.call) ? "down" : ""}">${esc(a.close.call)}</span><span class="sub">收盤 ${esc(a.close.range || "")}</span>` : ""}</div><p class="bd-head">${esc(a.headline || "")}</p>
@@ -2421,7 +2421,7 @@
 
   /* ---------- the command palette (Ctrl+K): any stock, any tab, light / dark ---------- */
   let pal = null;
-  const PAGES = [["dpOverview", "總覽", "大盤、國際行情、漲跌排行"], ["dpInd", "產業", "類股熱力圖、產業輪動、族群"], ["dpChip", "籌碼", "法人、融資融券、期貨籌碼"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "AI 收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"], ["dpCal", "市場日曆", "除權息、股東會、結算日"]];
+  const PAGES = [["dpOverview", "總覽", "大盤、國際行情、漲跌分布"], ["dpChip", "籌碼", "籌碼溫度、法人、融資融券、注意股"], ["dpInd", "產業", "類股熱力圖、產業輪動、族群"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "AI 收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"], ["dpCal", "市場日曆", "除權息、股東會、結算日"]];
   function palOpen() {
     if (pal) { $("input", pal).focus(); return; }
     pal = document.createElement("div"); pal.className = "pal"; pal.setAttribute("role", "dialog"); pal.setAttribute("aria-modal", "true"); pal.setAttribute("aria-label", "搜尋");

@@ -100,3 +100,12 @@
 .rdays { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 4px; }
 .rdays em { font-style: normal; text-align: center; }
 .rc { display: block; height: 22px; border-radius: 6px; }
+
+/* 總覽 after the move: the distribution chart keeps the whole row */
+.board > .bd-dist:only-child { grid-column: 1 / -1; }
+/* 股票 → 排行 */
+.rkgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; }
+@media (max-width: 720px) { .rkgrid { grid-template-columns: minmax(0, 1fr); } }
+.rkgrid > div { min-width: 0; }
+.rkgrid > .bd-up, .rkgrid > .bd-down { grid-column: auto !important; width: auto; display: flex; flex-direction: column; gap: 10px; }
+.board > .bd-dist { grid-column: 1 / -1 !important; }

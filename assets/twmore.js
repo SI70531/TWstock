@@ -136,7 +136,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
 
   /* ================= pull down to refresh (touch, at the top of the page) ================= */
   /* ================= keyboard ================= */
-  const KEYS = [["/", "搜尋股票與功能"], ["1 至 8", "切換 總覽／產業／籌碼／股票／持股與損益／分析／復盤／市場日曆"], ["J　K", "個股頁：下一檔／上一檔自選股"], ["R", "立即更新行情"], ["?", "顯示這份說明"], ["Esc", "關閉視窗"]];
+  const KEYS = [["/", "搜尋股票與功能"], ["1 至 8", "切換 總覽／籌碼／產業／股票／持股與損益／分析／復盤／市場日曆"], ["J　K", "個股頁：下一檔／上一檔自選股"], ["R", "立即更新行情"], ["?", "顯示這份說明"], ["Esc", "關閉視窗"]];
   function keyHelp() {
     let el = $(".kbhelp"); if (el) { el.remove(); return; }
     el = document.createElement("div"); el.className = "kbhelp"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "鍵盤快捷鍵");
@@ -151,7 +151,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
       if (e.key === "Escape") { const h = $(".kbhelp"); if (h) h.remove(); return; }
       if (e.key === "?") { e.preventDefault(); keyHelp(); return; }
       if (e.key === "/") { e.preventDefault(); document.dispatchEvent(new Event("twdash:palette")); return; }
-      if (/^[1-8]$/.test(e.key)) { const p = ["dpOverview", "dpInd", "dpChip", "dpList", "dpHold", "dpPre", "dpRev", "dpCal"][+e.key - 1], b = $(`.dtabs button[data-p="${p}"]`); if (b && !b.hidden) b.click(); return; }
+      if (/^[1-8]$/.test(e.key)) { const p = ["dpOverview", "dpChip", "dpInd", "dpList", "dpHold", "dpPre", "dpRev", "dpCal"][+e.key - 1], b = $(`.dtabs button[data-p="${p}"]`); if (b && !b.hidden) b.click(); return; }
       if ((e.key === "j" || e.key === "k") && A.tabNow() === "dpStock" && !(t && t.matches && t.matches("tr[data-code]"))) { stepStock(e.key === "j" ? 1 : -1, false); return; }
       if (e.key === "r" || e.key === "R") { A.refresh && A.refresh(); }
     });

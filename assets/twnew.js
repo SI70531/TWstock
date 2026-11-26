@@ -33,6 +33,7 @@
     const panel = $("#dpChip"); if (!panel) return;
     panel.innerHTML = `<div class="nwgrid"></div>`;
     const grid = $(".nwgrid", panel);
+    const temp = $(".xtempcard"); if (temp) { temp.classList.add("wide"); grid.appendChild(temp); }
     [$(".ft"), $(".bd-strk")].forEach(c => c && grid.appendChild(c));
     const inst = $(".inst"); if (inst) { inst.classList.add("wide"); grid.appendChild(inst); }
     grid.insertAdjacentHTML("beforeend", `<div class="dcard mg wide"><div class="aihead"><div><h3>融資融券增減排行</h3></div><span class="sub mgday"></span></div>
@@ -43,7 +44,16 @@
     seg.addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (!b) return; $$("[data-g]", seg).forEach(x => x.setAttribute("aria-pressed", String(x === b))); MG.k = b.dataset.g; A.segMark(seg); mgPaint(true); });
     if (window.ResizeObserver) new ResizeObserver(() => A.segMark(seg)).observe(seg);
     mg.addEventListener("click", e => { const r = e.target.closest(".instrow"); if (r) A.openStock(r.dataset.code); });
-    const b2 = $(".board2"); if (b2) b2.classList.add("solo");
+    const flag = $(".bd-flag"); if (flag) { flag.classList.add("wide"); grid.appendChild(flag); }
+    const b2 = $(".board2"); if (b2 && !b2.children.length) b2.remove();
+    /* 股票 → 排行: the day's biggest gainers and losers, moved from 總覽 */
+    const dl = $("#dpList"), up = $(".bd-up"), dn = $(".bd-down");
+    if (dl && up && dn) {
+      const rk = document.createElement("div"); rk.className = "dcard rk"; rk.dataset.sub = "rk"; rk.hidden = true;
+      rk.innerHTML = `<div class="rkgrid"></div>`; [up, dn].forEach(c => { c.classList.remove("dcard"); $(".rkgrid", rk).appendChild(c); });
+      const mkt = $(".mkt", dl); (mkt || dl.lastElementChild).after(rk);
+      rk.addEventListener("click", e => { const r = e.target.closest("[data-code]"); if (r) A.openStock(r.dataset.code, r); });
+    }
   }
   async function mgLoad() {
     if (MG.loading) return; MG.loading = true;
