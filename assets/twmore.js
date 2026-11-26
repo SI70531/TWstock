@@ -305,9 +305,10 @@
     const HK = "twlab-hold";
     /* selling now: broker fee (0.1425% x your discount, at least NT$20) and securities transaction tax (0.3% stocks, 0.1% ETFs) come off the profit */
     const sell = (code, mv, shares) => { const fee = Math.max(shares % 1000 ? 1 : 20, Math.round(mv * 0.001425)), tax = Math.round(mv * (/^00/.test(code) ? 0.001 : 0.003)); return { fee, tax }; };
+    const dayNet = (code, p, chg, shares) => { if (!Number.isFinite(p) || !Number.isFinite(chg)) return NaN; const a = sell(code, p * shares, shares), b = sell(code, (p - chg) * shares, shares); return chg * shares - (a.fee + a.tax - b.fee - b.tax); };
     function holdBody() {
       const H = store.get(HK, []) || [];
-      const rows = H.map(h => { const p = px(h.code), mv = Number.isFinite(p) ? p * h.shares : NaN, c = Number.isFinite(mv) ? sell(h.code, mv, h.shares) : { fee: 0, tax: 0 }, pl = mv - c.fee - c.tax - h.cost; return { h, p, mv, pl, c, rt: pl / h.cost * 100, day: (DB.by.get(h.code) || {}).chg * h.shares }; });
+      const rows = H.map(h => { const p = px(h.code), mv = Number.isFinite(p) ? p * h.shares : NaN, c = Number.isFinite(mv) ? sell(h.code, mv, h.shares) : { fee: 0, tax: 0 }, pl = mv - c.fee - c.tax - h.cost; return { h, p, mv, pl, c, rt: pl / h.cost * 100, day: dayNet(h.code, p, (DB.by.get(h.code) || {}).chg, h.shares) }; });
       const tot = rows.reduce((a, r) => { a.cost += r.h.cost; if (Number.isFinite(r.mv)) { a.mv += r.mv; a.fees += r.c.fee + r.c.tax; } if (Number.isFinite(r.day)) a.day += r.day; return a; }, { cost: 0, mv: 0, day: 0, fees: 0 });
       const net = tot.mv - tot.fees - tot.cost;
       return `<h3 class="sbtitle">持股與損益</h3><div class="sbsum"><div><span>總市值</span><b data-s="mv">${Number.isFinite(tot.mv) && tot.mv ? Math.round(tot.mv).toLocaleString("en-US") : "—"}</b></div><div><span>預估損益</span><b data-s="pl" class="${tone(net)}">${rows.length ? sgn(net) : "—"}</b></div><div><span>報酬率</span><b data-s="rt" class="${tone(net)}">${tot.cost ? sgn(net / tot.cost * 100, 2) + "%" : "—"}</b></div><div><span>今日損益</span><b data-s="day" class="${tone(tot.day)}">${rows.length ? sgn(tot.day) : "—"}</b></div></div>
@@ -317,7 +318,7 @@
     function holdView() { return page("hold", "持股與損益", holdBody()); }
     function holdLive() {
       if (!isOn("hold")) return; const H = store.get(HK, []) || []; let mv = 0, cost = 0, day = 0, fees = 0;
-      H.forEach(h => { const x = DB.by.get(h.code), p = px(h.code), tr = $(`tr[data-c="${h.code}"]`, cur); cost += h.cost; if (!Number.isFinite(p)) return; const v = p * h.shares, c = sell(h.code, v, h.shares), pl = v - c.fee - c.tax - h.cost; mv += v; fees += c.fee + c.tax; day += (x.chg || 0) * h.shares;
+      H.forEach(h => { const x = DB.by.get(h.code), p = px(h.code), tr = $(`tr[data-c="${h.code}"]`, cur); cost += h.cost; if (!Number.isFinite(p)) return; const v = p * h.shares, c = sell(h.code, v, h.shares), pl = v - c.fee - c.tax - h.cost; mv += v; fees += c.fee + c.tax; day += dayNet(h.code, p, x.chg || 0, h.shares) || 0;
         if (tr) { const set = (k, t, c) => { const td = $(`[data-k=${k}]`, tr); if (td && td.textContent !== t) { td.textContent = t; if (c) td.className = c; } }; set("p", fmt(p, p < 50 ? 2 : 1), tone(x.chg)); set("mv", Math.round(v).toLocaleString("en-US")); set("pl", sgn(Math.round(pl)), tone(pl)); set("rt", sgn(pl / h.cost * 100, 2) + "%", tone(pl)); } });
       const S = (k, t, c) => { const b = $(`[data-s=${k}]`, cur); if (b && b.textContent !== t) { b.textContent = t; if (c) b.className = c; } };
       S("mv", Math.round(mv).toLocaleString("en-US")); const nt = mv - fees - cost; S("pl", sgn(nt), tone(nt)); S("rt", cost ? sgn(nt / cost * 100, 2) + "%" : "—", tone(nt)); S("day", sgn(day), tone(day));
