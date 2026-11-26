@@ -134,21 +134,6 @@
   }
 
   /* ================= pull down to refresh (touch, at the top of the page) ================= */
-  function pull() {
-    const ind = document.createElement("div"); ind.className = "ptr"; ind.innerHTML = `<i></i><span>下拉更新</span>`; document.body.appendChild(ind);
-    let y0 = 0, dy = 0, on = false, busy = false;
-    const set = (d, txt) => { ind.style.transform = `translate(-50%, ${Math.min(d, 90) - 60}px)`; ind.style.opacity = Math.min(1, d / 60); $("i", ind).style.transform = `rotate(${d * 4}deg)`; if (txt) $("span", ind).textContent = txt; };
-    document.addEventListener("touchstart", e => { on = false; if (busy || scrollY > 2 || e.touches.length !== 1 || e.target.closest("svg, canvas, input, textarea, .ixdetail, [data-noswipe]")) return; y0 = e.touches[0].clientY; dy = 0; on = true; }, { passive: true });
-    document.addEventListener("touchmove", e => { if (!on) return; dy = (e.touches[0].clientY - y0) * 0.5; if (dy <= 0) { on = false; set(0); return; } set(dy, dy > 45 ? "放開更新" : "下拉更新"); }, { passive: true });
-    document.addEventListener("touchend", () => {
-      if (!on) return; on = false;
-      if (dy > 45) {
-        busy = true; set(56, "更新中…"); $("i", ind).classList.add("spin");
-        Promise.resolve(A.refresh && A.refresh()).catch(() => {}).then(() => new Promise(r => setTimeout(r, 500))).finally(() => { $("i", ind).classList.remove("spin"); ind.style.transition = "transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s"; set(0); setTimeout(() => { ind.style.transition = ""; busy = false; }, 400); });
-      } else { ind.style.transition = "transform .3s, opacity .3s"; set(0); setTimeout(() => { ind.style.transition = ""; }, 320); }
-    }, { passive: true });
-  }
-
   /* ================= keyboard ================= */
   const KEYS = [["/", "搜尋股票與功能"], ["1　2　3", "切換 總覽／分析／股票"], ["J　K", "個股頁：下一檔／上一檔自選股"], ["R", "立即更新行情"], ["?", "顯示這份說明"], ["Esc", "關閉視窗"]];
   function keyHelp() {
@@ -176,7 +161,7 @@
     let tries = 0; const t = setInterval(() => { if (mountList() || ++tries > 40) clearInterval(t); }, 250);
     document.addEventListener("twdash:list", () => { if ($("#dpList .cm") && !$("#dpList .cm").hidden) cmPaint(false); });
     setInterval(ritualTick, 1000); ritualTick();
-    swipe(); pull(); keys();
+    swipe(); keys();
     sideToggle(); popAnim(); closeAnim(); actionAnim();
     window.TWDash.ritual = ritualShow;      /* TWDash.ritual("open") plays the opening animation for a look */
   }

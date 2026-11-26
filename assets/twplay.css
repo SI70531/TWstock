@@ -218,9 +218,6 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .ritchip b { font-size: var(--text-md); } .ritchip span { font: 500 var(--text-sm) var(--font-outlier); }
 .ritchip.up b { color: var(--color-up); } .ritchip.down b { color: var(--color-down); }
 /* pull to refresh */
-.ptr { position: fixed; left: 50%; top: 0; transform: translate(-50%, -60px); opacity: 0; z-index: 9997; display: flex; gap: 8px; align-items: center; padding: 8px 14px; border-radius: 999px; background: var(--glass-2, rgba(255,255,255,.9)); border: 1px solid var(--glass-line-2, #ccd); font-size: var(--text-sm); pointer-events: none; backdrop-filter: blur(12px); }
-.ptr i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ring-b, #58a); border-top-color: transparent; } .ptr i.spin { animation: ptrSpin .7s linear infinite; }
-@keyframes ptrSpin { to { transform: rotate(360deg); } }
 /* keyboard help */
 .kbhelp { position: fixed; inset: 0; z-index: 10000; display: grid; place-items: center; background: rgba(10,14,25,.38); backdrop-filter: blur(4px); }
 .kbcard { min-width: 280px; max-width: 90vw; padding: 20px 22px; border-radius: 20px; background: var(--glass-2, #fff); border: 1px solid var(--glass-line-2, #ccd); display: grid; gap: 10px; }
@@ -288,3 +285,5 @@ input:focus, select:focus, textarea:focus { animation: focuspulse .45s ease-out;
 .slab { display: none !important; }
 .fqgrid .fgh, .fqgrid .fgr { grid-template-columns: 3.4em repeat(3, minmax(0, 1fr)); }
 .fqgrid .fgh span { white-space: nowrap; }
+
+html, body { overscroll-behavior-y: contain; }
