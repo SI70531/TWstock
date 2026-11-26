@@ -243,10 +243,14 @@
     }
     const ROWS = "tbody tr, .bd-row, .sk-row, .fl-row, .cl-row, .fgr, .ftrow, .wdcell, .mcell, .newsitem, .levent, .lscen, .pnlrow, .dvday, .hrow";
     function rows(host) {
+      const list = $$(ROWS, host).filter(el => !el.closest(".side, .xghost")).slice(0, 60), bars = $$(".bd-b, .hmb, .vbar", host), cnt = $$(".bd-c", host), fills = $$(".fgb i, .ftbar i, .bd-bar i", host);
+      if (!list.length && !bars.length && !fills.length) return;   /* nothing rendered yet: wait for it */
       if (quiet(host) && Date.now() - lastAct > 1500) return; seenAt.set(host, Date.now());
-      const list = $$(ROWS, host).filter(el => !el.closest(".side, .xghost")).slice(0, 60);
+      bars.forEach((el, i) => { try { el.style.transformOrigin = "bottom"; el.animate([{ transform: "scaleY(0)", opacity: .3 }, { transform: "scaleY(1)", opacity: 1 }], { duration: 750, delay: i * 55, easing: "cubic-bezier(.2,.9,.3,1.1)", fill: "backwards" }); } catch (e) {} });
+      cnt.forEach((el, i) => { const txt = el.textContent, v = parseFloat(txt.replace(/,/g, "")); if (!Number.isFinite(v)) return; const t0 = performance.now() + i * 55, dur = 750; el.dataset.txt = txt;
+        const step = now => { if (el.dataset.txt !== txt || !el.isConnected) return; const k = Math.max(0, Math.min(1, (now - t0) / dur)), e = 1 - Math.pow(1 - k, 3); el.textContent = k < 1 ? Math.round(v * e).toLocaleString("en-US") : txt; if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
       list.forEach((el, i) => { try { el.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 380, delay: Math.min(i, 20) * 35, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }); } catch (e) {} });
-      $$(".fgb i, .ftbar i, .bd-bar i", host).forEach(el => { try { el.style.transformOrigin = "left"; el.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 700, delay: 120, easing: E, fill: "backwards" }); } catch (e) {} });
+      fills.forEach(el => { try { el.style.transformOrigin = "left"; el.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 700, delay: 120, easing: E, fill: "backwards" }); } catch (e) {} });
     }
     let lastAct = 0; ["click", "keydown", "pointerup", "change"].forEach(t => document.addEventListener(t, () => { lastAct = Date.now(); }, true));
     const io = new IntersectionObserver(es => es.forEach(en => {
@@ -255,7 +259,8 @@
     }), { threshold: 0.15 });
     const watch = root => {
       if (!root.querySelectorAll) return;
-      const svgs = root.matches && root.matches("svg") ? [root] : $$("svg", root), hosts = (root.matches && root.matches("table") ? [root] : []).concat($$("table, .bd-list, .wdgrid, .fgrid, .fqgrid, .ftgrid, .newslist, .mstrip, .ixdstats, .snapgrid", root));
+      const up = root.closest && root.closest("table, .bd-bars, .bd-tiles, .bd-list, .wdgrid, .fgrid, .fqgrid, .ftgrid, .newslist, .mstrip, .ixdstats, .snapgrid"); if (up) { done.delete(up); io.observe(up); }
+      const svgs = root.matches && root.matches("svg") ? [root] : $$("svg", root), hosts = (root.matches && root.matches("table, .bd-bars, .bd-tiles, .bd-list, .wdgrid, .fgrid, .fqgrid, .ftgrid, .newslist, .mstrip, .ixdstats, .snapgrid") ? [root] : []).concat($$("table, .bd-bars, .bd-tiles, .bd-list, .wdgrid, .fgrid, .fqgrid, .ftgrid, .newslist, .mstrip, .ixdstats, .snapgrid", root));
       svgs.forEach(el => { if (!done.has(el) && !el.closest(SKIP) && !el.matches(SKIP)) io.observe(el); });
       hosts.forEach(el => { if (!done.has(el) && !el.closest(".side, .xghost")) io.observe(el); });
     };
