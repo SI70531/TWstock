@@ -1227,7 +1227,8 @@
       el.innerHTML = who.map(([k, l]) => { const x = j[k]; if (!x || x.net == null) return ""; return `<div class="ftrow"><span>${l}</span><span class="ftbar"><i class="${tone(x.net)}" style="width:${Math.max(3, Math.abs(x.net) / mx * 100).toFixed(0)}%"></i></span><b class="${tone(x.net)}">${x.net > 0 ? "+" : ""}${x.net.toLocaleString("zh-TW")}</b><em>多 ${(x.long || 0).toLocaleString("zh-TW")}／空 ${(x.short || 0).toLocaleString("zh-TW")}</em></div>`; }).join("") + spark + `<p class="sub ftfoot">${esc(String(j.date).slice(5).replace("-", "/"))} 收盤後，單位：口。淨口數為正代表偏多、為負代表偏空。</p>`;
     } catch (e) { el.innerHTML = `<p class="sub">期貨籌碼需要部署新版 Worker，或期交所暫時讀不到。</p>`; }
   }
-  setInterval(() => { if (!document.hidden && cur === "dpOverview") wdLoad(); }, 300000);
+  let wdAt = Date.now();   /* US session: every 10 s; otherwise every 5 minutes */
+  setInterval(() => { if (document.hidden || cur !== "dpOverview") return; const gap = window.TWSet && window.TWSet.usOpen() ? 10000 : 300000; if (Date.now() - wdAt >= gap - 500) { wdAt = Date.now(); wdLoad(); } }, 5000);
 
   /* ---------------- stock page: 融資融券, 股權分散, 本益比河流圖 ---------------- */
   const XT = new Map();

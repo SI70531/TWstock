@@ -127,13 +127,21 @@
   }
   function tickClock() {
     const t = taipei(), [s, label] = session();
-    $$(".statuschip:not(.futchip)").forEach(c => { c.dataset.s = s; const ss = $(".ss", c); if (ss) ss.textContent = label; const tt = $(".tt", c); if (tt) tt.textContent = t.hms; });
+    $$(".statuschip:not(.futchip):not(.uschip)").forEach(c => { c.dataset.s = s; const ss = $(".ss", c); if (ss) ss.textContent = label; const tt = $(".tt", c); if (tt) tt.textContent = t.hms; });
     const [fk, fl] = futSess();
-    $$(".statuschip:not(.futchip)").forEach(c => {
+    $$(".statuschip:not(.futchip):not(.uschip)").forEach(c => {
       let f = c.nextElementSibling && c.nextElementSibling.classList.contains("futchip") ? c.nextElementSibling : null;
       if (!fk || fk === "closed") { if (f) f.remove(); return; }
       if (!f) { f = document.createElement("span"); f.className = "statuschip futchip"; f.innerHTML = "<i></i><span class=\"ss\"></span>"; c.after(f); }
       const ss = $(".ss", f), tx = "台指期" + fl; f.dataset.s = fk; if (ss.textContent !== tx) ss.textContent = tx;
+    });
+    /* 美股盤中: a third chip while the NYSE regular session is open */
+    const us = !!(window.TWSet && window.TWSet.usOpen());
+    $$(".statuschip:not(.futchip):not(.uschip)").forEach(c => {
+      const base = c.nextElementSibling && c.nextElementSibling.classList.contains("futchip") ? c.nextElementSibling : c;
+      let u = base.nextElementSibling && base.nextElementSibling.classList.contains("uschip") ? base.nextElementSibling : null;
+      if (!us) { if (u) u.remove(); return; }
+      if (!u) { u = document.createElement("span"); u.className = "statuschip uschip"; u.dataset.s = "night"; u.innerHTML = "<i></i><span class=\"ss\">美股盤中</span>"; base.after(u); }
     });
     const mc = $(".mclock"); if (mc) { $(".t", mc).textContent = t.hms; $(".sd", mc).textContent = t.md; }
     const side = $(".side"); if (!side) return;

@@ -1104,10 +1104,26 @@ const taipeiDays = (n, from) => { const out = []; let d = new Date((from || Date
 const codeOf = url => { const c = String(url.searchParams.get("c") || "").trim().toUpperCase(); return /^[0-9A-Z]{4,6}$/.test(c) ? c : ""; };
 
 /* US indices, SOX, FX, oil and the 10-year yield (the same list the pre-market note reads) */
+/* NYSE regular session, New York time: Mon-Fri 09:30-16:00 (holidays and early closes included), so the US rows can be kept fresh only while it matters */
+function twUsOpen(now) {
+  const p = {}; new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", weekday: "short" }).formatToParts(new Date(now || Date.now())).forEach(x => { p[x.type] = x.value; });
+  const wd = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(p.weekday), y = +p.year, m = +p.month - 1, d = +p.day, t = +p.hour * 60 + +p.minute;
+  if (wd < 1 || wd > 5) return false;
+  const nth = (mo, w, n) => { let c = 0; for (let k = 1; k <= 31; k++) { const x = new Date(Date.UTC(y, mo, k)); if (x.getUTCMonth() !== mo) break; if (x.getUTCDay() === w && ++c === n) return k; } return 0; };
+  const lastMon = mo => { for (let k = 31; k > 0; k--) { const x = new Date(Date.UTC(y, mo, k)); if (x.getUTCMonth() === mo && x.getUTCDay() === 1) return k; } return 0; };
+  const obs = (mo, k) => { const w = new Date(Date.UTC(y, mo, k)).getUTCDay(); return w === 6 ? [mo, k - 1] : w === 0 ? [mo, k + 1] : [mo, k]; };
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, dd = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3), h = (19 * a + b - dd - g + 15) % 30, i = Math.floor(c / 4), k2 = c % 4, l = (32 + 2 * e + 2 * i - h - k2) % 7, mm = Math.floor((a + 11 * h + 22 * l) / 451);
+  const gf = new Date(Date.UTC(y, Math.floor((h + l - 7 * mm + 114) / 31) - 1, ((h + l - 7 * mm + 114) % 31) + 1 - 2));
+  const hol = new Set([obs(0, 1), [0, nth(0, 1, 3)], [1, nth(1, 1, 3)], [gf.getUTCMonth(), gf.getUTCDate()], [4, lastMon(4)], obs(5, 19), obs(6, 4), [8, nth(8, 1, 1)], [10, nth(10, 4, 4)], obs(11, 25)].map(x => x[0] + "-" + x[1]));
+  if (hol.has(m + "-" + d)) return false;
+  const early = (m === 10 && d === nth(10, 4, 4) + 1) || (m === 11 && d === 24);
+  return t >= 570 && t < (early ? 780 : 960);
+}
 async function twWorldRoute(json, fail) {
-  const rows = await twCached("worldrows2", 300000, () => pmWorld(true)).catch(() => []);
+  const live = twUsOpen();   /* while Wall Street trades the rows are kept 10 s, otherwise 5 minutes */
+  const rows = await twCached(live ? "worldlive" : "worldrows2", live ? 10000 : 300000, () => pmWorld(true)).catch(() => []);
   if (!rows.length) return fail(502, "NO_DATA", "國際行情暫時讀不到");
-  return json({ at: Date.now(), rows }, 200, { "Cache-Control": "public, max-age=120" });
+  return json({ at: Date.now(), rows }, 200, { "Cache-Control": "public, max-age=" + (live ? 5 : 120) });
 }
 
 /* the TAIEX future: net open interest of foreign investors, investment trusts and dealers (TAIFEX open data, latest day), kept day by day */
