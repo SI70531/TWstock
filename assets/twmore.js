@@ -275,7 +275,7 @@
     /* ----- price alerts ----- */
     const AK = "tw-palerts", alerts = () => store.get(AK, []) || [];
     function badge() {
-      const act = alerts().filter(a => a.on).length, b = $('nav [data-p="dpAlert"] .sbn', side); if (!b) return; b.hidden = !act; b.textContent = act;
+      const act = 0, b = null;
       const H = store.get("twlab-hold", []) || [], hb = $('nav [data-p="dpHold"] .sbn', side);
       let net = 0, n = 0; H.forEach(h => { const p = px(h.code); if (Number.isFinite(p) && h.shares > 0) { const v = p * h.shares, c = sell(h.code, v, h.shares); net += v - c.fee - c.tax - h.cost; n++; } });
       hb.hidden = !n; hb.textContent = sgn(net); hb.className = "sbn " + tone(net);
