@@ -121,7 +121,7 @@
 
   /* ---------- 6. numbers roll digit by digit when a quote changes ---------- */
   function rollNumbers() {
-    const SEL = ".mclock .sb-ix b, .side .sb-ix b, .hmc-p b";
+    const SEL = ".hmc-p b";
     const seen = new WeakMap();
     const roll = el => {
       const txt = el.textContent, prev = seen.get(el);

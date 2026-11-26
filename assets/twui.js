@@ -28,6 +28,14 @@
     return ["closed", "休市"];
   }
 
+  /* TAIFEX index futures: day session 08:45-13:45 (Mon-Fri), night session 15:00-05:00 (Mon evening to Sat morning) */
+  function futSess() {
+    const t = taipei(), wk = t.wd >= 1 && t.wd <= 5;
+    if (wk && t.m >= 525 && t.m < 825) return ["day", "日盤"];
+    if ((wk && t.m >= 900) || (t.wd >= 2 && t.wd <= 6 && t.m < 300)) return ["night", "夜盤"];
+    return ["closed", "休市"];
+  }
+
   /* ---------- shell ---------- */
   function buildShell() {
     const allTabs = $$('.dtabs button[role="tab"]'), tabs = allTabs.filter(t => !t.hidden); if (!tabs.length || $(".side")) return;
@@ -107,6 +115,8 @@
   function tickClock() {
     const t = taipei(), [s, label] = session();
     $$(".statuschip").forEach(c => { c.dataset.s = s; const ss = $(".ss", c); if (ss) ss.textContent = label; const tt = $(".tt", c); if (tt) tt.textContent = t.hms; });
+    const [fk, fl] = futSess();
+    $$('.sb-ix[data-k="fut"] > span').forEach(sp => { let e = $(".fs", sp); if (!e) { sp.textContent = "台指期"; e = document.createElement("em"); e.className = "fs"; sp.appendChild(e); } if (e.dataset.s !== fk) { e.dataset.s = fk; e.textContent = fl; } });
     const mc = $(".mclock"); if (mc) { $(".t", mc).textContent = t.hms; $(".sd", mc).textContent = t.md; }
     const side = $(".side"); if (!side) return;
     $(".sb-clock .t", side).textContent = t.hms; $(".sb-clock .sd", side).textContent = t.md;
