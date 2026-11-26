@@ -1179,7 +1179,67 @@
 
   /* ---------------- stock page: 融資融券, 股權分散, 本益比河流圖 ---------------- */
   const XT = new Map();
-  const xtGet = (kind, code, q) => { const k = kind + ":" + code; if (!XT.has(k)) XT.set(k, J(`${WORKER}/tw/${kind}?c=${encodeURIComponent(code)}${q || ""}`).catch(e => { XT.delete(k); throw e; })); return XT.get(k); };
+  /* the Worker first (7 seconds at most); when TWSE / TDCC refuse the Worker's servers, this browser asks them itself */
+  const within = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
+  const nz = v => { const n = parseFloat(String(v == null ? "" : v).replace(/,/g, "")); return Number.isFinite(n) ? n : null; };
+  const wdays = n => { const out = []; let d = new Date(Date.now() + 8 * 3600e3); for (let k = 0; k < n; k++, d = new Date(d.getTime() - 864e5)) if (d.getUTCDay() % 6) out.push(d.toISOString().slice(0, 10).replace(/-/g, "")); return out; };
+  const MGD = new Map();
+  async function directMargin(code) {
+    const rows = [];
+    for (const ds of wdays(14)) {
+      if (rows.length >= 8) break;
+      let m = MGD.get(ds);
+      if (m === undefined) {
+        try {
+          const j = await J(`https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN?date=${ds}&selectType=STOCK&response=json`), t = Array.isArray(j.tables) ? j.tables.find(x => x && Array.isArray(x.data) && Array.isArray(x.fields) && x.fields[0] === "代號") : null;
+          m = j.stat === "OK" && t ? Object.fromEntries(t.data.map(r => [String(r[0]).trim(), [nz(r[5]), nz(r[6]), nz(r[11]), nz(r[12])]])) : null;
+          if (m) MGD.set(ds, m);
+        } catch (e) { m = null; }
+      }
+      const r = m && m[code]; if (!r) continue;
+      rows.unshift({ d: ds.slice(0, 4) + "-" + ds.slice(4, 6) + "-" + ds.slice(6), fin: r[1], finChg: r[1] - r[0], sht: r[3], shtChg: r[3] - r[2] });
+    }
+    if (!rows.length) throw new Error("no margin");
+    return { code, rows };
+  }
+  async function directPe(code, n) {
+    const yms = []; let d = new Date(Date.now() + 8 * 3600e3);
+    for (let k = 0; k < n; k++) { yms.unshift(d.toISOString().slice(0, 7).replace("-", "")); d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1)); }
+    const out = [];
+    for (let i = 0; i < yms.length; i += 4) {
+      const part = await Promise.all(yms.slice(i, i + 4).map(async ym => {
+        try {
+          const j = await J(`https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU?date=${ym}01&stockNo=${code}&response=json`);
+          if (j.stat !== "OK" || !Array.isArray(j.data) || !Array.isArray(j.fields)) return [];
+          const F = j.fields, f = k => F.findIndex(x => String(x).includes(k)), iD = f("日期"), iP = f("本益比"), iY = f("殖利率"), iB = f("淨值比");
+          return j.data.map(r => { const m = String(r[iD]).match(/(\d+)\D+(\d+)\D+(\d+)/); if (!m) return null; const y = +m[1] < 1911 ? +m[1] + 1911 : +m[1];
+            return [y + "-" + String(m[2]).padStart(2, "0") + "-" + String(m[3]).padStart(2, "0"), iP >= 0 ? nz(r[iP]) : null, iY >= 0 ? nz(r[iY]) : null, iB >= 0 ? nz(r[iB]) : null]; }).filter(Boolean);
+        } catch (e) { return []; }
+      }));
+      part.forEach(a => out.push(...a));
+    }
+    if (!out.length) throw new Error("no pe");
+    return { code, rows: out };
+  }
+  /* 集保 distribution through FinMind (CORS open): the latest week, 15 levels */
+  async function directHolders(code) {
+    const from = new Date(Date.now() + 8 * 3600e3 - 40 * 864e5).toISOString().slice(0, 10);
+    const j = await J(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockHoldingSharesPer&data_id=${encodeURIComponent(code)}&start_date=${from}`), a = Array.isArray(j.data) ? j.data : [];
+    if (!a.length) throw new Error("no holders");
+    const date = a.reduce((m, r) => (r.date > m ? r.date : m), ""), low = r => { const t = String(r.HoldingSharesLevel); if (/more|以上/i.test(t)) return 1e9; const m = t.replace(/,/g, "").match(/\d+/); return m ? +m[0] : -1; };
+    const L = a.filter(r => r.date === date && /\d/.test(String(r.HoldingSharesLevel)) && !/total|合計|差異/i.test(String(r.HoldingSharesLevel))).sort((x, y) => low(x) - low(y)).slice(0, 15).map((r, i) => ({ lv: i + 1, people: nz(r.people), shares: nz(r.unit), pct: nz(r.percent) }));
+    if (L.length < 10) throw new Error("no holders");
+    const sum = (x, y, k) => Math.round(L.filter(o => o.lv >= x && o.lv <= y).reduce((t, o) => t + (o[k] || 0), 0) * 100) / 100;
+    return { code, date, levels: L, big1000: sum(15, 15, "pct"), big400: sum(12, 15, "pct"), small10: sum(1, 3, "pct"), bigPeople: sum(12, 15, "people"), totalPeople: sum(1, 15, "people") };
+  }
+  const xtGet = (kind, code, q) => {
+    const k = kind + ":" + code + (q || "");
+    if (!XT.has(k)) {
+      const direct = kind === "margin" ? () => directMargin(code) : kind === "pe" ? () => directPe(code, +((q || "").match(/m=(\d+)/) || [0, 12])[1]) : () => directHolders(code);
+      XT.set(k, within(J(`${WORKER}/tw/${kind}?c=${encodeURIComponent(code)}${q || ""}`), 7000).catch(() => direct()).catch(e => { XT.delete(k); throw e; }));
+    }
+    return XT.get(k);
+  };
   function stockExtras(code, tok) {
     const box = $("#dpStock"), put = (cls, html, note) => { if (tok !== chartTok || code !== CODE) return; const c = $("." + cls, box); if (!c) return; $(".sxout", c).innerHTML = html; $(".sxn", c).textContent = note || ""; };
     const miss = m => `<p class="sub">${m}</p>`, s0 = DB.by.get(code);
