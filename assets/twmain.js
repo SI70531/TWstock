@@ -1147,7 +1147,7 @@
       const p = r.changePct, prev = ok(p) ? r.last / (1 + p / 100) : NaN, d = r.last - prev, t = tone(ok(p) ? p : 0), big = $(".big", c), bt = fmt(r.last, 2);
       if (big.textContent !== bt) big.textContent = bt; big.className = "big " + t;
       const ct = ok(p) ? `${arrow(p)} ${fmt(Math.abs(d), 2)}（${pct(p)}）` : "—", cg = $(".ixchg", c); if (cg.textContent !== ct) cg.textContent = ct; cg.className = "sub ixchg " + t;
-      $(".ixhl", c).textContent = r.asOfTaipei ? "台北時間 " + r.asOfTaipei.slice(5).replace("-", "/") : "";
+      $(".ixhl", c).textContent = r.asOfTaipei ? "UTC+8 " + r.asOfTaipei.slice(5).replace("-", "/") : "";
     });
   }
   async function wdLoad() {
