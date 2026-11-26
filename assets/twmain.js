@@ -259,7 +259,22 @@
           if (c) m.set(c, o);
         });
       } catch (e) {}
-      FUND.map = m; FUND.busy = null;
+      if (![...m.values()].some(o => o.pe > 0 || o.yld > 0 || o.pb > 0)) {
+        /* openapi unreachable or empty: fall back on the same www.twse.com.tw host that already serves the chips */
+        const start = DB.date ? new Date(+DB.date.slice(0, 4), +DB.date.slice(4, 6) - 1, +DB.date.slice(6)) : new Date();
+        for (let back = 0; back < 6; back++) {
+          const d = new Date(start.getTime() - back * 864e5), ds = d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0");
+          try {
+            const j = await J(`https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d?date=${ds}&selectType=ALL&response=json`);
+            const F = j && j.fields, R = j && j.data; if (!F || !R || !R.length) continue;
+            const f = k => F.findIndex(x => String(x).includes(k)), iC = f("代號"), iP = f("本益比"), iY = f("殖利率"), iB = f("淨值比");
+            R.forEach(r => { const c = String(r[iC]).trim(), o = m.get(c) || {}; o.pe = num(r[iP]); o.yld = num(r[iY]); o.pb = num(r[iB]); m.set(c, o); });
+            break;
+          } catch (e) {}
+        }
+      }
+      if (m.size) FUND.map = m; else setTimeout(() => { FUND.busy = null; }, 60000);
+      if (m.size) FUND.busy = null;
     })();
     return FUND.busy;
   }
