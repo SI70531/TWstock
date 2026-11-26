@@ -186,3 +186,6 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .sb-clock .trow .sd { font-size: var(--text-xs); color: var(--color-muted); }
 /* the card titles are gradient-clipped text (transparent colour): the abbreviation needs its own fill or Safari paints nothing */
 .ixcard h3 .ixen, .ixdhead h3 .ixen { color: var(--color-muted); -webkit-text-fill-color: var(--color-muted); opacity: 1; background: none; }
+/* research tools that read their own data: the input forms stay in the DOM (the code reads them) but are not shown */
+.lhide { display: none !important; }
+.lwho { margin: 2px 0 8px; }
