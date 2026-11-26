@@ -389,3 +389,15 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 ::view-transition-old(panels) { animation-duration: .1s; }
 ::view-transition-new(panels) { animation-duration: .24s; }
 a, button, [role="button"], summary, label, input, select, .tp, .ixcard { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+/* 財報速覽: three small charts */
+.fqgrid { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 14px; }
+.finp h4 { margin: 0 0 4px; font-size: var(--text-xs); color: var(--color-muted); font-weight: 500; }
+.finp svg { display: block; width: 100%; height: auto; overflow: visible; }
+.fin-ax { stroke: var(--glass-line-2, rgb(128 128 128 / .3)); stroke-width: 1; }
+.fin-up { fill: var(--color-up); } .fin-dn { fill: var(--color-down); }
+.fin-line { stroke: var(--ring-b, #4f8fd8); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.fin-area { fill: color-mix(in oklch, var(--ring-b, #4f8fd8) 14%, transparent); stroke: none; }
+.fin-dot { fill: var(--color-paper, #fff); stroke: var(--ring-b, #4f8fd8); stroke-width: 2; transition: r .15s; } .fin-dot.last { fill: var(--ring-b, #4f8fd8); } .fin-b:hover .fin-dot { r: 5; }
+.fin-v { font: 600 9.5px var(--font-outlier, monospace); fill: var(--color-ink); } .fin-v.dn { fill: var(--color-down); }
+.fin-q { font: 500 9px var(--font-outlier, monospace); fill: var(--color-muted); }
+.fin-b rect { transition: opacity .15s; } .fqgrid:hover .fin-b rect { opacity: .75; } .fqgrid .fin-b:hover rect { opacity: 1; }

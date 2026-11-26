@@ -1293,9 +1293,33 @@
       const qs = Object.keys(by).sort().slice(-8).map(d => { const o = by[d], rev = o.Revenue; return { d, eps: o.EPS, gm: rev > 0 && Number.isFinite(o.GrossProfit) ? o.GrossProfit / rev * 100 : null, om: rev > 0 && Number.isFinite(o.OperatingIncome) ? o.OperatingIncome / rev * 100 : null }; }).filter(q => Number.isFinite(q.eps));
       if (qs.length < 2) { put("sfin", miss("沒有資料")); return; }
       const qn = d => { const m = +d.slice(5, 7); return d.slice(2, 4) + "Q" + Math.ceil(m / 3); };
-      const mxE = Math.max(0.01, ...qs.map(q => Math.abs(q.eps))), bar = (v, mx, cls) => `<span class="fgb"><i class="${cls}" style="width:${Math.max(3, Math.abs(v) / mx * 100).toFixed(0)}%"></i></span>`;
-      const mxM = Math.max(1, ...qs.map(q => Math.max(Math.abs(q.gm || 0), Math.abs(q.om || 0))));
-      put("sfin", `<div class="fqgrid"><div class="fgh"><span>季</span><span>EPS（元）</span><span>毛利率</span><span>營業利益率</span></div>${qs.map(q => `<div class="fgr"><span>${qn(q.d)}</span><span class="fgc">${bar(q.eps, mxE, q.eps >= 0 ? "up" : "down")}<b class="${tone(q.eps)}">${q.eps.toFixed(2)}</b></span><span class="fgc">${q.gm == null ? "—" : bar(q.gm, mxM, "neu") + `<b>${q.gm.toFixed(1)}%</b>`}</span><span class="fgc">${q.om == null ? "—" : bar(q.om, mxM, q.om >= 0 ? "neu" : "down") + `<b>${q.om.toFixed(1)}%</b>`}</span></div>`).join("")}</div>`, "近 " + qs.length + " 季");
+      const W = 320, H = 156, L = 20, R = 20, T = 26, B = 24, n = qs.length, step = (W - L - R) / n, cx = i => L + step * (i + .5);
+      const panel = (title, vals, kind, unit) => {
+        const ok2 = vals.filter(v => v != null), lo = Math.min(...ok2), hi = Math.max(...ok2);
+        const base = kind === "col" ? Math.min(0, lo) : lo - (hi - lo || 1) * .35, top = kind === "col" ? Math.max(0, hi) : hi + (hi - lo || 1) * .2, span = top - base || 1;
+        const y = v => T + (H - T - B) * (1 - (v - base) / span), y0 = y(kind === "col" ? 0 : base);
+        const lab = (v, i, x, yy, cls) => `<text class="fin-v ${cls || ""}" x="${x.toFixed(1)}" y="${(yy - 6).toFixed(1)}" text-anchor="middle">${v.toFixed(unit ? 1 : 2)}${unit}</text>`;
+        let g = "";
+        if (kind === "col") {
+          g += `<line class="fin-ax" x1="${L}" x2="${W - R}" y1="${y0.toFixed(1)}" y2="${y0.toFixed(1)}"/>`;
+          g += vals.map((v, i) => { if (v == null) return ""; const yy = y(v), up = v >= 0, h = Math.max(2, Math.abs(yy - y0)), x = cx(i) - step * .3; return `<g class="fin-b"><rect class="${up ? "fin-up" : "fin-dn"}" x="${x.toFixed(1)}" y="${(up ? y0 - h : y0).toFixed(1)}" width="${(step * .6).toFixed(1)}" height="${h.toFixed(1)}" rx="3" style="transform-origin:${cx(i).toFixed(1)}px ${y0.toFixed(1)}px"><title>${qn(qs[i].d)}：${v.toFixed(2)} 元</title></rect>${lab(v, i, cx(i), up ? y0 - h : y0 + h + 14, up ? "" : "dn")}</g>`; }).join("");
+        } else {
+          const pts = vals.map((v, i) => v == null ? null : [cx(i), y(v)]).filter(Boolean);
+          g += `<line class="fin-ax" x1="${L}" x2="${W - R}" y1="${(H - B).toFixed(1)}" y2="${(H - B).toFixed(1)}"/>`;
+          g += `<path class="fin-area" d="M${pts[0][0].toFixed(1)},${(H - B).toFixed(1)} ${pts.map(q => "L" + q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ")} L${pts[pts.length - 1][0].toFixed(1)},${(H - B).toFixed(1)}Z"/>`;
+          g += `<polyline class="fin-line" fill="none" points="${pts.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ")}"/>`;
+          g += vals.map((v, i) => v == null ? "" : `<g class="fin-b"><circle class="fin-dot${i === n - 1 ? " last" : ""}" cx="${cx(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === n - 1 ? 4 : 2.8}"><title>${qn(qs[i].d)}：${v.toFixed(1)}%</title></circle>${(i === 0 || i === n - 1 || v === hi || v === lo) ? lab(v, i, cx(i), y(v)) : ""}</g>`).join("");
+        }
+        const xl = qs.map((q, i) => (n <= 6 || i % 2 === (n - 1) % 2) ? `<text class="fin-q" x="${cx(i).toFixed(1)}" y="${H - 7}" text-anchor="middle">${qn(q.d)}</text>` : "").join("");
+        return `<div class="finp"><h4>${title}</h4><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${g}${xl}</svg></div>`;
+      };
+      put("sfin", `<div class="fqgrid">${panel("EPS（元）", qs.map(q => q.eps), "col", "")}${panel("毛利率", qs.map(q => q.gm), "line", "%")}${panel("營業利益率", qs.map(q => q.om), "line", "%")}</div>`, "近 " + qs.length + " 季");
+      setTimeout(() => {
+        $$(".fqgrid .fin-line:not([data-a])").forEach(l => { l.dataset.a = "1"; l.setAttribute("pathLength", "1"); l.style.strokeDasharray = "1"; l.animate([{ strokeDashoffset: 1 }, { strokeDashoffset: 0 }], { duration: 900, easing: "cubic-bezier(.215,.61,.355,1)", fill: "backwards" }); });
+        $$(".fqgrid .fin-area:not([data-a])").forEach(a => { a.dataset.a = "1"; a.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: 250, fill: "backwards" }); });
+        $$(".fqgrid .fin-b").forEach((b, i) => { if (b.dataset.a) return; b.dataset.a = "1"; b.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: 80 * (i % 8) + 200, fill: "backwards" }); });
+        $$(".fqgrid rect.fin-up:not([data-a]), .fqgrid rect.fin-dn:not([data-a])").forEach((r, i) => { r.dataset.a = "1"; r.animate([{ transform: "scaleY(0)" }, { transform: "scaleY(1)" }], { duration: 650, delay: 70 * (i % 8), easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }); });
+      }, 30);
     } catch (e) { put("sfin", miss("沒有資料")); }
   }
   async function peRiver(code, tok, put) {
