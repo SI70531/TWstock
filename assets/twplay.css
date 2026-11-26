@@ -163,7 +163,6 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 @keyframes flDown { from { background: rgba(36,160,90,.28); } to { background: transparent; } }
 .ixcard .big.fl-up { animation: flUp .9s ease-out; border-radius: 6px; }
 .ixcard .big.fl-down { animation: flDown .9s ease-out; border-radius: 6px; }
-@media (prefers-reduced-motion: reduce) { .ixcard .big.fl-up, .ixcard .big.fl-down { animation: none; } }
 
 /* futures session chip beside the market-status chip */
 .futchip { margin-left: 6px; }
@@ -254,4 +253,3 @@ html.vt-stk #dpStock .shead { view-transition-name: stkx; }
 /* the line draws left to right in the same 0.7 s (ease-out cubic) as the number count-up, so both finish together */
 :root .ixcard svg.spark path.spdraw { stroke-dasharray: 1; stroke-dashoffset: 1; animation: spdraw .7s cubic-bezier(.215,.61,.355,1) forwards; }
 @keyframes spdraw { to { stroke-dashoffset: 0; } }
-@media (prefers-reduced-motion: reduce) { :root .ixcard svg.spark path.spdraw { animation: none; stroke-dashoffset: 0; } }

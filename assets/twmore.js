@@ -3,7 +3,7 @@
 (function () {
   "use strict";
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
-  const ok = Number.isFinite, RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const ok = Number.isFinite, RM = false;
   let A = null;
   const taipei = () => { const d = new Date(Date.now() + 8 * 3600e3); return { wd: d.getUTCDay(), m: d.getUTCHours() * 60 + d.getUTCMinutes(), s: d.getUTCSeconds(), md: (d.getUTCMonth() + 1) + "/" + d.getUTCDate(), iso: d.toISOString().slice(0, 10) }; };
 
