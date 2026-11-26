@@ -64,7 +64,7 @@
   /* ---------------- state ---------------- */
   const DEFAULT_WATCH = ["2330", "2317", "2454", "2308", "2881", "0050"];
   const DB = { list: [], by: new Map(), live: false, date: "", rt: null, rtAt: "", err: "" };
-  const IDX = [{ k: "t00", name: "加權指數" }, { k: "fut", name: "台指期" }, { k: "o00", name: "櫃買指數" }, { k: "exf", name: "電子期" }];
+  const IDX = [{ k: "t00", name: "加權指數", en: "TAIEX" }, { k: "fut", name: "台指期", en: "TX" }, { k: "o00", name: "櫃買指數", en: "TPEx" }, { k: "exf", name: "電子期", en: "EXF" }];
   const isFut = k => k === "fut" || k === "exf";
   const MKT = { rows: null, inst: null };          /* TAIEX history rows and the institutions of the day */
   let WATCH = store.get("twtrade-watch", DEFAULT_WATCH);
@@ -392,7 +392,7 @@
   const COLS = [["price", "成交價"], ["chg", "漲跌"], ["pct", "漲跌幅"], ["vol", "成交量"]];
   function buildOverview() {
     $("#dpOverview").innerHTML = `
-      <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}</span><span class="ixsrc"></span></h3>
+      <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}</span><em class="ixen">${i.en}</em><span class="ixsrc"></span></h3>
         <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3></div>
