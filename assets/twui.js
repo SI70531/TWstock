@@ -178,18 +178,25 @@
     };
     requestAnimationFrame(step);
   }
+  /* odometer: only the digits that changed slide (old up, new in); a longer or shorter number just swaps */
+  function roll(el, old, text, up) {
+    if (!old || old.length !== text.length || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    RUN.add(el);
+    el.innerHTML = [...text].map((c, i) => (c !== old[i] && /\d/.test(c) ? `<span class="odo ${up ? "u" : "d"}"><span>${up ? `<i>${old[i]}</i><i>${c}</i>` : `<i>${c}</i><i>${old[i]}</i>`}</span></span>` : c)).join("");
+    setTimeout(() => { el.textContent = text; RUN.delete(el); }, 700);
+  }
   function scanNumbers() {
     $$(".dash .big, .side .sb-ix b").forEach((el, i) => {
       if (RUN.has(el)) return;
       /* who: the stock now shown on the 個股分析 page; switching to another stock counts up from 0 */
       const text = el.textContent, v = num(text), k = keyOf(el, i), who = el.closest("#dpStock") && A && A.code ? A.code() : "", prev = LAST.get(k);
-      LAST.set(k, { v, who });
+      LAST.set(k, { v, who, text });
       if (!Number.isFinite(v) || !prev) return;
       /* count from the value that was just on screen (37,000 → 36,800), never from 0; a new stock or a placeholder just swaps */
       if (prev.who !== who || !Number.isFinite(prev.v)) return;
       const from = prev.v;
       if (from === v) return;
-      countTo(el, from, v, text);
+      roll(el, prev.text, text, v > from);
     });
     $$(".dash .pxpill").forEach(el => {
       const tr = el.closest("[data-code]"), k = "px:" + (tr ? tr.dataset.code : ""), v = num(el.textContent), old = LAST.get(k);

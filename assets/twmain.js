@@ -1251,7 +1251,7 @@
   function stockExtras(code, tok) {
     const box = $("#dpStock"), put = (cls, html, note) => { if (tok !== chartTok || code !== CODE) return; const c = $("." + cls, box); if (!c) return; $(".sxout", c).innerHTML = html; $(".sxn", c).textContent = note || ""; };
     const miss = m => `<p class="sub">${m}</p>`, s0 = DB.by.get(code);
-    ["smg", "shd", "spe"].forEach(c => put(c, miss("載入中…")));
+    ["smg", "shd", "spe", "sfin"].forEach(c => put(c, miss("載入中…")));
     if (!s0 || !/^\d{4,6}[A-Z]?$/.test(code)) return;
     if (/^00/.test(code)) { put("smg", miss("沒有資料")); put("spe", miss("沒有資料")); }   /* ETFs have no margin trading and no P/E */
     else xtGet("margin", code).then(j => {
@@ -1264,6 +1264,27 @@
       put("shd", `<div class="hdtiles"><div><span>千張大戶持股</span><b>${j.big1000.toFixed(2)}%</b></div><div><span>400 張以上</span><b>${j.big400.toFixed(2)}%</b></div><div><span>10 張以下散戶</span><b>${j.small10.toFixed(2)}%</b></div><div><span>股東人數</span><b>${Number(j.totalPeople).toLocaleString("zh-TW")}</b></div></div>${bands.map(([n, v]) => `<div class="hdrow"><span>${n}</span><span class="hdbar"><i style="width:${Math.max(2, v / mx * 100).toFixed(0)}%"></i></span><b>${v.toFixed(2)}%</b></div>`).join("")}`, String(j.date).slice(5).replace("-", "/") + " 週資料");
     }, () => put("shd", miss("沒有資料")));
     if (!/^00/.test(code)) peRiver(code, tok, put);
+    finGlance(code, put);
+  }
+  /* 財報速覽: the last 8 quarters of EPS, gross margin and operating margin (FinMind's quarterly statements; ETFs have none) */
+  const FING = new Map();
+  async function finGlance(code, put) {
+    const miss = m => `<p class="sub">${m}</p>`;
+    if (/^00/.test(code)) { put("sfin", miss("沒有資料")); return; }
+    try {
+      if (!FING.has(code)) {
+        const from = new Date(Date.now() + 8 * 3600e3 - 800 * 864e5).toISOString().slice(0, 10);
+        FING.set(code, J(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockFinancialStatements&data_id=${encodeURIComponent(code)}&start_date=${from}`).catch(e => { FING.delete(code); throw e; }));
+      }
+      const a = ((await FING.get(code)).data || []), by = {};
+      a.forEach(r => { (by[r.date] = by[r.date] || {})[r.type] = Number(r.value); });
+      const qs = Object.keys(by).sort().slice(-8).map(d => { const o = by[d], rev = o.Revenue; return { d, eps: o.EPS, gm: rev > 0 && Number.isFinite(o.GrossProfit) ? o.GrossProfit / rev * 100 : null, om: rev > 0 && Number.isFinite(o.OperatingIncome) ? o.OperatingIncome / rev * 100 : null }; }).filter(q => Number.isFinite(q.eps));
+      if (qs.length < 2) { put("sfin", miss("沒有資料")); return; }
+      const qn = d => { const m = +d.slice(5, 7); return d.slice(2, 4) + "Q" + Math.ceil(m / 3); };
+      const mxE = Math.max(0.01, ...qs.map(q => Math.abs(q.eps))), bar = (v, mx, cls) => `<span class="fgb"><i class="${cls}" style="width:${Math.max(3, Math.abs(v) / mx * 100).toFixed(0)}%"></i></span>`;
+      const mxM = Math.max(1, ...qs.map(q => Math.max(Math.abs(q.gm || 0), Math.abs(q.om || 0))));
+      put("sfin", `<div class="fgrid"><div class="fgh"><span>季</span><span>EPS（元）</span><span>毛利率</span><span>營業利益率</span></div>${qs.map(q => `<div class="fgr"><span>${qn(q.d)}</span><span class="fgc">${bar(q.eps, mxE, q.eps >= 0 ? "up" : "down")}<b class="${tone(q.eps)}">${q.eps.toFixed(2)}</b></span><span class="fgc">${q.gm == null ? "—" : bar(q.gm, mxM, "neu") + `<b>${q.gm.toFixed(1)}%</b>`}</span><span class="fgc">${q.om == null ? "—" : bar(q.om, mxM, q.om >= 0 ? "neu" : "down") + `<b>${q.om.toFixed(1)}%</b>`}</span></div>`).join("")}</div>`, "近 " + qs.length + " 季");
+    } catch (e) { put("sfin", miss("沒有資料")); }
   }
   async function peRiver(code, tok, put) {
     const miss = m => `<p class="sub">${m}</p>`;
@@ -1581,7 +1602,8 @@
       </div>
       <div class="dcard sx smg"><div class="aihead"><div><h3>融資融券</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       <div class="dcard sx shd"><div class="aihead"><div><h3>股權分散（集保）</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
-      <div class="dcard sx spe"><div class="aihead"><div><h3>本益比河流圖</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>`;
+      <div class="dcard sx spe"><div class="aihead"><div><h3>本益比河流圖</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
+      <div class="dcard sx sfin"><div class="aihead"><div><h3>財報速覽</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>`;
     const box = $("#dpStock"), inp = $(".ssearch", box), sug = $(".ssug", box);
     chartInput($(".cbox", box), box);
     inp.addEventListener("input", () => {
@@ -1791,9 +1813,11 @@
       scrollTo({ top: bk.y, behavior: "instant" in window ? "instant" : "auto" });
       const row = document.querySelector(`#${bk.tab} [data-code="${CSS.escape(bk.code)}"], #${bk.tab} [data-pick="${CSS.escape(bk.code)}"]`);
       if (row && row.animate) row.animate([{ boxShadow: "inset 0 0 0 2px var(--color-accent)" }, { boxShadow: "inset 0 0 0 2px transparent" }], { duration: 1400, easing: "ease-out" });
+      /* the way back: the row grows out of where the stock header was (the opening animation in reverse) */
+      if (row && row.animate && bk.hb) { const r = row.getBoundingClientRect(); if (r.width > 0) row.animate([{ transformOrigin: "0 0", transform: `translate(${bk.hb.left - r.left}px,${bk.hb.top - r.top}px) scale(${bk.hb.width / r.width},${Math.min(3, bk.hb.height / r.height)})`, opacity: .4 }, { transformOrigin: "0 0", transform: "none", opacity: 1 }], { duration: 380, easing: "cubic-bezier(.3,.7,.2,1)" }); }
     });
   }
-  function goBack() { const bk = BACK; if (!bk) return; open(bk.tab, true); backTo(bk); }
+  function goBack() { const bk = BACK; if (!bk) return; const hd = $("#dpStock .shead"); if (hd) bk.hb = hd.getBoundingClientRect(); open(bk.tab, true); backTo(bk); }
   function openStock(code, from) {
     const a = from && from.getBoundingClientRect();
     if (cur && cur !== "dpStock") BACK = { tab: cur, y: scrollY, code };
@@ -2182,7 +2206,7 @@
     const nb = tabs.find(t => t.dataset.p === id) || tabs[0];
     if (animate && !quiet && cur && cur !== nb.dataset.p && document.startViewTransition && !document.hidden) {
       document.documentElement.style.setProperty("--vtd", tabs.indexOf(nb) > tabs.findIndex(t => t.dataset.p === cur) ? "1" : "-1");
-      document.startViewTransition(() => openNow(id, animate, quiet));
+      const vt = document.startViewTransition(() => openNow(id, animate, quiet)); [vt.ready, vt.finished, vt.updateCallbackDone].forEach(pr => pr && pr.catch(() => {}));
       return;
     }
     openNow(id, animate, quiet);
@@ -2362,7 +2386,7 @@
     /* shared with the 研究室 tab (assets/twlab.js) */
     api: { DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
       refresh: () => Promise.all([rtPoll(), pmLoad(), pmLoad(true), clLoad()]).then(() => open(cur, true)),
-      store, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
+      store, openTab: p => open(p, true), lstSub: k => lstSub(k, true), tabNow: () => cur, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
   document.dispatchEvent(new Event("twdash:ready"));
 
   (async () => {

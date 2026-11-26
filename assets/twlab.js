@@ -35,6 +35,7 @@
     ["tech", "技術情境", "日線＋週線的支撐壓力、趨勢線與偏多／盤整／偏空條件", "#2"],
     ["bt", "策略回測", "含手續費、證交稅、滑價，樣本內外分開看", "#4"],
     ["mc", "時光機", "拿過去 N 天的真實走勢隨機重播一萬次：先碰停利、先碰停損、還是都沒碰到", "#4+"],
+    ["pnl", "損益日曆", "持股每天的損益用月曆熱度顯示，點一天看當天每檔的貢獻", "#7"],
     ["peer", "同業比較", "本益比、淨值比、殖利率、營收年增並排，標出不可比", "#9"],
     ["dcf", "敏感度分析", "保守／基準／樂觀三種假設與折現率×成長率表", "#10"],
     ["cal", "事件日曆", "財報、法說、股東會：日期、來源、要驗證的假設", "#11"],
@@ -527,6 +528,35 @@
     mcPlay(out);
   }
 
+  /* ================= 損益日曆 ================= */
+  function viewPnl() {
+    const H = get(K.hold, []);
+    return `<div class="dcard lrise"><h3>損益日曆</h3>${H.length ? `<p class="sub lwho">依「持股風險」裡的 ${H.length} 檔持股股數，用每日收盤價變動計算（不含手續費與股利）。</p>` : `<p class="sub lwho">沒有資料：請先到「持股風險」輸入持股。</p>`}
+      <p class="sub lmsg"></p><div class="lpnl"></div><div class="lpnld"></div></div>`;
+  }
+  async function pnlRun() {
+    const H = get(K.hold, []).filter(h => ok(h.shares) && h.shares > 0), msg = $(".lmsg"), out = $(".lpnl"); if (!H.length || !out) return;
+    const daily = {};   /* date → { total, by: [[code, amount]] } */
+    for (let n = 0; n < H.length; n++) {
+      const h = H[n]; msg.textContent = `讀取日線 ${n + 1}/${H.length}…`;
+      let cs = []; try { cs = await bars(h.code, 3); } catch (e) {}
+      for (let i = 1; i < cs.length; i++) { const d = cs[i][0], amt = (cs[i][4] - cs[i - 1][4]) * h.shares; const o = (daily[d] = daily[d] || { total: 0, by: [] }); o.total += amt; o.by.push([h.code, amt]); }
+    }
+    const days = Object.keys(daily).sort(); if (!days.length) { msg.textContent = "沒有資料"; return; }
+    msg.textContent = "";
+    const fmtM = v => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(Math.round(v)).toLocaleString("zh-TW"), mx = Math.max(1, ...days.map(d => Math.abs(daily[d].total)));
+    const months = [...new Set(days.map(d => d.slice(0, 6)))].slice(-2);
+    out.innerHTML = months.map(ym => {
+      const y = +ym.slice(0, 4), m = +ym.slice(4, 6), first = new Date(Date.UTC(y, m - 1, 1)).getUTCDay(), dim = new Date(Date.UTC(y, m, 0)).getUTCDate(), tot = days.filter(d => d.startsWith(ym)).reduce((t, d) => t + daily[d].total, 0);
+      let cells = "<i></i>".repeat(first);
+      for (let d = 1; d <= dim; d++) { const k = ym + String(d).padStart(2, "0"), o = daily[k]; cells += o ? `<button type="button" class="pnlc ${o.total >= 0 ? "up" : "down"}" data-d="${k}" style="--a:${(0.18 + Math.abs(o.total) / mx * 0.72).toFixed(2)}"><b>${d}</b><span>${fmtM(o.total)}</span></button>` : `<i class="pnlx">${d}</i>`; }
+      return `<div class="pnlm lrise"><div class="pnlh"><b>${y}/${m}</b><span class="${A.tone(tot)}">本月 ${fmtM(tot)} 元</span></div><div class="pnlw">${"日一二三四五六".split("").map(w => `<i>${w}</i>`).join("")}</div><div class="pnlg">${cells}</div></div>`;
+    }).join("");
+    out.onclick = e => { const b = e.target.closest("[data-d]"); if (!b) return; const o = daily[b.dataset.d], d = b.dataset.d;
+      $(".lpnld").innerHTML = `<div class="pnldet"><b>${d.slice(4, 6)}/${d.slice(6)}　合計 <span class="${A.tone(o.total)}">${fmtM(o.total)} 元</span></b>${o.by.sort((x, y) => Math.abs(y[1]) - Math.abs(x[1])).map(([c, v]) => `<div><span>${A.esc(nameOf(c))} ${A.esc(c)}</span><em class="${A.tone(v)}">${fmtM(v)}</em></div>`).join("")}</div>`; };
+    A.rise($$(".pnlm", out), 80);
+  }
+
   /* ================= 同業比較 ================= */
   function viewPeer() {
     const H = get(K.hold, []).map(h => h.code), def = get(K.peers, H.length ? H.join(" ") : "2330 2303 2454 3711 2379");
@@ -675,7 +705,7 @@
   }
 
   /* ---------------- shell: card menu → one tool, a button back to the menu ---------------- */
-  const VIEWS = { hold: [viewHold, () => { loadIndustry().then(paintHold); paintHold(); }], journal: [viewJournal, paintJournal], tech: [viewTech, () => { techRun(); }], bt: [viewBT, () => { btRun(); }], mc: [viewMC, () => { mcRun().catch(err => { $(".lmsg").textContent = "出錯了：" + err.message; }); }], peer: [viewPeer, autoPeers], dcf: [viewDCF, () => { if (get(K.dcf, null)) dcfRun(); }], cal: [viewCal, paintCal], prompt: [viewPrompt, paintPrompt] };
+  const VIEWS = { hold: [viewHold, () => { loadIndustry().then(paintHold); paintHold(); }], journal: [viewJournal, paintJournal], tech: [viewTech, () => { techRun(); }], bt: [viewBT, () => { btRun(); }], mc: [viewMC, () => { mcRun().catch(err => { $(".lmsg").textContent = "出錯了：" + err.message; }); }], peer: [viewPeer, autoPeers], pnl: [viewPnl, () => { pnlRun(); }], dcf: [viewDCF, () => { if (get(K.dcf, null)) dcfRun(); }], cal: [viewCal, paintCal], prompt: [viewPrompt, paintPrompt] };
   let TOOL = null;
   function menu() {
     TOOL = null; set(K.tool, "");
