@@ -245,15 +245,17 @@
     })();
     return cs;
   }
+  /* TWSE open data: through the worker first (no CORS problem there), straight from the browser as the fallback */
+  const openJ = async p => { try { const a = await J(`${WORKER}/tw/open?p=${encodeURIComponent(p)}`); if (Array.isArray(a) && a.length) return a; } catch (e) {} return J("https://openapi.twse.com.tw/v1/" + p); };
   const FUND = { map: null, busy: null };
   function loadFund() {
     if (FUND.map || !DB.live) return Promise.resolve();
     if (FUND.busy) return FUND.busy;
     FUND.busy = (async () => {
       const m = new Map();
-      try { (await J("https://openapi.twse.com.tw/v1/exchangeReport/BWIBBU_ALL")).forEach(x => m.set(String(x.Code), { pe: num(x.PEratio), yld: num(x.DividendYield), pb: num(x.PBratio) })); } catch (e) {}
+      try { (await openJ("exchangeReport/BWIBBU_ALL")).forEach(x => m.set(String(x.Code), { pe: num(x.PEratio), yld: num(x.DividendYield), pb: num(x.PBratio) })); } catch (e) {}
       try {
-        (await J("https://openapi.twse.com.tw/v1/opendata/t187ap05_L")).forEach(x => {
+        (await openJ("opendata/t187ap05_L")).forEach(x => {
           const c = String(pick(x, "公司代號") || ""), o = m.get(c) || {};
           o.rev = num(pick(x, "當月營收")) / 1e5; o.yoy = num(pick(x, "去年同月增減")); o.mom = num(pick(x, "上月比較增減")); o.ytd = num(pick(x, "前期比較增減")); o.ym = String(pick(x, "資料年月") || "");
           if (c) m.set(c, o);

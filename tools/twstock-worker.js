@@ -84,6 +84,7 @@ export default {
     if (url.pathname === "/tw/margin" && req.method === "GET") return twMargin(url, json, fail);
     if (url.pathname === "/tw/holders" && req.method === "GET") return twHolders(url, json, fail);
     if (url.pathname === "/tw/pe" && req.method === "GET") return twPe(url, json, fail);
+    if (url.pathname === "/tw/open" && req.method === "GET") return twOpen(url, json, fail);
 
     /* everything below: no sign-in; the page's random device id (d) and the caller's IP address */
     let bodyText = null, dev = "";
@@ -1393,4 +1394,18 @@ async function closeNote(env, notify, manual) {
     note.sent = await tgSend(env, text);
   }
   return note;
+}
+
+/* TWSE open data relayed through the worker: the browser cannot always reach openapi.twse.com.tw directly (CORS), the worker can */
+const TW_OPEN = new Set(["opendata/t187ap05_L", "opendata/t187ap38_L", "opendata/t187ap41_L", "exchangeReport/TWT48U_ALL", "exchangeReport/BWIBBU_ALL"]);
+async function twOpen(url, json, fail) {
+  const p = String(url.searchParams.get("p") || "");
+  if (!TW_OPEN.has(p)) return fail(400, "bad_request", "not allowed");
+  try {
+    const v = await twCached("open:" + p, 3600000, async () => {
+      const r = await twFetch("https://openapi.twse.com.tw/v1/" + p, { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
+      const a = await r.json(); if (!Array.isArray(a)) throw new Error("bad data"); return a;
+    });
+    return json(v, 200, { "Cache-Control": "public, max-age=1800" });
+  } catch (e) { return fail(502, "upstream", "open data unavailable"); }
 }

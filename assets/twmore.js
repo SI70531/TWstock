@@ -56,9 +56,10 @@
     });
   }
   const dvDate = v => { const m = String(v || "").match(/(\d{2,4})\D?(\d{2})\D?(\d{2})/); if (!m) return ""; let y = +m[1]; if (y < 1911) y += 1911; return `${y}-${m[2]}-${m[3]}`; };
-  async function dvLoad() {
+const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${encodeURIComponent(p)}`); if (Array.isArray(a) && a.length) return a; } catch (e) {} return A.J("https://openapi.twse.com.tw/v1/" + p); };
+      async function dvLoad() {
     if (DVROWS) return DVROWS;
-    const a = await A.J("https://openapi.twse.com.tw/v1/exchangeReport/TWT48U_ALL"), t = taipei().iso;
+    const a = await openJ("exchangeReport/TWT48U_ALL"), t = taipei().iso;
     DVROWS = (Array.isArray(a) ? a : []).map(x => {
       const ks = Object.keys(x), code = String(x[ks.find(k => /代號|Code/i.test(k))] || "").trim(), name = String(x[ks.find(k => /名稱|Name/i.test(k))] || "").trim();
       const dk = ks.find(k => /除(權|息)(交易)?日|ExRight|Exdiv|Ex.?date/i.test(k) && dvDate(x[k])) || ks.find(k => !/^(Date|資料日期)$/i.test(k) && /日期|Date/i.test(k) && dvDate(x[k])) || (dvDate(x.Date) ? "Date" : undefined);   /* TWT48U_ALL: Date = ex-date, Exdividend = 權/息 */
@@ -341,9 +342,9 @@
       if (AGM) return AGM;
       const num = v => { const n = parseFloat(String(v || "").replace(/,/g, "")); return Number.isFinite(n) ? n : 0; };
       let rows = [];
-      try { const a = await A.J("https://openapi.twse.com.tw/v1/opendata/t187ap38_L");
+      try { const a = await openJ("opendata/t187ap38_L");
         rows = (Array.isArray(a) ? a : []).map(x => ({ code: String(x["公司代號"] || "").trim(), name: String(x["公司名稱"] || "").trim(), d: dvDate(x["股東常(臨時)會日期-日期"]), kind: String(x["股東常(臨時)會日期-常或臨時"] || "").trim(), cash: num(x["預擬配發現金(股利)(元/股)-盈餘"]) + num(x["預擬配發現金(股利)(元/股)-法定盈餘公積、資本公積"]), stop1: dvDate(x["停止過戶起訖日期-起"]), stop2: dvDate(x["停止過戶起訖日期-訖"]) })); } catch (e) {}
-      if (!rows.some(r => r.d)) { try { const a = await A.J("https://openapi.twse.com.tw/v1/opendata/t187ap41_L");
+      if (!rows.some(r => r.d)) { try { const a = await openJ("opendata/t187ap41_L");
         rows = (Array.isArray(a) ? a : []).map(x => ({ code: String(x["公司代號"] || "").trim(), name: String(x["公司名稱"] || "").trim(), d: dvDate(x["開會日期"]), kind: String(x["股東常(臨)會"] || "").trim(), cash: 0 })); } catch (e) {} }
       return (AGM = rows.filter(r => r.code && r.d));
     }
