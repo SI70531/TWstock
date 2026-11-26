@@ -1648,7 +1648,7 @@
   function drawChart(animate, quick) {
     const box = $("#dpStock"), host = $(".cbox", box), read = $(".cread", box), cs = barsOf(CODE);
     if (KV.code !== CODE) { KV.code = CODE; KV.span = SPAN; KV.end = 0; }
-    $$("[data-span]", box).forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.span === KV.span && !KV.end)));
+    { const sb = $$("[data-span]", box), near = sb.reduce((m, b) => (Math.abs(+b.dataset.span - KV.span) < Math.abs(+m.dataset.span - KV.span) ? b : m), sb[0]); sb.forEach(b => b.setAttribute("aria-pressed", String(b === near))); }
     $$("[data-ind]", box).forEach(b => b.setAttribute("aria-pressed", String(!!IND[b.dataset.ind])));
     $(".clegend", box).hidden = !IND.ma;
     if (!cs) return;
