@@ -299,3 +299,8 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 /* the back button and the search box sit in a card of their own above the stock header */
 #dpStock > .sbar { grid-column: 1 / -1; position: relative; z-index: 25; overflow: visible; padding: 10px; }
 #dpStock > .sbar .sfind { margin: 0; }
+
+/* stock page: the left column (chart, AI, ask, credit, holders, PE, financials) is one stack beside the right column, so no row ever leaves a gap */
+#dpStock > .scol { display: grid; gap: 12px; min-width: 0; align-content: start; }
+@media (max-width: 1179px) { #dpStock > .scol { display: contents; } #dpStock > .sgrid { order: 1; } #dpStock > .scol > .schart { order: 0; } #dpStock > .scol > :not(.schart) { order: 2; } }
+@media (min-width: 1180px) { #dpStock > .sgrid { position: sticky; top: 88px; align-self: start; max-height: calc(100vh - 100px); overflow-y: auto; scrollbar-width: thin; } }

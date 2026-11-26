@@ -181,9 +181,10 @@ body { background: radial-gradient(120% 80% at 10% -10%, var(--bg-1), var(--bg-0
   #dpStock.on { grid-template-columns: minmax(0, 1fr) 360px; align-items: start; }
   #dpStock > .sbar, #dpStock > .shead, #dpStock > .ixdetail { grid-column: 1 / -1; }
   /* the right column (snapshot, fundamentals, news) runs beside both the chart and the AI team, so long news never leaves a gap on the left */
-  #dpStock.on { grid-template-rows: auto auto auto auto 1fr; }
-  #dpStock > .sgrid { grid-column: 2; grid-row: 3 / span 3; display: grid; grid-template-columns: 1fr; gap: 12px; align-content: start; }
-  #dpStock > .sai { grid-column: 1; grid-row: 4; }
+  #dpStock > .sgrid { grid-column: 2; grid-row: 3; display: grid; grid-template-columns: 1fr; gap: 12px; align-content: start; }
+  #dpStock > .scol { grid-column: 1; grid-row: 3; min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-content: start; }
+  #dpStock > .scol > * { grid-column: 1 / -1; min-width: 0; }
+  #dpStock > .scol > .sx.shd, #dpStock > .scol > .sx.spe { grid-column: auto; }
 }
 .shead .big, .spx .big { font-size: clamp(2rem, 3.2vw, 2.8rem); letter-spacing: -.02em; }
 

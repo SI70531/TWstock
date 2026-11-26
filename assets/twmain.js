@@ -1569,6 +1569,7 @@
         <div class="spx"><span class="big">—</span><span class="schg"></span><span class="sub stime"></span></div>
         <div class="sohlc"></div>
       </div>
+      <div class="scol">
       <div class="dcard schart">
         <div class="chips"><span class="clab">區間</span>${[[60, "60 日"], [120, "120 日"]].map(([n, t]) => `<button type="button" class="chip" data-span="${n}">${t}</button>`).join("")}
           <span class="clab">指標</span>${INDS.map(([k, t]) => `<button type="button" class="chip" data-ind="${k}">${t}</button>`).join("")}
@@ -1576,11 +1577,6 @@
         <div class="cbox"><p class="mempty">載入中…</p></div>
         <p class="sub cread"></p>
         <div class="cfoot"><p class="sub clegend">紅漲綠跌；均線：<i class="lg ma5"></i>MA5 <i class="lg ma20"></i>MA20 <i class="lg ma60"></i>MA60</p><p class="sub chint"><span class="czoom"></span>拖曳平移・滾輪縮放・雙擊還原</p></div>
-      </div>
-      <div class="sgrid">
-        <div class="dcard ssnap"><h3>技術面快照</h3><div class="snaplist"><p class="sub">載入中…</p></div></div>
-        <div class="dcard sfund"><h3>基本面與籌碼</h3><div class="fundlist"><p class="sub">載入中…</p></div></div>
-        <div class="dcard snews"><h3>新聞與公告</h3><div class="newslist"><p class="sub">載入中…</p></div></div>
       </div>
       <div class="dcard sai">
         <div class="aihead"><div><h3>AI 分析團隊</h3></div>
@@ -1598,7 +1594,13 @@
       <div class="dcard sx smg"><div class="aihead"><div><h3>融資融券</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       <div class="dcard sx shd"><div class="aihead"><div><h3>股權分散（集保）</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       <div class="dcard sx spe"><div class="aihead"><div><h3>本益比河流圖</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
-      <div class="dcard sx sfin"><div class="aihead"><div><h3>財報速覽</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>`;
+      <div class="dcard sx sfin"><div class="aihead"><div><h3>財報速覽</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
+      </div>
+      <div class="sgrid">
+        <div class="dcard ssnap"><h3>技術面快照</h3><div class="snaplist"><p class="sub">載入中…</p></div></div>
+        <div class="dcard sfund"><h3>基本面與籌碼</h3><div class="fundlist"><p class="sub">載入中…</p></div></div>
+        <div class="dcard snews"><h3>新聞與公告</h3><div class="newslist"><p class="sub">載入中…</p></div></div>
+      </div>`;
     const box = $("#dpStock"), inp = $(".ssearch", box), sug = $(".ssug", box);
     chartInput($(".cbox", box), box);
     inp.addEventListener("input", () => {
