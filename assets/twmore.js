@@ -375,8 +375,8 @@
         const days = Object.keys(byD).filter(d => d.startsWith(mp)).sort();
         const legalDays = Object.keys(L).filter(d => d.startsWith(mp) && !byD[d]).sort();
         g.hidden = true; g.innerHTML = "";
-        out.innerHTML = (days.length ? days.map(d => `<div class="sbld"><h4>${dayHead(d)}${hol[d] ? "　休市：" + esc(hol[d]) : ""}</h4>${byD[d].slice(0, 60).map(evHTML).join("")}${(L[d] || []).map(t => `<p class="sbev lg"><u class="dl"></u>${esc(t)}</p>`).join("")}</div>`).join("") : `<p class="sub">${CMINE ? "這個月沒有你的持股或自選股的事件。切到「全部」可以看所有公司。" : "這個月沒有已知的事件。"}</p>`)
-          + legalDays.map(d => `<div class="sbld"><h4>${dayHead(d)}</h4>${L[d].map(t => `<p class="sbev lg"><u class="dl"></u>${esc(t)}</p>`).join("")}</div>`).join("");
+        out.innerHTML = (days.length ? days.map(d => `<div class="sbld"><h4>${dayHead(d)}${hol[d] ? "　休市：" + esc(hol[d]) : ""}</h4>${byD[d].slice(0, 60).map(evHTML).join("")}${(L[d] || []).map(t => `<p class="sbev lg"><u class="dl"></u><em class="sbt">${esc(t)}</em></p>`).join("")}</div>`).join("") : (legalDays.length ? "" : `<p class="sub">${CMINE ? "這個月沒有你的持股或自選股的事件。切到「全部」可以看所有公司。" : "這個月沒有已知的事件。"}</p>`))
+          + legalDays.map(d => `<div class="sbld"><h4>${dayHead(d)}</h4>${L[d].map(t => `<p class="sbev lg"><u class="dl"></u><em class="sbt">${esc(t)}</em></p>`).join("")}</div>`).join("");
         out.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.2,.8,.2,1)" });
         return;
       }
@@ -391,7 +391,7 @@
       const sel = CSEL && CSEL.startsWith(mp) ? CSEL : "";
       if (!sel) { out.innerHTML = ""; return; }
       const es = (byD[sel] || []), lg = L[sel] || [];
-      out.innerHTML = `<h4>${dayHead(sel)}</h4>` + (hol[sel] ? `<p class="sbev off">休市：${esc(hol[sel])}</p>` : "") + lg.map(t => `<p class="sbev lg"><u class="dl"></u>${esc(t)}</p>`).join("") + es.slice(0, 80).map(evHTML).join("") + ((!es.length && !lg.length && !hol[sel]) ? `<p class="sub">${CMINE ? "這天沒有你的持股或自選股的事件。" : "這天沒有已知的事件。"}</p>` : "");
+      out.innerHTML = `<h4>${dayHead(sel)}</h4>` + (hol[sel] ? `<p class="sbev off"><em class="sbt">休市：${esc(hol[sel])}</em></p>` : "") + lg.map(t => `<p class="sbev lg"><u class="dl"></u><em class="sbt">${esc(t)}</em></p>`).join("") + es.slice(0, 80).map(evHTML).join("") + ((!es.length && !lg.length && !hol[sel]) ? `<p class="sub">${CMINE ? "這天沒有你的持股或自選股的事件。" : "這天沒有已知的事件。"}</p>` : "");
     }
 
     /* ----- clicks ----- */

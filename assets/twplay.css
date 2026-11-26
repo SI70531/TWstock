@@ -371,3 +371,7 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 .sbev.ag { cursor: pointer; } .sbev u { width: 8px; height: 8px; border-radius: 50%; flex: none; display: block; } .sbev .dx { background: var(--color-up); } .sbev .da { background: #2f9e6a; } .sbev .dl { background: #4f8fd8; }
 .sbev { flex-wrap: wrap; } .sbev span { flex: 1 1 100%; margin-left: 16px; text-align: left; }
 @media (max-width: 560px) { .sbsm { grid-template-columns: 1fr; } }
+/* calendar legal-deadline rows: keep text inside the pill */
+.sbev.lg, .sbev.off { flex-wrap: nowrap; align-items: center; min-height: 36px; height: auto; line-height: 1.4; overflow: visible; }
+.sbev.lg > :not(u) { min-width: 0; }
+.sbev .sbt { font-style: normal; display: block; flex: 1 1 auto; margin: 0; }
