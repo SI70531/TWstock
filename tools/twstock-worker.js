@@ -580,6 +580,7 @@ async function pmWorld(withHist) {
   const rows = j && j.spark && Array.isArray(j.spark.result) ? j.spark.result.map(x => ({ s: x.symbol, d: (x.response || [])[0] || {} })) : Object.entries(j || {}).map(([s, d]) => ({ s, d: d || {} }));
   return rows.map(({ s, d }) => {
     const m = d.meta || d, q = (d.indicators && d.indicators.quote && d.indicators.quote[0]) || {}, cl = (q.close || d.close || []).filter(v => v > 0);
+    const ts = d.timestamp || (d.response && d.response[0] && d.response[0].timestamp) || [], rc = (q.close || d.close || []), prs = ts.map((t, k) => [t, rc[k]]).filter(x => x[1] > 0);
     const last = twNum(m.regularMarketPrice) || cl[cl.length - 1], prev = cl.length > 1 ? cl[cl.length - 2] : twNum(m.chartPreviousClose);
     const nm = (PM_SYMS.find(x => x[0] === s) || [s, s])[1], t = m.regularMarketTime ? new Date((m.regularMarketTime + 8 * 3600) * 1000).toISOString().slice(0, 16).replace("T", " ") : "";
     return last > 0 ? { name: nm, symbol: s, last: Math.round(last * 100) / 100, changePct: prev > 0 ? Math.round((last / prev - 1) * 10000) / 100 : null, asOfTaipei: t, ...(withHist ? { hist: prs.slice(-22).map(x => [x[0], Math.round(x[1] * 100) / 100]) } : {}) } : null;
