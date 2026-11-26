@@ -577,7 +577,7 @@
       const bt = ok(i.z) ? fmt(i.z, 2) : "—";
       if (big.dataset.txt !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.dataset.txt = bt; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }
       big.dataset.z = ok(i.z) ? i.z : ""; big.className = "big " + t + (big.classList.contains("fl-up") ? " fl-up" : big.classList.contains("fl-down") ? " fl-down" : "");
-      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (Date.now() - T_START > 30000 && DB.list.length ? "讀不到資料" : "讀取中，請稍後…"), cg = $(".ixchg", c);
+      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (Date.now() - T_START > 30000 && DB.list.length ? "讀不到資料" : "讀取中，請稍後…"), cg = $(".ixchg", c); c.classList.toggle("ixwait", !ok(d));
       if (cg.textContent !== ct) cg.textContent = ct;
       cg.className = "sub ixchg " + t;
       const ht = i.h > 0 && i.l > 0 ? `高 ${fmt(i.h, 2)}　低 ${fmt(i.l, 2)}` : "", hl = $(".ixhl", c); if (hl.textContent !== ht) hl.textContent = ht;
@@ -1927,7 +1927,7 @@
       let pth = $("path", svg); if (!pth) { pth = document.createElementNS("http://www.w3.org/2000/svg", "path"); svg.appendChild(pth); }
       pth.setAttribute("d", ys.map((v, k) => (k ? "L" : "M") + (k / n * 76).toFixed(2) + " " + Y(v)).join(""));
       const b = $(".spbase", svg); b.setAttribute("y1", Y(base)); b.setAttribute("y2", Y(base));
-      svg.setAttribute("class", "spark " + (ys[n] >= base ? "up" : "down"));
+      svg.setAttribute("class", "spark up");
     });
   }
   function ixOpen(k) {

@@ -246,3 +246,7 @@ html.vt-stk #dpStock .shead { view-transition-name: stkx; }
 .pnlc.up { background: color-mix(in oklch, var(--color-up) calc(var(--a) * 100%), transparent); } .pnlc.down { background: color-mix(in oklch, var(--color-down) calc(var(--a) * 100%), transparent); }
 .pnlx { color: var(--color-muted); font-size: var(--text-xs); opacity: .5; }
 .pnldet { margin-top: 12px; display: grid; gap: 6px; } .pnldet > div { display: flex; justify-content: space-between; font-size: var(--text-sm); } .pnldet em { font: 500 var(--text-sm) var(--font-outlier); font-style: normal; }
+
+/* index-card line: hidden while loading, one colour whatever the direction */
+:root .ixcard.ixwait svg.spark { display: none; }
+:root .ixcard svg.spark path, :root .ixcard svg.spark.up path, :root .ixcard svg.spark.down path { stroke: #3b82c4; }
