@@ -223,7 +223,7 @@ p.skel, div.skel.block { min-height: 64px; }
 @media (max-width: 720px) { .topbar { top: 6px; padding: 8px 10px; } .topbar .tb-right { padding-right: 44px; } .tbchip .tt { display: none; } }
 
 /* theme switch in the top bar: follow the device / light / dark */
-@media (max-width: 900px) { .topbar .tb-right { padding-right: 0 !important; }
+@media (max-width: 900px) { .topbar .tb-right { padding-right: 0 !important; } }
 :root, body, .dcard, .side, .topbar { transition: background-color .5s ease, color .5s ease, border-color .5s ease; }
 
 /* ---------- 7. denser layout and the overview board ---------- */
