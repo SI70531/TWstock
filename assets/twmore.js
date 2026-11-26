@@ -174,7 +174,7 @@
       const el = this;
       if (pend.has(el)) { if (v) return; try { pend.get(el).cancel(); } catch (e) {} pend.delete(el); }
       if (v && !d.get.call(el) && el.matches(POP) && el.isConnected && el.getClientRects().length) {
-        let a; try { a = el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(10px) scale(.98)" }], { duration: 240, easing: "ease-in", fill: "forwards" }); } catch (e) { d.set.call(el, v); return; }
+        let a; try { a = el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(10px) scale(.98)" }], { duration: 140, easing: "ease-in", fill: "forwards" }); } catch (e) { d.set.call(el, v); return; }
         pend.set(el, a);
         a.onfinish = () => { pend.delete(el); d.set.call(el, true); try { a.cancel(); } catch (e) {} };
         return;
@@ -504,7 +504,7 @@
     const POP = ".ixdetail, .hmtip, .ktip, .thmenu, .kbcard, .sresults, .searchbox, [role=dialog], [role=menu], [role=listbox], [role=tooltip], .popover, .menu-pop";
     const seen = new WeakMap(), isOpen = el => !el.hidden && getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden" && +getComputedStyle(el).opacity > 0.01;
     const IN = [{ opacity: 0, transform: "translateY(14px) scale(.97)" }, { opacity: 1, transform: "none" }];
-    const pop = el => { try { el.animate(IN, { duration: 380, easing: "cubic-bezier(.2,.8,.2,1)" }); } catch (e) {} };
+    const pop = el => { try { el.animate(IN, { duration: 240, easing: "cubic-bezier(.2,.8,.2,1)" }); } catch (e) {} };
     let clk = 0; document.addEventListener("click", e => { if (e.target.closest && e.target.closest(".ixcard, .ixdetail button")) clk = Date.now(); }, true);
     const draw = root => {
       if (Date.now() - clk > 1500) return;   /* live refreshes redraw the chart quietly; only a click on a card or range plays the animation */

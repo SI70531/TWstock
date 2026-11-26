@@ -254,12 +254,12 @@ html.vt-stk #dpStock .shead { view-transition-name: stkx; }
 /* left menu open / close (wide screens only; narrower ones never show the sidebar) */
 .sbtog { display: none; }
 @media (min-width: 1100px) {
-  .sbtog { display: grid; place-items: center; position: fixed; z-index: calc(var(--z-sticky) + 1); top: 20px; left: calc(var(--side) - 28px); width: 34px; height: 34px; padding: 0; border: 0; border-radius: 11px; background: none; color: var(--color-muted); cursor: pointer; transition: left .35s cubic-bezier(.2,.8,.2,1), color .2s, background .2s; }
+  .sbtog { display: grid; place-items: center; position: fixed; z-index: calc(var(--z-sticky) + 1); top: 20px; left: calc(var(--side) - 28px); width: 34px; height: 34px; padding: 0; border: 0; border-radius: 11px; background: none; color: var(--color-muted); cursor: pointer; transition: left .22s cubic-bezier(.2,.8,.2,1), color .2s, background .2s; }
   .sbtog:hover { color: var(--color-ink); background: color-mix(in oklch, var(--color-accent) 18%, transparent); }
   .sbtog svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
-  .side { transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .25s; }
-  .app { transition: padding-left .35s cubic-bezier(.2,.8,.2,1); }
-  body.sbhide .side { transform: translateX(calc(-100% - 24px)); opacity: 0; pointer-events: none; visibility: hidden; transition: transform .35s cubic-bezier(.2,.8,.2,1), opacity .25s, visibility 0s .35s; }
+  .side { transition: transform .22s cubic-bezier(.2,.8,.2,1), opacity .25s; }
+  .app { transition: padding-left .22s cubic-bezier(.2,.8,.2,1); }
+  body.sbhide .side { transform: translateX(calc(-100% - 24px)); opacity: 0; pointer-events: none; visibility: hidden; transition: transform .22s cubic-bezier(.2,.8,.2,1), opacity .25s, visibility 0s .35s; }
   body.sbhide .app { padding-left: 64px; }
   body.sbhide .sbtog { left: 14px; background: var(--glass-bg, color-mix(in oklch, var(--color-paper) 70%, transparent)); box-shadow: 0 0 0 1px var(--glass-line, rgb(128 128 128 / .25)); backdrop-filter: blur(10px); }
   body.sbhide .dtabs { display: inline-flex !important; }
@@ -272,7 +272,7 @@ button:not(:disabled):hover, .chip:hover, [role="tab"]:hover { transform: transl
 .ixcard:hover, .dcard:hover { transform: translateY(-2px); }
 input:focus, select:focus, textarea:focus { animation: focuspulse .45s ease-out; }
 @keyframes focuspulse { from { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-accent) 55%, transparent); } to { box-shadow: 0 0 0 8px transparent; } }
-.dpanel { animation: dpin .35s cubic-bezier(.2,.8,.2,1); }
+.dpanel { animation: none; }
 @keyframes dpin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* index detail stats: label above value so long numbers never spill out of their tile */
@@ -384,3 +384,7 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 @keyframes panelin { from { opacity: 0; transform: translateY(10px) scale(.995); } to { opacity: 1; transform: none; } }
 @keyframes vtout { to { opacity: 0; transform: translateX(calc(var(--vtd, 1) * -28px)); } }
 @keyframes vtin { from { opacity: 0; transform: translateX(calc(var(--vtd, 1) * 36px)); } }
+/* ---- snappier feedback: shorter enter/exit times ---- */
+.dpanel.on { animation: panelin .26s cubic-bezier(.2,.9,.3,1); }
+::view-transition-old(panels) { animation-duration: .1s; }
+::view-transition-new(panels) { animation-duration: .24s; }
