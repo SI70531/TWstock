@@ -1891,17 +1891,10 @@
       const sg = d.pts.length + ":" + d.pts[d.pts.length - 1][1] + ":" + d.prev; if (svg.dataset.sg === sg) return; svg.dataset.sg = sg;
       const ys = d.pts.map(p => p[1]), base = ok(d.prev) ? d.prev : ys[0], lo = Math.min(base, ...ys), hi = Math.max(base, ...ys), span = hi - lo || 1, n = ys.length - 1;
       const Y = v => (26 - (v - lo) / span * 24).toFixed(1);
-      /* real candles: the day in ~28 bars; red body where the bar closed above its open, green where below, wicks for high / low */
-      const N = Math.min(28, n), NS = "http://www.w3.org/2000/svg", mk = (t, at) => { const e = document.createElementNS(NS, t); e.setAttribute("class", "cd " + at.c); for (const k in at) if (k !== "c") e.setAttribute(k, at[k]); svg.appendChild(e); };
-      $$(".cd, path", svg).forEach(x => x.remove());
-      const cw = 76 / N; let prev = ys[0];
-      for (let k = 0; k < N; k++) {
-        const i0 = Math.floor(k / N * (n + 1)), i1 = Math.max(i0, Math.floor((k + 1) / N * (n + 1)) - 1), seg = ys.slice(i0, i1 + 1), o = prev, c = seg[seg.length - 1];
-        const h = Math.max(o, ...seg), l = Math.min(o, ...seg), cl = c >= o ? "u" : "d", x = (k + .5) * cw, top = Math.min(Y(o), Y(c)), bh = Math.max(.9, Math.abs(Y(o) - Y(c)));
-        mk("line", { c: cl, x1: x.toFixed(2), x2: x.toFixed(2), y1: Y(h), y2: Y(l) });
-        mk("rect", { c: cl, x: (x - cw * .32).toFixed(2), y: top.toFixed(2), width: (cw * .64).toFixed(2), height: bh.toFixed(2) });
-        prev = c;
-      }
+      /* a single-colour line (red when the day is above yesterday's close, green when below) */
+      $$(".cd", svg).forEach(x => x.remove());
+      let pth = $("path", svg); if (!pth) { pth = document.createElementNS("http://www.w3.org/2000/svg", "path"); svg.appendChild(pth); }
+      pth.setAttribute("d", ys.map((v, k) => (k ? "L" : "M") + (k / n * 76).toFixed(2) + " " + Y(v)).join(""));
       const b = $(".spbase", svg); b.setAttribute("y1", Y(base)); b.setAttribute("y2", Y(base));
       svg.setAttribute("class", "spark " + (ys[n] >= base ? "up" : "down"));
     });
