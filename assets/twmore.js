@@ -261,6 +261,9 @@
       if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
     }
     window.addEventListener("hashchange", noteHash); noteHash();
+    /* pushState / replaceState never fire hashchange, so hook them: opening a stock counts as a view at once */
+    ["pushState", "replaceState"].forEach(f => { const o = history[f]; history[f] = function () { const r = o.apply(this, arguments); try { noteHash(); } catch (e) {} return r; }; });
+    addEventListener("popstate", noteHash);
 
     /* ----- pages (each is a tab like 總覽 / 分析 / 股票) ----- */
     let cur = null;
