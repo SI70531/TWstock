@@ -117,7 +117,8 @@ export default {
       let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
       if (!dev) return fail(400, "BAD_DEVICE", "No device id");
       const clean = a => [...new Set((Array.isArray(a) ? a : []).map(v => String(v).trim()).filter(v => /^[0-9A-Z]{4,6}$/.test(v)))].slice(0, 60);
-      return json(await pmStore(env, "watch", { who, watch: clean(b.watch), hold: clean(b.hold) }));
+      const opt = {}; ALERT_OPTS.forEach(k => { if (b.opt && b.opt[k] === false) opt[k] = false; });
+      return json(await pmStore(env, "watch", { who, watch: clean(b.watch), hold: clean(b.hold), opt }));
     }
     if (url.pathname === "/tw/premarket/run" && req.method === "POST") {
       const q = await guard(env, "pmrun", "ai", { hr: PM_HOUR, day: PM_DAY });
@@ -558,8 +559,8 @@ export class Daily {
     if (op === "watch") {
       const owner = await st.get("ownerDev");
       if (owner && owner !== b.who) return Response.json({ ok: false, owner: false });
-      await st.put("ownerDev", b.who); await st.put("wl", { watch: b.watch, hold: b.hold, at: Date.now() });
-      return Response.json({ ok: true, owner: true, n: new Set([...b.watch, ...b.hold]).size });
+      await st.put("ownerDev", b.who); await st.put("wl", { watch: b.watch, hold: b.hold, opt: b.opt || {}, at: Date.now() });
+      return Response.json({ ok: true, owner: true, opt: b.opt || {}, n: new Set([...b.watch, ...b.hold]).size });
     }
     if (op === "wl") return Response.json((await st.get("wl")) || { watch: [], hold: [] });
     if (op === "bell") { const k = "bell:" + b.kind, was = await st.get(k); if (was === b.day) return Response.json({ first: false }); await st.put(k, b.day); return Response.json({ first: true }); }
@@ -766,6 +767,7 @@ async function premarket(env, notify, isMid) {
 /* Telegram: the bot token is the TG_TOKEN secret; the chat is whoever first sent the bot a message (kept after that) */
 async function pmTelegram(env, a, day, isMid) {
   if (!env.TG_TOKEN) return "no TG_TOKEN";
+  if (!(await tgOn(env, "notes"))) return "off";
   const api = m => "https://api.telegram.org/bot" + env.TG_TOKEN + "/" + m;
   let { chat } = await pmStore(env, "chat");
   if (!chat) {
@@ -814,6 +816,9 @@ function twSession(d) {
   }
   return null;
 }
+/* Telegram messages the owner can switch off on the site (all on unless set to false) */
+const ALERT_OPTS = ["stock", "index", "news", "bell", "notes"];
+const tgOn = async (env, k) => ((await pmStore(env, "wl").catch(() => ({}))).opt || {})[k] !== false;
 async function watchTick(env, now) {
   const ses = twSession(now); if (!ses || !env.DAILY) return;
   const st = await pmStore(env, "state"), S = st.day === ses.day ? st : { day: ses.day, lv: {}, seen: st.seen || [], newsAt: 0 };
@@ -823,13 +828,13 @@ async function watchTick(env, now) {
     if (lv && (Math.abs(lv) > Math.abs(prev) || Math.sign(lv) !== Math.sign(prev || lv))) { S.lv[key] = lv; msgs.push(line); }
   };
   const sg = v => (v > 0 ? "+" : "") + v.toFixed(2) + "%", arrow = v => (v > 0 ? "🔺" : "🔻");
-  const wl = await pmStore(env, "wl"), codes = [...new Set([...(wl.hold || []), ...(wl.watch || [])])];
+  const wl = await pmStore(env, "wl"), codes = [...new Set([...(wl.hold || []), ...(wl.watch || [])])], on = k => (wl.opt || {})[k] !== false;
   if (ses.s === "day") {
     const idx = await twMis(["tse_t00.tw"]).catch(() => []), x = idx.find(r => r.c === "t00");
     let z = x && x.z, y = x && x.y;
     if (!(z > 0 && y > 0)) { const yq = await twYahoo(["^TWII"]).catch(() => []); if (yq[0]) { z = yq[0].z; y = yq[0].y; } }
-    if (z > 0 && y > 0) { const p = (z / y - 1) * 100; fire("TAIEX", p, IDX_STEP, `${arrow(p)} <b>加權指數 ${sg(p)}</b>　${z.toFixed(2)}（${p > 0 ? "+" : ""}${(z - y).toFixed(0)} 點）`); }
-    if (codes.length) {
+    if (z > 0 && y > 0 && on("index")) { const p = (z / y - 1) * 100; fire("TAIEX", p, IDX_STEP, `${arrow(p)} <b>加權指數 ${sg(p)}</b>　${z.toFixed(2)}（${p > 0 ? "+" : ""}${(z - y).toFixed(0)} 點）`); }
+    if (codes.length && on("stock")) {
       let q = await twMis(codes.map(c => "tse_" + c + ".tw")).catch(() => []);
       const have = new Set(q.filter(r => r.z > 0).map(r => r.c)), miss = codes.filter(c => !have.has(c));
       if (miss.length) q = q.filter(r => r.z > 0).concat(await twYahoo(miss).catch(() => []));
@@ -843,10 +848,10 @@ async function watchTick(env, now) {
     }
   } else {
     const f = await twFut().catch(() => null);
-    if (f && f.src === "night" && f.z > 0 && f.y > 0) { const p = (f.z / f.y - 1) * 100; fire("TXN", p, IDX_STEP, `${arrow(p)} <b>台指期夜盤 ${sg(p)}</b>　${f.z}（${p > 0 ? "+" : ""}${(f.z - f.y).toFixed(0)} 點）`); }
+    if (on("index") && f && f.src === "night" && f.z > 0 && f.y > 0) { const p = (f.z / f.y - 1) * 100; fire("TXN", p, IDX_STEP, `${arrow(p)} <b>台指期夜盤 ${sg(p)}</b>　${f.z}（${p > 0 ? "+" : ""}${(f.z - f.y).toFixed(0)} 點）`); }
   }
   /* news and the watched companies' material announcements, judged by the AI every 15 minutes */
-  if (now.getTime() - (S.newsAt || 0) >= 14 * 60000) {
+  if (on("news") && now.getTime() - (S.newsAt || 0) >= 14 * 60000) {
     S.newsAt = now.getTime();
     const ev = await watchNews(env, codes, S).catch(() => []);
     ev.forEach(e => msgs.push(`${e.impact === "利多" ? "🟥" : e.impact === "利空" ? "🟩" : "⚠️"} <b>${hesc(e.title)}</b>\n${hesc(e.why)}${e.link ? `\n<a href="${hesc(e.link)}">來源</a>` : ""}`));
@@ -990,7 +995,7 @@ async function twYahooTW(codes) {
 async function bellNotice(env, now) {
   const t = new Date(now.getTime() + 8 * 3600e3), wd = t.getUTCDay(), m = t.getUTCHours() * 60 + t.getUTCMinutes();
   if (wd < 1 || wd > 5) return;
-  const kind = m >= 541 && m <= 545 ? "open" : m >= 811 && m <= 816 ? "close" : null; if (!kind) return;
+  const kind = m >= 541 && m <= 545 ? "open" : m >= 811 && m <= 816 ? "close" : null; if (!kind || !(await tgOn(env, "bell"))) return;
   const day = t.toISOString().slice(0, 10);
   const idx = await twMis(["tse_t00.tw"]).catch(() => []), ix = idx.find(x => x.c === "t00");
   let z = ix && ix.z, y = ix && ix.y, o = ix && ix.o, h = ix && ix.h, l = ix && ix.l;
@@ -1339,7 +1344,7 @@ async function weekNote(env, notify, manual) {
       ...(L(a.next).length ? ["", "<b>下週要盯</b> " + L(a.next).map(hesc).join("；")] : []),
       `<a href="https://si70531.github.io/TWstock/">完整內容</a>｜AI 研究參考，不保證漲跌`,
     ].join("\n");
-    note.sent = await tgSend(env, text);
+    note.sent = (await tgOn(env, "notes")) ? await tgSend(env, text) : "off";
   }
   return note;
 }
@@ -1414,7 +1419,7 @@ async function closeNote(env, notify, manual) {
       ...(L(a.next).length ? ["", "<b>下個交易日盯</b> " + L(a.next).map(hesc).join("；")] : []),
       `<a href="https://si70531.github.io/TWstock/">完整內容</a>｜AI 研究參考，不保證漲跌`,
     ].join("\n");
-    note.sent = await tgSend(env, text);
+    note.sent = (await tgOn(env, "notes")) ? await tgSend(env, text) : "off";
   }
   return note;
 }

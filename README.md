@@ -4,42 +4,38 @@ Taiwan stock research site, hosted on GitHub Pages: https://si70531.github.io/TW
 
 ## What it does
 
-Three tabs: **總覽**, **分析** and **股票**. A stock's own page (個股分析) opens when you tap the stock, and 返回 goes back.
+The interface is in Traditional Chinese; this README uses English names. The menu has Overview, Market calendar, Analysis, Stocks and My holdings. A stock's own page (Stock Analysis) opens when you tap the stock, and the back button returns.
 
-- **總覽**: four indices (TAIEX, front-month TAIEX futures, electronics, finance), a market strip (turnover, net buying of foreign investors / investment trusts / dealers, advancers and decliners) and every TWSE-listed and TPEx (上櫃) stock in one list; TPEx rows are marked 櫃. The list can be searched by code or name, sorted by price, change, change % or volume, and filtered with presets (全部, 自選, 強勢股, 弱勢股, 成交量). ★ adds a stock to the watchlist; tapping a row opens it in 個股分析.
-  - Below it: **法人連續買賣超** (foreign investors and investment trusts buying or selling on consecutive days, from the last 10 trading days of TWSE's T86, each day kept in the browser once read) and **注意股・處置股** (TWSE's attention and disposition lists; also marked in the stock list and on the stock page). TPEx refuses other sites, so 上櫃 stocks are not on those lists.
-- **股票** has a switch: 清單 (the stock list and 自選 lists), 選股 (a screener: yield, P/E, monthly revenue growth, today's move, volume, latest institutional buying), 營收 (monthly revenue ranking by year-on-year or month-on-month growth), 族群 (about 15 hand-made concept groups with their average move today) and 法人 (net buyers and sellers).
-- **總覽** also shows 國際行情 (US indices, SOX, FX, oil, the US 10-year yield) and 期貨籌碼 (net open interest of the TAIEX future held by foreign investors, trusts and dealers).
-- The stock page adds 融資融券 (margin and short balances, last 8 trading days), 股權分散 (TDCC weekly shareholding distribution) and 本益比河流圖 (price against bands of its own 12-month P/E range).
-- **分析**: four parts behind a 收盤 / 盤前 / 盤中 / 週回顧 switch: the AI close summary, the pre-market note, the midday note (by default the one that fits the hour) and the weekly review.
-- **股票**: the stock list with 自選1–5, 強勢股 and 弱勢股.
-- **個股分析** (opened from a stock): one stock.
-  - Price header and a search box to switch stock.
-  - K-line for 60 or 120 days with MA5 / MA20 / MA60, Bollinger bands, volume, KD, MACD and RSI. Move over the chart to read any day.
-  - 技術面快照: plain rules read from the same numbers (trend, KD, RSI, MACD, Bollinger position, volume, support and resistance, returns).
-  - 基本面與籌碼: P/E, yield, P/B, monthly revenue and its yearly growth, and the day's net buying by institutions.
-  - 新聞與公告: recent headlines and the company's own material announcements.
-  - **AI 分析團隊**: five AI analysts (technical, fundamental, institutional flows, news and world events, risk) each give a stance, followed by a summary with a short- and mid-term view, three scenarios with rough chances, entry conditions (price zone, stop, when not to buy), risks and events to watch.
+- **Overview**: four indices (TAIEX, front-month TAIEX futures, electronics, finance), a market strip (turnover, net buying of foreign investors / investment trusts / dealers, advancers and decliners) and the market's movers.
+  - **Institutional buying / selling streaks** (foreign investors and investment trusts on consecutive days, from the last 10 trading days of TWSE's T86, each day kept in the browser once read) and **attention and disposition stocks** (TWSE's two lists, also marked in the stock list and on the stock page; TPEx stocks are not on them).
+  - **World markets** (US indices, SOX, FX, oil, the US 10-year yield) and **futures positions** (net open interest of the TAIEX future held by foreign investors, trusts and dealers).
+  - **Market chip gauge**: market margin and short balances with the day's change, and the share of listed stocks above their 20- and 60-day averages.
+- **Market calendar**: ex-dividend dates, shareholder meetings and filing deadlines, for all companies or your own stocks, with an estimate of dividends on your holdings.
+- **Analysis**: the AI close summary, the pre-market note, the midday note and the weekly review, plus **Hit rate**: AI stock analyses and pre-market calls kept as they were made and checked against what happened (analyses after 5, 10 and 20 trading days, also against the TAIEX; pre-market calls against the day's opening gap and close). Records are kept in this browser from when this was added, and a stock analysis is recorded only when it is shown here.
+- **Stocks**: the list with five watchlists and Strong / Weak presets, a screener, a monthly revenue ranking, concept groups, institutional net buyers and sellers, a price overlay chart and the ex-dividend list.
+  - The screener filters by yield, P/E, monthly revenue growth, today's move, volume and the latest institutional buying, and by technical conditions: above the 20- or 60-day average, KD golden cross in the last 3 days or a 60-day closing high, and volume against its 20-day average. Technical conditions cover TWSE-listed stocks and use unadjusted closes. The first use reads the last 61 trading days, which takes a few minutes; they are kept in the browser (IndexedDB) and later runs read only the new days. If TWSE refuses requests, running it again carries on from where it stopped.
+- **Stock Analysis**: price header, K-line (60 or 120 days) with MA5 / MA20 / MA60, Bollinger bands, volume, KD, MACD and RSI, a rule-based technical snapshot, fundamentals and institutional flows, news and announcements, financial highlights, the shareholding distribution and a P/E band chart.
+  - Margin and short balances for recent days, with the latest securities lending sales.
+  - **Dividends**: five years of ex-dividend and ex-rights results for TWSE-listed securities, cash per year, and on request how many trading days each of the latest four took to fill the gap (looked for over 12 months).
+  - **AI analyst team**: five AI analysts (technical, fundamental, institutional flows, news and world events, risk) each give a stance, followed by a summary with a short- and mid-term view, three scenarios with rough chances, entry conditions, risks and events to watch. Research numbers computed in the browser go with the request (technical scenarios, 10,000 random replays, four strategy backtests with Taiwan trading costs, and your own position, trades and events). You can also ask the AI a question about the stock.
+- **My holdings**: holdings and estimated profit and loss after selling fees and tax.
+  - What today's share counts and cash would have done over about six months, next to 0050. It is worked backwards, not the account's real record.
+  - Position size: from entry, stop, capital and the largest loss allowed, the number of shares that fits, fees and tax included.
+  - **Paper trading**: practice orders with NT$1,000,000 of virtual money, filled in full at the latest quote (the last close outside trading hours), with fees and tax. No order queue, price limits, slippage or dividends, and nothing is sent to any broker.
+  - **Backup and restore** of what this browser keeps, and switches for each kind of Telegram message.
 
-- **研究室** (Lab): eight research tools, opened from a card menu. Holdings and the trade journal are kept only in this browser (never uploaded); CSV import and export are available.
-  - 持股風險 (portfolio risk): P&L at the latest price, weights, concentration (largest holding, top three, effective number of holdings), industry mix, beta against 0050 and correlations from six months of daily bars, a market −20% stress test against the loss you say you can bear, and three rebalancing plans (as is, cap per holding, scale down to the tolerated loss) with their selling costs.
-  - 交易日誌 (trade journal): win rate, average win and loss, profit factor, expectancy, losing streaks, hold time of winners vs losers, trades without a stop or against the plan, and up to three rules derived only from the record, each with a way to check it.
-  - 技術情境 (technical scenarios): about 14 months of daily bars plus weekly bars built from them; support, resistance, a 60-day regression trend line, moving averages and momentum; bull, range and bear scenarios listing which conditions hold now, what would confirm and what would break each one.
-  - 策略回測 (backtest): moving-average cross, RSI reversion, breakout and KD cross on 12–36 months; signals on the close, fills at the next open, fees, transaction tax and slippage; in-sample vs out-of-sample and buy-and-hold; trades and data downloadable as CSV.
-  - 同業比較 (peer valuation): P/E, P/B, yield and revenue growth side by side with the industry, medians and missing data marked.
-  - 敏感度分析 (sensitivity): a five-year free-cash-flow model with conservative, base and optimistic inputs, a discount-rate × growth grid and the most sensitive input; no probabilities are assigned.
-  - 事件日曆 (event calendar): events with date or "to be confirmed", official source, the hypothesis to test and data to update; a weekly checklist; facts and market guesses recorded separately.
-  - 提示詞 (prompts): the twelve research prompts, filled with the page's data (OHLCV, indicators, fundamentals, holdings, journal), ready to copy into Claude.
-  These tools help with risk and discipline; none of them can promise a profit.
+These tools help with research, risk and discipline; none of them can promise a profit.
 
 ## Files
 
 ```
 index.html               Page shell and the tabs
-assets/twmain.js/.css    The app: data loading, 總覽, 自選股, 個股分析, charts, AI analysis
-assets/twlab.js          The 研究室 tab (uses helpers exposed by twmain.js as window.TWDash.api)
+assets/twmain.js/.css    The app: data loading, Overview, Analysis, Stocks, Stock Analysis, charts, AI analysis
+assets/twlab.js          Research tools and the research numbers sent to the AI (uses helpers exposed by twmain.js as window.TWDash.api)
+assets/twmore.js         Price overlay and ex-dividend views, holdings page, market calendar, cross-device sync, sidebar and gestures
+assets/twextra.js/.css   Market chip gauge, technical screening, dividends, equity curve, position size, paper trading, hit rate, backup, line chart
 assets/twui.css / twui.js  UI v3: glass shell (sidebar on wide screens, tabs on tablets, bottom bar on phones), light/dark from the device, drifting aurora tinted by the TAIEX, counting numbers, card tilt and sheen, loading skeletons
-tools/otc_list.py        Writes otc.json (上櫃 and 興櫃 stocks, plus every company's industry code); the "OTC list" workflow publishes it on the `data` branch every 10 minutes in trading hours, because TPEx open data cannot be read by the page and refuses the Worker
+tools/otc_list.py        Writes otc.json (TPEx and Emerging Stock Board stocks, plus every company's industry code); the "OTC list" workflow publishes it on the `data` branch every 10 minutes in trading hours, because TPEx open data cannot be read by the page and refuses the Worker
 assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill (mobile)
 assets/twdash.css, twmarket.css, twglass.css, twtheme.css   Shared look: cards, chips, glass surfaces, theme
 ```
@@ -54,14 +50,14 @@ assets/twdash.css, twmarket.css, twglass.css, twtheme.css   Shared look: cards, 
   - `POST /tw/analyze` the AI analysis (Gemini), limited to 30 calls an hour and 200 a day per IP address; today's analysis of a stock is kept per device (a random id the page makes once, `twstock-device` in localStorage). The page also sends the research tools' numbers for the stock (technical scenarios, the 10,000-run time machine, four strategy backtests, and the user's own position, trades and events); the tools themselves sit in a fold under the AI team on the stock page.
   - `GET /tw/chart?k=t00|fut|t13|t17&r=tick|day` 1-minute bars of the current session or about a year of daily bars for the TAIEX, the front-month TAIEX future (night session included), the electronics and the finance index (Yahoo Taiwan). The overview cards show the session as a sparkline; tapping a card opens the chart with the session, 3-month and 1-year views.
   - `GET /tw/premarket` the latest pre-market note. The Worker writes it at 05:30 Taipei on trading-day mornings from the TAIEX futures night session, the US close, rates, the NT dollar, institutional flows and headlines, and sends it to Telegram (secret `TELEGRAM_BOT_TOKEN` in this repository; the chat is whoever first messages the bot). `POST /tw/premarket/run` writes one on request (at most 4 an hour and 12 a day for the whole site).
-  - Trading-hours alerts (cron every minute, day session 09:00–13:30 and night session 15:00–05:00): TAIEX and night-session TAIEX futures at every ±1.5%, the owner's watchlist and held codes at every ±5% and at limit up / down, and every 15 minutes the AI screens new headlines and the watched companies' material announcements; all sent to Telegram. `POST /tw/alerts/sync` stores the codes (codes only, never shares or costs); the first device that syncs is the owner. A manual `POST /tw/premarket/run` is also sent to Telegram.
+  - Trading-hours alerts (cron every minute, day session 09:00–13:30 and night session 15:00–05:00): TAIEX and night-session TAIEX futures at every ±1.5%, the owner's watchlist and held codes at every ±5% and at limit up / down, and every 15 minutes the AI screens new headlines and the watched companies' material announcements; all sent to Telegram. `POST /tw/alerts/sync` stores the codes (codes only, never shares or costs) and which messages are switched off; the first device that syncs is the owner. A manual `POST /tw/premarket/run` is also sent to Telegram.
   - Opening and closing bell: at 09:01 and 13:31 Taipei on trading days, one Telegram message with the TAIEX (and, at the open, whether the pre-market call was right), the TAIEX future and every held and watched stock.
-  - Close summary: at 15:30 Taipei on trading days the Worker writes an AI review of the day from TWSE's daily report (sector indices, movers, turnover, breadth), the day's institutional flows and headlines, checks the morning's call against the actual open and close, comments on each held and watched stock, and sends it to Telegram together with any of those stocks newly on the attention or disposition list. `GET /tw/close` serves it (shown under 分析 → 收盤); `POST /tw/close/run` writes one on request (shares the pre-market limit).
-  - Weekly review: Saturday 09:00 Taipei the Worker summarises the week's five trading days (TAIEX closes, sector moves, institutional flows, headlines) with the AI and sends it to Telegram. `GET /tw/week` serves it (shown under 分析 → 週回顧); `POST /tw/week/run` writes one on request (shares the pre-market limit).
-  - Institutional ranking: `GET /tw/instrank` returns the top net buyers and sellers (foreign, investment trust, dealers, all three) from TWSE T86 for the latest trading day; the 股票 tab shows it.
+  - Close summary: at 15:30 Taipei on trading days the Worker writes an AI review of the day from TWSE's daily report (sector indices, movers, turnover, breadth), the day's institutional flows and headlines, checks the morning's call against the actual open and close, comments on each held and watched stock, and sends it to Telegram together with any of those stocks newly on the attention or disposition list. `GET /tw/close` serves it (shown under Analysis); `POST /tw/close/run` writes one on request (shares the pre-market limit).
+  - Weekly review: Saturday 09:00 Taipei the Worker summarises the week's five trading days (TAIEX closes, sector moves, institutional flows, headlines) with the AI and sends it to Telegram. `GET /tw/week` serves it (shown under Analysis); `POST /tw/week/run` writes one on request (shares the pre-market limit).
+  - Institutional ranking: `GET /tw/instrank` returns the top net buyers and sellers (foreign, investment trust, dealers, all three) from TWSE T86 for the latest trading day; the Stocks tab shows it.
   - Ask the AI: `POST /tw/ask {d, code, name, q, facts}` answers one question about the open stock from the page's numbers and recent headlines (one AI call, counted in the per-IP limit).
 - Intraday quotes cover the stocks currently on screen (up to 70 rows, the watchlist, or the open stock) and refresh every 2 seconds during the day session (stocks and indices in one TWSE request, so an open page costs TWSE about one request every 2 seconds) and every 5 seconds for the TAIEX future in the night session; the rest of the list stays at the last close until scrolled into the first rows or opened. Sorting therefore mixes live and closing values.
-- When the Worker does not answer, the page keeps working on closing data and says so in the banner. When TWSE cannot be reached at all, the banner says 示意資料 and the numbers are sample values.
+- When the Worker does not answer, the page keeps working on closing data and says so in the banner. When TWSE cannot be reached at all, the banner says the data is illustrative and the numbers are sample values.
 
 The **Deploy Worker** workflow (`.github/workflows/worker.yml`) deploys it on every push that changes the Worker, or by hand (Actions → Deploy Worker → Run workflow). It needs the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and `TELEGRAM_BOT_TOKEN` for the notification. The Worker's `GEMINI_KEY` is kept in Cloudflare (Workers → twstock-ai → Settings → Variables and Secrets).
 
@@ -71,7 +67,7 @@ This is a private research tool for its owner and a few friends, not a public se
 
 ## No accounts
 
-There is no sign-in. The watchlist, holdings and trade journal are kept only in this browser. The AI analysis and the manual pre-market note are open to anyone on the site, within the limits above.
+There is no sign-in. The paper account and the hit-rate records stay in this browser. Holdings, cash, trades, events, price alerts and watchlists are also shared across devices through the Worker (`POST /tw/sync`, last write per key wins). That endpoint has no authentication: anyone using the site can read and change this shared data. The AI analysis and the manual pre-market note are open to anyone on the site, within the limits above.
 
 ## Disclaimer
 

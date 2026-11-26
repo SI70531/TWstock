@@ -817,7 +817,7 @@
     if (d && d.code === code && d.cases) { const v = dcfVal(Object.assign({}, DCF0, d), d.cases["基準"].g, d.cases["基準"].m, d.r, d.gT); if (v && ok(v.ps)) out.myValuation = { baseCaseValuePerShare: r2v(v.ps), discountRatePct: d.r, growthPct: d.cases["基準"].g }; }
     return out;
   }
-  window.TWLab = { research: (code, onStep) => (A ? research(code, onStep) : Promise.resolve(null)) };
+  window.TWLab = { research: (code, onStep) => (A ? research(code, onStep) : Promise.resolve(null)), bars };
 
   /* ---------------- start (twmain dispatches twdash:ready once its helpers exist) ---------------- */
   document.addEventListener("twdash:ready", () => {

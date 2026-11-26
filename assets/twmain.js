@@ -308,6 +308,7 @@
   function rtCodes() {
     if (cur === "dpWatch") return WATCH.slice(0, 80);
     if (cur === "dpStock") return [CODE];
+    if (cur === "dpHold" && window.TWExtra) { const c = TWExtra.liveCodes(); if (c.length) return c; }
     return $$("#dpList .mtbl tbody tr[data-code]").slice(0, 70).map(r => r.dataset.code);
   }
   function rtApply(x) {
@@ -489,7 +490,7 @@
     /* the pre-market note and the stock list each have their own tab */
     /* 分析: one tab with three parts (收盤摘要, 盤前分析, 盤中分析), one shown at a time */
     const pre = $("#dpPre");
-    pre.insertAdjacentHTML("beforeend", `<div class="anasub" role="tablist" aria-label="分析">${[["cl", "收盤"], ["pm", "盤前"], ["md", "盤中"], ["wk", "週回顧"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
+    pre.insertAdjacentHTML("beforeend", `<div class="anasub" role="tablist" aria-label="分析">${[["cl", "收盤"], ["pm", "盤前"], ["md", "盤中"], ["wk", "週回顧"], ["re", "命中率"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
     const pmc = $(".pm:not(.md)", box), mdc = $(".pm.md", box), clc = $(".cl", box), wkc = $(".wk", box);
     clc.dataset.sub = "cl"; pmc.dataset.sub = "pm"; mdc.dataset.sub = "md"; wkc.dataset.sub = "wk";
     pre.appendChild(clc); pre.appendChild(pmc); pre.appendChild(mdc); pre.appendChild(wkc);
@@ -932,7 +933,7 @@
     bs.forEach(x => x.setAttribute("aria-selected", String(x === b)));
     anaMark(bar);
     if (!bar._ro && window.ResizeObserver) { bar._ro = new ResizeObserver(() => anaMark(bar, true)); bar._ro.observe(bar); } /* the bar has no size while 分析 is hidden: place the highlight again once it shows */
-    const order = ["cl", "pm", "md", "wk"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
+    const order = ["cl", "pm", "md", "wk", "re"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
     $$(".dcard[data-sub]", pre).forEach(c => {
       const on = c.dataset.sub === k; c.hidden = !on;
       if (on && animate) { c.animate([{ opacity: 0, transform: `translateX(${dir * 40}px)` }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.16,1,.3,1)" }); rise($$(".lrise", c), 50, 120); }
@@ -971,7 +972,7 @@
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
       clPaint({ note: j }, true);
-      const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
+      const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent && j.sent !== "off" ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
       if (j.saveError) el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">這份摘要沒有存到伺服器，其他裝置看不到：${esc(j.saveError)}</p>`);
     } catch (e) {
@@ -1071,6 +1072,9 @@
     { k: "pct", l: "今日漲跌幅", o: [["-99", "不限"], ["0", "上漲"], ["3", "≥ +3%"], ["5", "≥ +5%"], ["-3", "≤ -3%（下跌）"]] },
     { k: "vol", l: "成交量", o: [["0", "不限"], ["1000", "≥ 1,000 張"], ["5000", "≥ 5,000 張"], ["20000", "≥ 20,000 張"]] },
     { k: "chip", l: "法人（最近一日）", o: [["", "不限"], ["a", "三大法人買超"], ["f", "外資買超"], ["t", "投信買超"]] },
+    { k: "ma", l: "均線（上市）", o: [["", "不限"], ["above20", "站上月線"], ["above60", "站上季線"]] },
+    { k: "sig", l: "訊號（上市）", o: [["", "不限"], ["gold", "KD 黃金交叉（近 3 日）"], ["high60", "收盤創 60 日新高"]] },
+    { k: "volx", l: "量能（上市）", o: [["0", "不限"], ["1.5", "≥ 20 日均量 1.5 倍"], ["2", "≥ 2 倍"], ["3", "≥ 3 倍"]] },
     { k: "sort", l: "排序", o: [["vol", "成交量"], ["pct", "漲跌幅"], ["yld", "殖利率"], ["yoy", "營收年增"], ["pe", "本益比（低→高）"]] },
   ];
   async function scGo() { const el = $(".scout"); if (el && !FUND.map) el.innerHTML = `<p class="sub">讀取財務與法人資料…</p>`; await Promise.all([loadFund(), loadChip()]); scPaint(false); }
@@ -1079,7 +1083,10 @@
     if (!DB.live) { el.innerHTML = `<p class="sub">示意資料模式下無法選股，連上證交所後才能用。</p>`; return; }
     const v = {}; $$("select", card).forEach(x => (v[x.dataset.f] = x.value));
     const F = FUND.map || new Map(), C = CHIP.map || new Map(), rows = [];
+    const tw = window.TWExtra && TWExtra.screenWants(v);
+    if (tw && !TWExtra.screenReady(v, el, () => scPaint(false))) { $(".scn", card).textContent = ""; return; }
     DB.list.forEach(s => {
+      if (tw && !TWExtra.screenPass(s.code, v)) return;
       if (!stockish(s) || !(s.price > 0) || !(s.vol > 0)) return;
       const f = F.get(s.code) || {}, c = C.get(s.code) || {};
       if (+v.yld > 0 && !(f.yld >= +v.yld)) return;
@@ -1810,6 +1817,7 @@
   }
   async function setStock(code, animate) {
     CODE = code; store.set("twmain-code", CODE);
+    document.dispatchEvent(new CustomEvent("twdash:stock", { detail: code }));
     const box = $("#dpStock"), tok = ++chartTok;
     const qs = DB.by.get(code); if (qs && !qs.rt && DB.live && marketOpen()) qs.rtWait = true;
     paintHead(); quoteNow(code);
@@ -1889,15 +1897,21 @@
     alertTimer = setTimeout(async () => {
       const el = $("#dpPre .pmalert");
       const hold = (store.get("twlab-hold", []) || []).map(h => h.code);
+      let state = { ok: false };
       try {
-        const r = await fetch(WORKER + "/tw/alerts/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ d: DEVICE, watch: WATCH, hold }) });
+        const opt = store.get("twalert-opt", {}) || {};
+        const r = await fetch(WORKER + "/tw/alerts/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ d: DEVICE, watch: WATCH, hold, opt }) });
         const j = await r.json().catch(() => ({}));
+        /* a Worker from before the switches answers without "opt": they are not applied yet */
+        state = j.ok ? { ok: true, old: j.opt === undefined } : j.owner === false ? { ok: false, owner: false } : { ok: false };
         if (el) el.textContent = j.ok ? `盤中警示：監控大盤、台指期與 ${j.n} 檔股票，有大漲跌或重大消息會傳 Telegram。`
           : j.owner === false ? "盤中警示只監控擁有者裝置的股票。" : "盤中警示：同步失敗。";
       } catch (e) { if (el) el.textContent = "盤中警示：同步失敗。"; }
+      document.dispatchEvent(new CustomEvent("twdash:alertsync", { detail: state }));
     }, 1500);
   }
   document.addEventListener("twlab:hold", alertSync);
+  document.addEventListener("twalert:change", alertSync);
 
 
 
@@ -2079,6 +2093,7 @@
   /* mid: the midday note (written at 13:00 during the session, calling the next session) in its own tab */
   function pmPaint(j, animate, mid) {
     if (!mid && j && j.note) { PMN = j.note; boardSig = boardSig ? "x" : ""; try { paintBoard(); } catch (e) {} }
+    if (!mid && j && j.note) document.dispatchEvent(new CustomEvent("twdash:premarket", { detail: j }));
     const el = $(mid ? "#dpPre .mdout" : "#dpPre .pmout"); if (!el) return;
     const n = j && j.note;
     if (!n || !n.analysis) { el.innerHTML = `<p class="sub">還沒有分析，${mid ? "13:00" : "05:30"} 會自動產生。</p>`; return; }
@@ -2112,7 +2127,7 @@
       if (mid && j && j.error && j.error.status === "MARKET_CLOSED") { MD_HOLIDAY = true; b.disabled = false; b.textContent = "分析"; mdGate(); return; }
       if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
       pmPaint({ note: j }, true, mid);
-      const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent ? "Telegram 沒有送出：" + j.sent : "";
+      const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent && j.sent !== "off" ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
     } catch (e) {
       /* a long run can outlast the connection while the Worker keeps going: wait for the new note (up to about 2 minutes) before saying it failed */
@@ -2192,6 +2207,7 @@
         throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : st >= 500 ? "Google 的 AI 現在太忙，過幾分鐘再按一次" : "AI 暫時沒有回應，過幾分鐘再試"));
       }
       AI.set(code, { at: j.at || Date.now(), data: j });
+      document.dispatchEvent(new CustomEvent("twdash:ai", { detail: { code, name: s.name, at: j.at || Date.now(), price: F.close, barDate: F.date, analysis: j.analysis } }));
       if (code === CODE) { paintAI(); rise(Array.from($(".aiout", box).children), 90); }
     } catch (e) {
       /* a failed 重新分析 keeps the analysis already on screen */
@@ -2454,6 +2470,7 @@
     /* shared with the 研究室 tab (assets/twlab.js) */
     api: { DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
       refresh: () => Promise.all([rtPoll(), pmLoad(), pmLoad(true), clLoad()]).then(() => open(cur, true)),
+      rtPoll, quoteNow,
       store, worker: WORKER, openTab: p => open(p, true), lstSub: k => lstSub(k, true), tabNow: () => cur, ixk: () => IXV.k, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
   document.dispatchEvent(new Event("twdash:ready"));
 
