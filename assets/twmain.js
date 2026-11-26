@@ -1568,6 +1568,7 @@
         <p class="sflagline" hidden></p>
         <div class="spx"><span class="big">—</span><span class="schg"></span><span class="sub stime"></span></div>
         <div class="sohlc"></div>
+        <div class="srange"></div>
       </div>
       <div class="scol">
       <div class="dcard schart">
@@ -1640,6 +1641,14 @@
     $(".schg", box).textContent = `${arrow(s.chg)} ${fmt(Math.abs(s.chg), d)}（${pct(s.pct)}）`; $(".schg", box).className = "schg " + t;
     $(".stime", box).textContent = s.rt ? `盤中 ${s.tm || ""}` : DB.live ? `收盤 ${slash(DB.date)}` : "示意資料";
     $(".sohlc", box).innerHTML = [["開", fmt(s.open, d)], ["高", fmt(s.high, d)], ["低", fmt(s.low, d)], ["昨收", fmt(s.prev, d)], ["量（張）", fmt(s.vol)]].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+    /* the empty lower left: where the price sits in today's range, the 52-week range and the ±10% limit band */
+    (() => {
+      const rg = $(".srange", box), rec = HIST.get(CODE), yr = rec && rec.cs ? rec.cs.slice(-250) : [], P = s.price;
+      const rows = [["今日", s.low, s.high], ["52 週", yr.length > 20 ? Math.min(...yr.map(b => b[3]).filter(v => v > 0), s.low > 0 ? s.low : Infinity) : NaN, yr.length > 20 ? Math.max(...yr.map(b => b[2]), s.high > 0 ? s.high : 0) : NaN], ["漲跌停", ok(s.prev) ? Math.round(s.prev * 0.9 * 100) / 100 : NaN, ok(s.prev) ? Math.round(s.prev * 1.1 * 100) / 100 : NaN]].filter(r => ok(r[1]) && ok(r[2]) && r[2] > r[1] && ok(P));
+      const html = rows.map(([k, lo, hi]) => { const f = Math.max(0, Math.min(1, (P - lo) / (hi - lo))); return `<div class="srr"><span class="srk">${k}</span><span class="srl">${fmt(lo, d)}</span><span class="srb"><i style="width:${(f * 100).toFixed(1)}%"></i><b style="left:${(f * 100).toFixed(1)}%"></b></span><span class="srl">${fmt(hi, d)}</span></div>`; }).join("");
+      if (rg.dataset.h !== html) { const first = !rg.dataset.h; rg.dataset.h = html; rg.innerHTML = html; if (first) $$(".srb i", rg).forEach((el, k) => el.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 700, delay: k * 90, easing: "cubic-bezier(.215,.61,.355,1)" })); }
+      rg.dataset.tone = t;
+    })();
   }
   /* today's bar from the live quote is added to the history, or replaces today's bar */
   function barsOf(code) {
