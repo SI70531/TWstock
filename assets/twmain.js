@@ -393,8 +393,8 @@
   const COLS = [["price", "成交價"], ["chg", "漲跌"], ["pct", "漲跌幅"], ["vol", "成交量"]];
   function buildOverview() {
     $("#dpOverview").innerHTML = `
-      <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}</span><em class="ixen">${i.en}</em><span class="ixsrc"></span></h3>
-        <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}${US4.map(u => `<div class="dcard ixcard usx" data-us="${esc(u[0])}"><h3><span class="ixn">${u[1]}</span><em class="ixen">${u[2]}</em><span class="ixsrc">美股</span></h3><div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div></div>`).join("")}</div>
+      <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}<em class="ixen">${i.en}</em></span><span class="ixsrc"></span></h3>
+        <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}${US4.map(u => `<div class="dcard ixcard usx" data-us="${esc(u[0])}"><h3><span class="ixn">${u[1]}<em class="ixen">${u[2]}</em></span><span class="ixsrc">美股</span></h3><div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3></div>
         <button type="button" class="btn pmgo">分析</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert" hidden></p></div>
@@ -570,7 +570,7 @@
       const cd = CH[i.k + ":tick"];   /* no live quote from the Worker: fall back on the chart's last bar (Yahoo, a little delayed) */
       if (!i.rt && cd && cd.last > 0) Object.assign(i, { z: cd.last, y: cd.prev, h: cd.high, l: cd.low, tm: cd.at ? new Date(cd.at + 8 * 3600e3).toISOString().slice(11, 19) : "", src: "延遲" });
       const d = ok(i.z) && ok(i.y) ? i.z - i.y : NaN, t = tone(d), big = $(".big", c);
-      if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); $(".ixn", c).textContent = sub ? i.name + "（" + sub + "）" : i.name; }
+      if (i.label) { const sub = i.label.replace(/^[臺台]指期\s*/, "").trim(); const ix = $(".ixn", c), tt = sub ? i.name + "（" + sub + "）" : i.name; if (ix.dataset.t !== tt) { ix.dataset.t = tt; ix.innerHTML = esc(tt) + `<em class="ixen">${i.en}</em>`; } }
       $(".ixsrc", c).textContent = i.src ? i.src + (i.tm ? " " + i.tm.slice(0, 5) : "") : "";
       const bt = ok(i.z) ? fmt(i.z, 2) : "—";
       if (big.dataset.txt !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.dataset.txt = bt; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }

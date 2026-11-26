@@ -44,7 +44,7 @@
     side.className = "side"; side.setAttribute("aria-label", "側欄");
     side.innerHTML = `<div class="sb-clock"><div class="s"><span class="statuschip" data-s="closed"><i></i><span class="ss">—</span></span><span class="sd"></span></div><div class="t">--:--:--</div>
         <div class="sb-prog" hidden><div class="bar"><i></i></div><span></span></div>
-        <div class="sb-ix" data-k="t00"><span>加權<em class="ixen">TAIEX</em></span><b>—</b></div><div class="sb-ix" data-k="fut"><span>台指期<em class="ixen">TX</em></span><b>—</b></div></div>
+        <div class="sb-ix" data-k="t00"><span>加權</span><b>—</b></div><div class="sb-ix" data-k="fut"><span>台指期</span><b>—</b></div></div>
       <nav aria-label="主要導覽"><i class="sb-hl"></i>${tabs.map(t => `<button type="button" data-p="${t.dataset.p}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[t.dataset.p] || '<circle cx="12" cy="12" r="3"/>'}</svg>${t.textContent.trim()}</button>`).join("")}</nav>`;
     document.body.appendChild(side);
     side.addEventListener("click", e => {
@@ -70,7 +70,7 @@
     const mc = document.createElement("div");
     mc.className = "mclock";
     mc.innerHTML = `<div class="mc-t"><b class="t">--:--:--</b><span class="sd"></span></div>
-      <div class="sb-ix" data-k="t00"><span>加權<em class="ixen">TAIEX</em></span><b>—</b></div><div class="sb-ix" data-k="fut"><span>台指期<em class="ixen">TX</em></span><b>—</b></div>
+      <div class="sb-ix" data-k="t00"><span>加權</span><b>—</b></div><div class="sb-ix" data-k="fut"><span>台指期</span><b>—</b></div>
       <div class="sb-prog" hidden><div class="bar"><i></i></div><span></span></div>`;
     bar.appendChild(mc);
     const prog = document.createElement("i"); prog.className = "tb-prog"; prog.setAttribute("aria-hidden", "true"); bar.appendChild(prog);
