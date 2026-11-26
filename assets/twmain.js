@@ -1882,7 +1882,7 @@
     ($(".bd-vol .bd-list", box) || {}).innerHTML = vol.map(s => `<button type="button" class="bd-row bd-vrow" data-code="${esc(s.code)}" style="--w:${(s.vol / vmx * 100).toFixed(1)}%"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i></span><span class="bd-px ${tone(s.chg)}">${pct(s.pct)}</span><span class="bd-v">${fmt(s.vol)}</span></button>`).join("");
     const a = PMN && PMN.analysis;
     ($(".bd-pmout", box) || {}).innerHTML = a ? `<div class="bd-call"><span class="aitag ${/高/.test(a.call) ? "up" : /低/.test(a.call) ? "down" : ""}">${esc(a.call)}</span><span class="sub">預測 ${esc(String(PMN.day).slice(5).replace("-", "/"))} 開盤・${esc(a.gap || "")}</span>${a.close && a.close.call ? `<span class="aitag ${/紅/.test(a.close.call) ? "up" : /黑/.test(a.close.call) ? "down" : ""}">${esc(a.close.call)}</span><span class="sub">收盤 ${esc(a.close.range || "")}</span>` : ""}</div><p class="bd-head">${esc(a.headline || "")}</p>
-      ${Array.isArray(a.picks) && a.picks.length ? `<div class="bd-picks">${a.picks.slice(0, 8).map(x => `<button type="button" class="bd-row" data-code="${esc(x.code)}"><span class="bd-nm"><b>${esc(x.name)}</b><i>${esc(x.code)}</i></span><span class="bd-px">${esc(x.tag || "")}</span><span class="bd-v ${/買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""}">${esc(x.action || "")}</span></button>`).join("")}</div>` : ""}<div class="bd-ch">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc((a.chances || {})[k] || "—")}</b></div>`).join("")}</div>` : `<p class="sub">05:30 自動產生。</p>`;
+      ${Array.isArray(a.picks) && a.picks.length ? `<div class="bd-picks">${a.picks.slice(0, 8).map(x => `<button type="button" class="bd-row" data-code="${esc(x.code)}"><span class="bd-nm"><b>${esc(x.name)}</b><i>${esc(x.code)}</i></span><span class="bd-px">${esc(x.tag || "")}</span><span class="bd-v ${/買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""}">${esc(actFor(x.code, x.action || ""))}</span></button>`).join("")}</div>` : ""}<div class="bd-ch">${["開高", "平盤", "開低"].map(k => `<div><span>${k}</span><b class="${k === "開高" ? "up" : k === "開低" ? "down" : ""}">${esc((a.chances || {})[k] || "—")}</b></div>`).join("")}</div>` : `<p class="sub">05:30 自動產生。</p>`;
     if (first || cur === "dpOverview") boardIn(box, first);
   }
   /* the reading over a distribution bar: how many, and the busiest stocks in that bucket */
@@ -2047,7 +2047,7 @@
         ${a.close && a.close.call ? `<div class="pmseg"><h4>13:30 收盤 <span class="aitag ${/紅/.test(a.close.call) ? "up" : /黑/.test(a.close.call) ? "down" : ""}">${esc(a.close.call)}</span> <span class="sub">${esc(a.close.range || "")}</span></h4><div class="pmchance">${["收紅", "平盤", "收黑"].map(k => `<div><span>${k}</span><b class="${k === "收紅" ? "up" : k === "收黑" ? "down" : ""}">${esc((a.close.chances || {})[k] || "—")}</b></div>`).join("")}</div>${a.close.why ? `<p class="pmcw">${esc(a.close.why)}</p>` : ""}</div>` : ""}</div></div>
       <div class="aicols"><div class="lrise"><h4>${mid ? "今日盤勢" : "夜盤"}</h4><p>${esc(a.night || "—")}</p></div><div class="lrise"><h4>美股與國際</h4><p>${esc(a.us || "—")}</p></div></div>
       ${Array.isArray(a.picks) && a.picks.length ? `<div class="pmpicks"><div class="pmph"><h4>推薦下單</h4><span class="sub">${esc(a.picks_note || "")}</span></div><div class="pmpgrid">${a.picks.map(x => { const t = /買|續抱/.test(x.action || "") ? "up" : /賣|減/.test(x.action || "") ? "down" : ""; return `<button type="button" class="aiorder pmpick ${t ? "o-" + t : ""} lrise" data-pick="${esc(x.code)}">
-        <div class="aiohead"><span class="ntag">${esc(x.tag || "")}</span><b class="pmpn">${esc(x.name || "")} <i>${esc(x.code)}</i></b><b class="${t}">${esc(x.action || "")}</b>${x.rr ? `<span class="sub">風險報酬 ${esc(x.rr)}</span>` : ""}</div>
+        <div class="aiohead"><span class="ntag">${esc(x.tag || "")}</span><b class="pmpn">${esc(x.name || "")} <i>${esc(x.code)}</i></b><b class="${t}">${esc(actFor(x.code, x.action || ""))}</b>${x.rr ? `<span class="sub">風險報酬 ${esc(x.rr)}</span>` : ""}</div>
         <p class="pmpw">${esc(x.why || "")}</p>${anaHTML(x.analysis)}
         <div class="aikv"><div><span>怎麼下</span><b>${esc(x.how || "—")}</b></div><div><span>分批</span><b>${esc(x.split || "—")}</b></div><div><span>停損</span><b>${esc(x.stop || "—")}</b></div><div><span>目標</span><b>${esc((Array.isArray(x.targets) ? x.targets : []).join("；") || "—")}</b></div></div>${planHTML(x.days)}</button>`; }).join("")}</div></div>` : ""}
       <div class="pmfac">${(Array.isArray(a.factors) ? a.factors : []).map(f => `<div class="pmf lrise"><span class="aitag ${f.effect === "利多" ? "up" : f.effect === "利空" ? "down" : ""}">${esc(f.effect || "")}</span><b>${esc(f.name)}</b><span class="sub">${esc(f.note)}</span></div>`).join("")}</div>
@@ -2111,7 +2111,7 @@
     if (!hit) { out.innerHTML = ""; msg.textContent = ""; return; }
     const a = hit.data.analysis || {}, S = a.summary || {}, E = S.entry || {}, li = arr => (Array.isArray(arr) ? arr : []).map(x => `<li>${esc(x)}</li>`).join("");
     msg.textContent = `分析時間 ${new Date(hit.at).toLocaleString("zh-TW", { hour12: false, month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}，依當時的報價與新聞。`;
-    const O = a.order || {}, otn = /買|續抱/.test(O.action || "") ? "up" : /賣|減/.test(O.action || "") ? "down" : "";
+    const O = { ...(a.order || {}) }; O.action = actFor(CODE, O.action); const otn = /買|續抱|偏多/.test(O.action || "") ? "up" : /賣|減/.test(O.action || "") ? "down" : "";
     out.innerHTML = `
       ${O.action ? `<div class="aiorder ${otn ? "o-" + otn : ""}"><div class="aiohead"><span class="sub">下單建議</span><b class="${otn}">${esc(O.action)}</b>${O.rr ? `<span class="sub">風險報酬 ${esc(O.rr)}</span>` : ""}</div>
         <p class="ailead">${esc(O.why || "")}</p>
@@ -2223,6 +2223,9 @@
     else { pill.style.height = ""; pill.style.width = b.offsetWidth + "px"; pill.style.transform = `translateX(${b.offsetLeft}px)`; }
     if (!animate) { pill.offsetWidth; pill.style.transition = ""; }
   }
+  /* "續抱" only makes sense for a stock the user actually holds */
+  const heldCode = c => (store.get("twlab-hold", []) || []).some(h => String(h.code) === String(c));
+  const actFor = (code, act) => (!heldCode(code) && /續抱/.test(act || "")) ? String(act).replace(/續抱/g, "偏多觀察") : act;
   function open(id, animate, quiet) {
     const nb = tabs.find(t => t.dataset.p === id) || tabs[0];
     if (false && animate && !quiet && cur && cur !== nb.dataset.p && document.startViewTransition && !document.hidden) {
