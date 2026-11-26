@@ -140,3 +140,6 @@
 .kbcard.setcard > div { display: grid; gap: 8px; align-items: stretch; }
 .kbcard.setcard > .setsec > .lcheck { display: flex; }
 .setsec .lcheck span { white-space: normal; }
+.kbcard.setcard > .settabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.kbcard.setcard > .setpane { display: grid; gap: 14px; min-height: 220px; align-content: start; }
+.kbcard.setcard > .setpane[hidden] { display: none; }

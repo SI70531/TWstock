@@ -458,17 +458,23 @@
     let el = $(".setdlg"); if (el || !window.TWSet) return;
     const opt = A.store.get("twalert-opt", {}) || {};
     el = document.createElement("div"); el.className = "kbhelp setdlg"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "設定");
-    el.innerHTML = `<div class="kbcard setcard"><h3>設定</h3>
-      ${SETS.map(([t, k, o]) => `<div class="setsec"><b>${t}</b><div class="setrow" data-set="${k}">${o.map(([v, l]) => `<button type="button" class="chip" data-v="${v}" aria-pressed="${String(setVal(k)) === v}">${l}</button>`).join("")}</div></div>`).join("")}
-      <div class="setsec"><b>Telegram 通知</b>${TG.map(([k, t]) => `<label class="lcheck"><input type="checkbox" data-tg="${k}" ${opt[k] === false ? "" : "checked"}><span>${t}</span></label>`).join("")}<p class="sub settg" role="status"></p></div>
-      <div class="setsec"><b>資料</b><div class="xrow"><button type="button" class="aigo" data-backup>下載備份</button><label class="btn xfile">選擇備份檔還原<input type="file" accept=".json,application/json" hidden></label><button type="button" class="btn" data-restore hidden>確認還原</button><button type="button" class="btn" data-wipe>清除本機資料</button></div>
-        <p class="sub setlast"></p><p class="sub setmsg" role="status"></p></div></div>`;
+    const grp = ks => SETS.filter(x => ks.includes(x[1])).map(([t, k, o]) => `<div class="setsec"><b>${t}</b><div class="setrow" data-set="${k}">${o.map(([v, l]) => `<button type="button" class="chip" data-v="${v}" aria-pressed="${String(setVal(k)) === v}">${l}</button>`).join("")}</div></div>`).join("");
+    const TABS = [["look", "顯示", grp(["theme", "ud", "speed"])], ["def", "預設", grp(["home", "lst", "cmine", "cmode"])],
+      ["feed", "行情與通知", grp(["poll"]) + `<div class="setsec"><b>Telegram 通知</b>${TG.map(([k, t]) => `<label class="lcheck"><input type="checkbox" data-tg="${k}" ${opt[k] === false ? "" : "checked"}><span>${t}</span></label>`).join("")}<p class="sub settg" role="status"></p></div>`],
+      ["data", "資料", `<div class="setsec"><b>備份與清除</b><div class="xrow"><button type="button" class="aigo" data-backup>下載備份</button><label class="btn xfile">選擇備份檔還原<input type="file" accept=".json,application/json" hidden></label><button type="button" class="btn" data-restore hidden>確認還原</button><button type="button" class="btn" data-wipe>清除本機資料</button></div><p class="sub setlast"></p><p class="sub setmsg" role="status"></p></div>`]];
+    el.innerHTML = `<div class="kbcard setcard"><h3>設定</h3><div class="settabs" role="tablist">${TABS.map(([k, t], i) => `<button type="button" class="chip" role="tab" data-tab="${k}" aria-pressed="${i === 0}">${t}</button>`).join("")}</div>${TABS.map(([k, , h], i) => `<div class="setpane" data-pane="${k}"${i ? " hidden" : ""}>${h}</div>`).join("")}</div>`;
     const shut = () => { document.removeEventListener("keydown", esc); el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, fill: "forwards" }).onfinish = () => el.remove(); };
     const esc = e => { if (e.key === "Escape") shut(); };
     document.addEventListener("keydown", esc);
     let wipeT = 0;
     el.addEventListener("click", e => {
       if (!e.target.closest(".kbcard")) return shut();
+      const tb = e.target.closest("[data-tab]");
+      if (tb) {
+        $$("[data-tab]", el).forEach(x => x.setAttribute("aria-pressed", String(x === tb)));
+        $$("[data-pane]", el).forEach(p => { const on = p.dataset.pane === tb.dataset.tab; if (on && p.hidden) { p.hidden = false; p.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 260, easing: "cubic-bezier(.16,1,.3,1)" }); } else if (!on) p.hidden = true; });
+        return;
+      }
       const row = e.target.closest("[data-set]"), b = e.target.closest("[data-v]");
       if (row && b) {
         $$("[data-v]", row).forEach(x => x.setAttribute("aria-pressed", String(x === b)));
