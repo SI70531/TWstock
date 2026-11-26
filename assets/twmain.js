@@ -398,7 +398,7 @@
       <div class="dcard pm md"><div class="aihead"><div><h3>AI 盤中分析</h3></div>
         <button type="button" class="btn mdgo">分析</button><span class="sub mdclosed" hidden>非開盤時間，盤中無法分析</span></div><div class="mdout"><p class="sub">載入中…</p></div></div>
       <div class="dcard mstrip"></div>
-      <div class="board board3">
+      <div class="board3">
         <div class="dcard wd"><div class="bd-h"><h3>國際行情</h3><span class="sub wdn"></span></div><div class="wdout"><p class="sub">載入中…</p></div></div>
         <div class="dcard ft"><div class="bd-h"><h3>期貨籌碼</h3><span class="sub ftn">台指期 未平倉淨口數</span></div><div class="ftout"><p class="sub">載入中…</p></div></div>
       </div>

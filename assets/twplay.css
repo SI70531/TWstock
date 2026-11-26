@@ -125,7 +125,8 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .gpmem i { font-style: normal; font-variant-numeric: tabular-nums; }
 
 /* 國際行情, 期貨籌碼, stock page: 融資融券 / 股權分散 / 本益比河流圖 */
-.board3 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--gap-columns, 16px); }
+.board3 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.board3 > .dcard { margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 @media (max-width: 900px) { .board3 { grid-template-columns: 1fr; } }
 .wdgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
 .wdcell { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 12px; background: var(--glass-2); border: 1px solid var(--glass-line); font-variant-numeric: tabular-nums; }
