@@ -114,9 +114,14 @@
   }
   function tickClock() {
     const t = taipei(), [s, label] = session();
-    $$(".statuschip").forEach(c => { c.dataset.s = s; const ss = $(".ss", c); if (ss) ss.textContent = label; const tt = $(".tt", c); if (tt) tt.textContent = t.hms; });
+    $$(".statuschip:not(.futchip)").forEach(c => { c.dataset.s = s; const ss = $(".ss", c); if (ss) ss.textContent = label; const tt = $(".tt", c); if (tt) tt.textContent = t.hms; });
     const [fk, fl] = futSess();
-    $$('.sb-ix[data-k="fut"] > span').forEach(sp => { let e = $(".fs", sp); if (!e) { sp.textContent = "台指期"; e = document.createElement("em"); e.className = "fs"; sp.appendChild(e); } if (e.dataset.s !== fk) { e.dataset.s = fk; e.textContent = fl; } });
+    $$(".statuschip:not(.futchip)").forEach(c => {
+      let f = c.nextElementSibling && c.nextElementSibling.classList.contains("futchip") ? c.nextElementSibling : null;
+      if (!fk || fk === "closed") { if (f) f.remove(); return; }
+      if (!f) { f = document.createElement("span"); f.className = "statuschip futchip"; f.innerHTML = "<i></i><span class=\"ss\"></span>"; c.after(f); }
+      const ss = $(".ss", f), tx = "台指期" + fl; f.dataset.s = fk; if (ss.textContent !== tx) ss.textContent = tx;
+    });
     const mc = $(".mclock"); if (mc) { $(".t", mc).textContent = t.hms; $(".sd", mc).textContent = t.md; }
     const side = $(".side"); if (!side) return;
     $(".sb-clock .t", side).textContent = t.hms; $(".sb-clock .sd", side).textContent = t.md;
@@ -139,7 +144,7 @@
     A.IDX.slice(0, 2).forEach(i => {
       const p = Number.isFinite(i.z) && Number.isFinite(i.y) ? (i.z / i.y - 1) * 100 : NaN;
       $$(`.sb-ix[data-k="${i.k}"] b`).forEach(el => {
-        el.textContent = Number.isFinite(i.z) ? `${fmt(i.z, 0)}  ${Number.isFinite(p) ? (p > 0 ? "+" : "") + p.toFixed(2) + "%" : ""}` : "—";
+        el.textContent = Number.isFinite(i.z) ? `${fmt(i.z, 2)}  ${Number.isFinite(p) ? (p > 0 ? "+" : "") + p.toFixed(2) + "%" : ""}` : "—";
         el.className = p > 0 ? "up" : p < 0 ? "down" : "";
       });
     });

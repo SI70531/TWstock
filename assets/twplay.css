@@ -165,6 +165,8 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .ixcard .big.fl-down { animation: flDown .9s ease-out; border-radius: 6px; }
 @media (prefers-reduced-motion: reduce) { .ixcard .big.fl-up, .ixcard .big.fl-down { animation: none; } }
 
-/* futures session tag next to 台指期 in the clock box */
-.sb-ix .fs { font-style: normal; font-size: .72em; margin-left: 6px; padding: 1px 6px; border-radius: 999px; border: 1px solid currentColor; opacity: .75; vertical-align: .08em; }
-.sb-ix .fs[data-s="day"], .sb-ix .fs[data-s="night"] { color: #2e8b57; opacity: 1; }
+/* futures session chip beside the market-status chip */
+.futchip { margin-left: 6px; }
+.futchip[data-s="night"] i { background: #6c5ce7; }
+.sb-clock .s { flex-wrap: wrap; gap: 6px; }
+.sb-ix b { white-space: nowrap; }
