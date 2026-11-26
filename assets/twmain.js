@@ -2421,7 +2421,7 @@
 
   /* ---------- the command palette (Ctrl+K): any stock, any tab, light / dark ---------- */
   let pal = null;
-  const PAGES = [["dpOverview", "總覽", "大盤、國際行情、漲跌排行"], ["dpChip", "籌碼", "法人、融資融券、期貨籌碼"], ["dpInd", "產業", "類股熱力圖、產業強弱、族群"], ["dpCal", "市場日曆", "除權息、股東會、總經事件"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "AI 收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"]];
+  const PAGES = [["dpOverview", "總覽", "大盤、國際行情、漲跌排行"], ["dpInd", "產業", "類股熱力圖、產業輪動、族群"], ["dpChip", "籌碼", "法人、融資融券、期貨籌碼"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "AI 收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"], ["dpCal", "市場日曆", "除權息、股東會、結算日"]];
   function palOpen() {
     if (pal) { $("input", pal).focus(); return; }
     pal = document.createElement("div"); pal.className = "pal"; pal.setAttribute("role", "dialog"); pal.setAttribute("aria-modal", "true"); pal.setAttribute("aria-label", "搜尋");
