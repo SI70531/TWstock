@@ -146,7 +146,7 @@
   }
   function paintSide() {
     const side = $(".side"); if (!side || !A) return;
-    const sp = p => { const v = Number.isFinite(p) ? Math.round(p * 100) / 100 : 0; return (v < 0 ? "" : "+") + (v || 0).toFixed(2) + "%"; };
+    const sp = p => { const v = Number.isFinite(p) ? Math.round(p * 100) / 100 : 0; return (p < 0 && v === 0 ? "-0.00" : (v < 0 ? "" : "+") + (v || 0).toFixed(2)) + "%"; };
     const fmt = (v, d) => (Number.isFinite(v) ? v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }) : "—");
     A.IDX.slice(0, 2).forEach(i => {
       const p = Number.isFinite(i.z) && Number.isFinite(i.y) ? (i.z / i.y - 1) * 100 : NaN;
