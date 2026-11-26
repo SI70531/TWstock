@@ -64,7 +64,7 @@
     const main = $(".app main"), bar = document.createElement("div");
     bar.className = "topbar";
     bar.innerHTML = `<div class="tb-brand">TWstock</div><div class="tb-title"><h2>總覽</h2></div>
-      <span class="statuschip tbchip" data-s="closed"><i></i><span class="ss">—</span><b class="tt"></b></span><div class="tb-right"></div>`;
+      <span class="statuschip tbchip" data-s="closed"><i></i><span class="ss">—</span></span><div class="tb-right"></div>`;
     main.insertBefore(bar, main.firstChild);
     /* phones and tablets have no sidebar: the clock and the two quotes sit in a second row of the (sticky) top bar */
     const mc = document.createElement("div");
