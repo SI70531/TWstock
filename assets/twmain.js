@@ -1909,7 +1909,13 @@
   }
   async function loadChart(k, r) {
     const j = await J(`${WORKER}/tw/chart?k=${k}&r=${r}`);
-    if (j && Array.isArray(j.pts)) CH[k + ":" + r] = j;
+    if (j && Array.isArray(j.pts)) {
+      const old = CH[k + ":" + r];
+      /* Yahoo empties the intraday series between sessions: keep the last good one, and for a card that never had one draw the daily closes instead */
+      if (r === "tick" && j.pts.length < 2 && old && old.pts && old.pts.length >= 2) return old;
+      CH[k + ":" + r] = j;
+      if (r === "tick" && j.pts.length < 2 && !CH[k + ":sday"]) loadChart(k, "day").then(dj => { if (dj && dj.pts && dj.pts.length > 2) { CH[k + ":sday"] = dj; paintSparks(); } }).catch(() => null);
+    }
     return CH[k + ":" + r];
   }
   async function loadCharts(first) {
@@ -1920,7 +1926,7 @@
   }
   function paintSparks() {
     IDX.forEach(i => {
-      const svg = $(`.ixcard[data-k="${i.k}"] .spark`), d = CH[i.k + ":tick"] || (i.hist && i.hist.length > 2 ? { pts: i.hist.map(h => [h[0], h[1]]), prev: i.hist[0][1] } : null); if (!svg || !d || d.pts.length < 2) return;
+      const svg = $(`.ixcard[data-k="${i.k}"] .spark`), tk = CH[i.k + ":tick"], sd = CH[i.k + ":sday"], d = (tk && tk.pts && tk.pts.length > 1 ? tk : null) || (sd ? { pts: sd.pts.slice(-30).map(h => [h[0], h[1]]), prev: sd.pts[Math.max(0, sd.pts.length - 30)][1] } : null) || (i.hist && i.hist.length > 2 ? { pts: i.hist.map(h => [h[0], h[1]]), prev: i.hist[0][1] } : null); if (!svg || !d || d.pts.length < 2) return;
       const sg = d.pts.length + ":" + d.pts[d.pts.length - 1][1] + ":" + d.prev; if (svg.dataset.sg === sg) return; svg.dataset.sg = sg;
       const ys = d.pts.map(p => p[1]), base = ok(d.prev) ? d.prev : ys[0], lo = Math.min(base, ...ys), hi = Math.max(base, ...ys), span = hi - lo || 1, n = ys.length - 1;
       const Y = v => (26 - (v - lo) / span * 24).toFixed(1);
