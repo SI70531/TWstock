@@ -65,6 +65,7 @@
   const DEFAULT_WATCH = ["2330", "2317", "2454", "2308", "2881", "0050"];
   const DB = { list: [], by: new Map(), live: false, date: "", rt: null, rtAt: "", err: "" };
   const IDX = [{ k: "t00", name: "加權指數", en: "TAIEX" }, { k: "fut", name: "台指期", en: "TX" }, { k: "o00", name: "櫃買指數", en: "TPEx" }, { k: "exf", name: "電子期", en: "EXF" }];
+  const US4 = [["^DJI", "道瓊", "DJIA"], ["^GSPC", "標普 500", "S&P 500"], ["^IXIC", "那斯達克", "NASDAQ"], ["^SOX", "費城半導體", "SOX"]];
   const isFut = k => k === "fut" || k === "exf";
   const MKT = { rows: null, inst: null };          /* TAIEX history rows and the institutions of the day */
   let WATCH = store.get("twtrade-watch", DEFAULT_WATCH);
@@ -393,7 +394,7 @@
   function buildOverview() {
     $("#dpOverview").innerHTML = `
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}</span><em class="ixen">${i.en}</em><span class="ixsrc"></span></h3>
-        <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
+        <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}${US4.map(u => `<div class="dcard ixcard usx" data-us="${esc(u[0])}"><h3><span class="ixn">${u[1]}</span><em class="ixen">${u[2]}</em><span class="ixsrc">美股</span></h3><div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
       <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3></div>
         <button type="button" class="btn pmgo">分析</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert" hidden></p></div>
@@ -463,7 +464,7 @@
       const pk = e.target.closest("[data-pick]"); if (pk) { openStock(pk.dataset.pick, pk); return; }
       const gt = e.target.closest("[data-goto]"); if (gt) { open(gt.dataset.goto, true); return; }
       const bd = e.target.closest(".bd-row, .bd-tile"); if (bd) { openStock(bd.dataset.code, bd); return; }
-      const xc = e.target.closest(".ixcard"); if (xc) { ixOpen(xc.dataset.k); return; }
+      const xc = e.target.closest(".ixcard"); if (xc && xc.classList.contains("usx")) return; if (xc) { ixOpen(xc.dataset.k); return; }
       const xr = e.target.closest("[data-ixr]"); if (xr) { IXV.r = xr.dataset.ixr; ixPaint(true); return; }
       if (e.target.closest(".ixclose")) { ixOpen(IXV.k); return; }
     });
@@ -1139,11 +1140,22 @@
   }
 
   /* ---------------- 國際行情 and 期貨籌碼 on 總覽 (through the Worker) ---------------- */
+  /* the four US indices, second row of the index cards: last close (or the live quote while Wall Street trades) and the day's change */
+  function usPaint(rows) {
+    US4.forEach(u => {
+      const c = $(`.ixcard[data-us="${u[0]}"]`), r = rows.find(x => x.symbol === u[0]); if (!c || !r) return;
+      const p = r.changePct, prev = ok(p) ? r.last / (1 + p / 100) : NaN, d = r.last - prev, t = tone(ok(p) ? p : 0), big = $(".big", c), bt = fmt(r.last, 2);
+      if (big.textContent !== bt) big.textContent = bt; big.className = "big " + t;
+      const ct = ok(p) ? `${arrow(p)} ${fmt(Math.abs(d), 2)}（${pct(p)}）` : "—", cg = $(".ixchg", c); if (cg.textContent !== ct) cg.textContent = ct; cg.className = "sub ixchg " + t;
+      $(".ixhl", c).textContent = r.asOfTaipei ? "台北時間 " + r.asOfTaipei.slice(5).replace("-", "/") : "";
+    });
+  }
   async function wdLoad() {
     const el = $("#dpOverview .wdout"); if (!el) return;
     try {
       const j = await J(`${WORKER}/tw/world`), rows = j.rows || [];
       if (!rows.length) throw 0;
+      usPaint(rows);
       const dg = r => (/殖利率/.test(r.name) ? 3 : r.last >= 1000 ? 0 : 2);
       el.innerHTML = `<div class="wdgrid">${rows.map(r => `<div class="wdcell"><span>${esc(r.name)}</span><b>${fmt(r.last, dg(r))}</b><i class="${/VIX/.test(r.name) ? tone(-r.changePct) : tone(r.changePct)}">${r.changePct == null ? "—" : pct(r.changePct)}</i></div>`).join("")}</div>`;
       const t = rows.map(r => r.asOfTaipei).filter(Boolean).sort().pop(); $("#dpOverview .wdn").textContent = t ? t.slice(5).replace("-", "/") + " 更新" : "";

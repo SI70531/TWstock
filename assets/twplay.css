@@ -173,3 +173,5 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 
 .ixcard h3 .ixen { font-style: normal; font-size: .78em; opacity: .6; margin: 0 auto 0 -2px; letter-spacing: .04em; }
 .ixdhead h3 .ixen, .sb-ix .ixen { font-style: normal; font-size: .72em; opacity: .6; margin-left: 5px; letter-spacing: .03em; }
+.ixcard.usx { cursor: default; }
+.ixcard.usx:hover { transform: none; }
