@@ -1852,7 +1852,7 @@
     const vol = isFut(k) ? (ok(it.v) || ok(d.volume) ? fmt(ok(d.volume) ? d.volume : it.v) + " 口" : "—") : ok(d.volume) ? fmt(d.volume / 1e8, 1) + " 億股" : "—";
     const kv = (a, b, c) => `<div class="snap ixkv"><span>${a}</span><b class="${c || ""}">${b}</b></div>`;
     panel.innerHTML = `
-      <div class="ixdhead"><div><h3>${esc(it.name)}${it.label ? "（" + esc(it.label.replace(/^臺指期\s*/, "")) + "）" : ""}</h3>
+      <div class="ixdhead"><div><h3>${esc(it.name)}<em class="ixen">${it.en}</em>${it.label ? "（" + esc(it.label.replace(/^臺指期\s*/, "")) + "）" : ""}</h3>
           <div class="ixdnow"><b class="big ${t}">${ok(z) ? fmt(z, dg) : "—"}</b><span class="${t}">${ok(ch) ? `${arrow(ch)} ${fmt(Math.abs(ch), dg)}（${pct(ch / y * 100)}）` : ""}</span><span class="sub">${esc(it.src || "")} ${esc((it.tm || "").slice(0, 5))}</span></div></div>
         <div class="chips">${[["tick", sessName.replace(/（.*/, "") + "走勢"], ["3mo", "日線 3 個月"], ["1y", "日線 1 年"]].map(([v, l]) => `<button type="button" class="chip" data-ixr="${v}" aria-pressed="${v === r}">${l}</button>`).join("")}
           <button type="button" class="btn ixclose" aria-label="關閉">×</button></div></div>
@@ -2050,7 +2050,7 @@
     if (!DB.list.length || (!codes.length && !IDX.some(i => ok(i.z)))) { tape.hidden = true; return; }
     tape.hidden = false;
     const item = (key, name, v, p, d, isIx) => `<button type="button" class="tp" ${isIx ? `data-ix="${key}"` : `data-code="${esc(key)}"`}><b>${esc(name)}</b><span>${fmt(v, d)}</span><em class="${tone(p)}">${arrow(p)}${pct(p)}</em></button>`;
-    const items = IDX.slice(0, 2).filter(i => ok(i.z) && ok(i.y)).map(i => ({ k: "ix" + i.k, h: item(i.k, i.name, i.z, (i.z / i.y - 1) * 100, i.k === "fut" ? 0 : 2, true), v: i.z, p: (i.z / i.y - 1) * 100 }))
+    const items = IDX.slice(0, 2).filter(i => ok(i.z) && ok(i.y)).map(i => ({ k: "ix" + i.k, h: item(i.k, i.name + " " + i.en, i.z, (i.z / i.y - 1) * 100, i.k === "fut" ? 0 : 2, true), v: i.z, p: (i.z / i.y - 1) * 100 }))
       .concat(codes.map(c => { const s = DB.by.get(c); return { k: c, h: item(c, s.name, s.price, s.pct, dig(s.price)), v: s.price, p: s.pct, s }; }));
     const sig = items.map(x => x.k).join();
     const track = $(".tape-track", tape);
