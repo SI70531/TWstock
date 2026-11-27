@@ -21,3 +21,13 @@
 .hm .hmt:hover:not(.on){filter:none;box-shadow:none}
 .hm.focus .hmt:not(.on):not(.picked){opacity:.55}
 .hmt.on,.hmt.picked{transform:scale(1.03)}
+/* 產業輪動: soft heat cells with the number inside */
+.rc{height:26px;line-height:26px;text-align:center;font:500 var(--text-2xs,11px)/26px var(--font-outlier,inherit);color:color-mix(in oklab,var(--color-ink) 72%,transparent);border-radius:7px}
+.rdays{gap:3px}.rotrow{padding:3px 4px}.rotrow:nth-child(even){background:transparent}
+.rotrow:hover{background:var(--glass-2)}
+.rotrow .rcum{font-weight:600}
+/* 產業強弱排行 / 族群: thin bars, tighter rows */
+.gphead{padding:7px 12px;gap:8px}
+.gpg{margin-bottom:4px;border-radius:12px}
+.gpbar{height:4px}
+.gpbar i{opacity:.78}

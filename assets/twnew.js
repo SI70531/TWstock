@@ -109,7 +109,7 @@
     const days = D.days, N = Math.min(ROT.n, days.length), cum = a => (a.slice(-N).reduce((t, p) => t * (1 + (p || 0) / 100), 1) - 1) * 100;
     const rows = D.rows.map(r => ({ n: r.n, d: r.d, c: cum(r.d), c5: cum(r.d.slice(-5)), c10: cum(r.d) })).sort((a, b) => b.c - a.c);
     $(".rotn").textContent = `${days[days.length - N].slice(5).replace("-", "/")} – ${days[days.length - 1].slice(5).replace("-", "/")}`;
-    const cell = p => { const v = p == null ? 0 : p, a = Math.min(1, Math.abs(v) / 2.5), c = v >= 0 ? "var(--color-up)" : "var(--color-down)"; return `<i class="rc" title="${v > 0 ? "+" : ""}${v.toFixed(2)}%" style="background:color-mix(in oklab, ${c} ${(12 + a * 78).toFixed(0)}%, transparent)"></i>`; };
+    const cell = p => { const v = p == null ? 0 : p, a = Math.min(1, Math.abs(v) / 3), c = v >= 0 ? "var(--color-up)" : "var(--color-down)"; return `<i class="rc" style="background:color-mix(in oklab, ${c} ${(6 + a * 40).toFixed(0)}%, transparent)">${Math.abs(v) >= 0.05 ? (v > 0 ? "+" : "") + v.toFixed(1) : "0"}</i>`; };
     const mx = Math.max(1, ...rows.map(r => Math.abs(r.c)));
     el.innerHTML = `<div class="rothead"><span></span><span class="rdays">${days.slice(-N).map(d => `<em>${d.slice(8)}</em>`).join("")}</span><span>累計</span></div>` + rows.map(r => `<div class="rotrow"><b>${A.esc(r.n.replace(/(?<!工)業$/, ""))}</b><span class="rdays">${r.d.slice(-N).map(cell).join("")}</span><span class="rcum ${A.tone(r.c)}">${A.pct(r.c)}</span></div>`).join("");
     if (animate) { A.rise($$(".rotrow", el), 18); $$(".rc", el).forEach((c, i) => c.animate([{ opacity: 0, transform: "scale(.4)" }, { opacity: 1, transform: "none" }], { duration: 380, delay: 120 + (i % 20) * 14, easing: "cubic-bezier(.2,.9,.3,1.2)", fill: "backwards" })); }
