@@ -91,12 +91,7 @@
     }); };
     addEventListener("scroll", onScroll, { passive: true }); addEventListener("resize", onScroll); onScroll();
     const right = $(".tb-right", bar);
-    /* 說明 + light / dark / follow the device (same pattern as EZexams, in Chinese) */
-    const T = window.__twTheme, seg = document.createElement("div");
-    const IC = { system: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>', light: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>', dark: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>' };
-    const LB = { system: "系統", light: "淺色", dark: "深色" };
-    seg.className = "thdd";
-    seg.innerHTML = `<button type="button" class="thbtn" aria-haspopup="menu" aria-expanded="false" aria-label="外觀"><svg viewBox="0 0 24 24" aria-hidden="true"></svg></button><div class="thpop" role="menu" hidden>${["system", "light", "dark"].map(k => `<button type="button" role="menuitemradio" data-t="${k}"><b>✓</b>${LB[k]}</button>`).join("")}</div>`;
+    /* 說明, search and 設定 (light / dark is inside 設定) */
     const hb = document.createElement("a"); hb.className = "btn thhelp"; hb.href = "help.html"; hb.textContent = "說明";
     right.appendChild(hb);
     /* the command palette (twmain.js) also opens with Ctrl+K */
@@ -109,19 +104,6 @@
     gb.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
     gb.addEventListener("click", () => { gb.animate([{ transform: "rotate(0)" }, { transform: "rotate(90deg)" }], { duration: 420, easing: "cubic-bezier(.16,1,.3,1)" }); document.dispatchEvent(new Event("twdash:settings")); });
     right.appendChild(gb);
-    /* the 外觀 switch lives in 設定 now */
-    const tbtn = $(".thbtn", seg), pop = $(".thpop", seg);
-    const markTheme = () => {
-      const m = T ? T.mode : "system";
-      $("svg", tbtn).innerHTML = IC[m]; tbtn.title = "外觀：" + LB[m];
-      $$("[data-t]", pop).forEach(b => b.setAttribute("aria-checked", String(b.dataset.t === m)));
-    };
-    const shut = () => { pop.hidden = true; tbtn.setAttribute("aria-expanded", "false"); };
-    tbtn.addEventListener("click", e => { e.stopPropagation(); pop.hidden = !pop.hidden; tbtn.setAttribute("aria-expanded", String(!pop.hidden)); });
-    pop.addEventListener("click", e => { const b = e.target.closest("[data-t]"); if (!b || !T) return; T.set(b.dataset.t); markTheme(); shut(); });
-    document.addEventListener("click", e => { if (!pop.hidden && !e.target.closest(".thdd")) shut(); });
-    document.addEventListener("keydown", e => { if (e.key === "Escape") shut(); });
-    markTheme();
     requestAnimationFrame(place);
     addEventListener("resize", place);
   }
@@ -192,6 +174,7 @@
     const pane = el.closest(".dpanel"); return (pane ? pane.id : "") + ":" + id + ":" + (el.className.split(" ")[0]) + ":" + (host ? "" : i);
   }
   function countTo(el, from, to, text) {
+    if (window.TWSet && window.TWSet.calm()) { el.textContent = text; return; }
     const d = decs(text), t0 = performance.now(), dur = 700, prefix = text.match(/^[^\d-]*/)[0], suffix = text.match(/[^\d.,]*$/)[0];
     RUN.add(el);
     const step = now => {
@@ -248,6 +231,7 @@
   /* ---------- tilt and sheen on cards ---------- */
   const TILT = ".ixcard, .wcard, .pmf, .aiteam > .dcard, .aiscen > .dcard, .lcard, .snap, .mcell, .aiorder, .pmchance > div";
   function tilt(e) {
+    if (window.TWSet && window.TWSet.calm()) return;
     const el = e.target.closest && e.target.closest(TILT);
     $$(".tilting").forEach(x => { if (x !== el) untilt(x); });
     if (!el) return;
@@ -301,12 +285,21 @@
 
   /* ---------- backdrop: drifting glowing particles and occasional light streaks shaped like a price line ---------- */
   function backdrop() {
+    if (window.TWSet && window.TWSet.calm()) return;
     const cv = document.createElement("canvas"); cv.className = "bgfx"; cv.setAttribute("aria-hidden", "true");
     document.body.insertBefore(cv, document.body.firstChild.nextSibling);
     const ctx = cv.getContext("2d"); let W = 0, H = 0, dpr = 1;
     const size = () => { dpr = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
     size(); addEventListener("resize", size);
     const rnd = (a, b) => a + Math.random() * (b - a), COLORS = () => { const cs = getComputedStyle(root); return ["--ring-a", "--ring-b", "--ring-c", "--color-up", "--color-down"].map(k => cs.getPropertyValue(k).trim()); };
+    /* one pre-drawn glow per colour, instead of building a new gradient for every particle in every frame */
+    const glows = new Map(), glow = c => {
+      let s = glows.get(c); if (s) return s;
+      s = document.createElement("canvas"); s.width = s.height = 64;
+      const x = s.getContext("2d"), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+      g.addColorStop(0, c); g.addColorStop(1, "transparent"); x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+      glows.set(c, s); return s;
+    };
     let pal = COLORS(); new MutationObserver(() => { pal = COLORS(); }).observe(root, { attributes: true, attributeFilter: ["data-theme"] });
     const N = Math.round(Math.min(90, (innerWidth * innerHeight) / 16000));
     const P = Array.from({ length: N }, () => ({ x: rnd(0, W), y: rnd(0, H), r: rnd(0.6, 2.4), vx: rnd(-0.15, 0.15), vy: rnd(-0.35, -0.05), c: Math.floor(rnd(0, 3)), tw: rnd(0, 6.28) }));
@@ -330,9 +323,8 @@
       P.forEach(p => {
         p.x += p.vx * dt / 16; p.y += p.vy * dt / 16; p.tw += dt / 600;
         if (p.y < -10) { p.y = H + 10; p.x = rnd(0, W); } if (p.x < -10) p.x = W + 10; if (p.x > W + 10) p.x = -10;
-        const a = 0.35 + 0.35 * Math.sin(p.tw), g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 6);
-        g.addColorStop(0, pal[p.c]); g.addColorStop(1, "transparent");
-        ctx.globalAlpha = a; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 6, 0, 6.283); ctx.fill();
+        const a = 0.35 + 0.35 * Math.sin(p.tw), d = p.r * 12;
+        ctx.globalAlpha = a; ctx.drawImage(glow(pal[p.c]), p.x - d / 2, p.y - d / 2, d, d);
       });
       next -= dt; if (next <= 0 && S.length < 3) { streak(); next = rnd(2500, 6000); }
       for (let i = S.length - 1; i >= 0; i--) {

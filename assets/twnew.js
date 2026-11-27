@@ -25,7 +25,6 @@
   const lots = v => Number(v).toLocaleString("zh-TW");
   const sg = v => (v > 0 ? "+" : "") + lots(v);
   const grow = (el, to) => el.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 700, easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" });
-  function slot(panel, cls, html) { const d = document.createElement("div"); d.className = cls; d.innerHTML = html; panel.appendChild(d); return d; }
 
   /* ---------------- 籌碼 ---------------- */
   const MG = { k: "fu", data: null, loading: false };

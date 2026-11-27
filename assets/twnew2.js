@@ -168,7 +168,7 @@
     if (!S.length) { host.innerHTML = ""; host.dataset.h = ""; return; }
     const W = 640, H = 220, pad = 8, n = Math.max(...S.map(s => s.v.length)), all = S.flatMap(s => s.v), lo = Math.min(...all, 100), hi = Math.max(...all, 100), sp = hi - lo || 1;
     const X = (i, len) => (pad + i / Math.max(1, len - 1) * (W - 2 * pad)).toFixed(1), Y = v => (H - pad - (v - lo) / sp * (H - 2 * pad)).toFixed(1);
-    const html = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="近 60 日相對走勢"><line x1="0" x2="${W}" y1="${Y(100)}" y2="${Y(100)}" class="cpz"/>${S.map(s => `<polyline class="cpl" style="--c:${COLORS[s.i]}" points="${s.v.map((v, i) => X(i, s.v.length) + "," + Y(v)).join(" ")}"/>`).join("")}</svg>
+    const html = `<svg class="cpsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="近 60 日相對走勢"><line x1="0" x2="${W}" y1="${Y(100)}" y2="${Y(100)}" class="cpz"/>${S.map(s => `<polyline class="cpl" style="--c:${COLORS[s.i]}" points="${s.v.map((v, i) => X(i, s.v.length) + "," + Y(v)).join(" ")}"/>`).join("")}</svg>
       <div class="cpend">${S.map(s => { const e = s.v[s.v.length - 1] - 100; return `<span style="--c:${COLORS[s.i]}"><i></i>${esc(nm(s.c))} <b class="${tone(e)}">${sg(e, 1)}%</b></span>`; }).join("")}</div>`;
     if (host.dataset.h === html) return; host.dataset.h = html; host.innerHTML = html;
     if (animate) { const sv = $("svg", host); sv.animate([{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0)" }], { duration: 900, easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" }); A.rise($$(".cpend span", host), 70); }

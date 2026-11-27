@@ -1353,7 +1353,7 @@
       const qs = Object.keys(by).sort().slice(-8).map(d => { const o = by[d], rev = o.Revenue; return { d, eps: o.EPS, gm: rev > 0 && Number.isFinite(o.GrossProfit) ? o.GrossProfit / rev * 100 : null, om: rev > 0 && Number.isFinite(o.OperatingIncome) ? o.OperatingIncome / rev * 100 : null }; }).filter(q => Number.isFinite(q.eps));
       if (qs.length < 2) { put("sfin", miss("沒有資料。")); return; }
       const qn = d => { const m = +d.slice(5, 7); return d.slice(2, 4) + "Q" + Math.ceil(m / 3); };
-      const W = 320, H = 156, L = 20, R = 20, T = 26, B = 24, n = qs.length, step = (W - L - R) / n, cx = i => L + step * (i + .5);
+      const W = 250, H = 156, L = 14, R = 14, T = 26, B = 24, n = qs.length, step = (W - L - R) / n, cx = i => L + step * (i + .5);
       const panel = (title, vals, kind, unit) => {
         const ok2 = vals.filter(v => v != null), lo = Math.min(...ok2), hi = Math.max(...ok2);
         const base = kind === "col" ? Math.min(0, lo) : lo - (hi - lo || 1) * .35, top = kind === "col" ? Math.max(0, hi) : hi + (hi - lo || 1) * .2, span = top - base || 1;
@@ -1362,13 +1362,16 @@
         let g = "";
         if (kind === "col") {
           g += `<line class="fin-ax" x1="${L}" x2="${W - R}" y1="${y0.toFixed(1)}" y2="${y0.toFixed(1)}"/>`;
-          g += vals.map((v, i) => { if (v == null) return ""; const yy = y(v), up = v >= 0, h = Math.max(2, Math.abs(yy - y0)), x = cx(i) - step * .3; return `<g class="fin-b"><rect class="${up ? "fin-up" : "fin-dn"}" x="${x.toFixed(1)}" y="${(up ? y0 - h : y0).toFixed(1)}" width="${(step * .6).toFixed(1)}" height="${h.toFixed(1)}" rx="3" style="transform-origin:${cx(i).toFixed(1)}px ${y0.toFixed(1)}px"><title>${qn(qs[i].d)}：${v.toFixed(2)} 元</title></rect>${lab(v, i, cx(i), up ? y0 - h : y0 + h + 14, up ? "" : "dn")}</g>`; }).join("");
+          g += vals.map((v, i) => { if (v == null) return ""; const yy = y(v), up = v >= 0, h = Math.max(2, Math.abs(yy - y0)), x = cx(i) - step * .3; return `<g class="fin-b"><rect class="${up ? "fin-up" : "fin-dn"}" x="${x.toFixed(1)}" y="${(up ? y0 - h : y0).toFixed(1)}" width="${(step * .6).toFixed(1)}" height="${h.toFixed(1)}" rx="3" style="transform-origin:${cx(i).toFixed(1)}px ${y0.toFixed(1)}px"><title>${qn(qs[i].d)}：${v.toFixed(2)} 元</title></rect>${n <= 6 || i % 2 === (n - 1) % 2 ? lab(v, i, cx(i), up ? y0 - h : y0 + h + 14, up ? "" : "dn") : ""}</g>`; }).join("");
         } else {
           const pts = vals.map((v, i) => v == null ? null : [cx(i), y(v)]).filter(Boolean);
           g += `<line class="fin-ax" x1="${L}" x2="${W - R}" y1="${(H - B).toFixed(1)}" y2="${(H - B).toFixed(1)}"/>`;
           g += `<path class="fin-area" d="M${pts[0][0].toFixed(1)},${(H - B).toFixed(1)} ${pts.map(q => "L" + q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ")} L${pts[pts.length - 1][0].toFixed(1)},${(H - B).toFixed(1)}Z"/>`;
           g += `<polyline class="fin-line" fill="none" points="${pts.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" ")}"/>`;
-          g += vals.map((v, i) => v == null ? "" : `<g class="fin-b"><circle class="fin-dot${i === n - 1 ? " last" : ""}" cx="${cx(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === n - 1 ? 4 : 2.8}"><title>${qn(qs[i].d)}：${v.toFixed(1)}%</title></circle>${(i === 0 || i === n - 1 || v === hi || v === lo) ? lab(v, i, cx(i), y(v)) : ""}</g>`).join("");
+          /* value labels: latest, highest, first and lowest, in that order; one that would sit on top of another is left out */
+          const named = [];
+          [n - 1, vals.indexOf(hi), 0, vals.indexOf(lo)].forEach(i => { if (i >= 0 && vals[i] != null && !named.includes(i) && named.every(j => Math.abs(cx(i) - cx(j)) >= 36 || Math.abs(y(vals[i]) - y(vals[j])) >= 13)) named.push(i); });
+          g += vals.map((v, i) => v == null ? "" : `<g class="fin-b"><circle class="fin-dot${i === n - 1 ? " last" : ""}" cx="${cx(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i === n - 1 ? 4 : 2.8}"><title>${qn(qs[i].d)}：${v.toFixed(1)}%</title></circle>${named.includes(i) ? lab(v, i, cx(i), y(v)) : ""}</g>`).join("");
         }
         const xl = qs.map((q, i) => (n <= 6 || i % 2 === (n - 1) % 2) ? `<text class="fin-q" x="${cx(i).toFixed(1)}" y="${H - 7}" text-anchor="middle">${qn(q.d)}</text>` : "").join("");
         return `<div class="finp"><h4>${title}</h4><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${title}">${g}${xl}</svg></div>`;
@@ -1504,10 +1507,12 @@
   }
 
   /* ---------------- the chart: price, volume and the chosen indicators in one drawing with a shared time axis ---------------- */
-  function chartSVG(all, span, end) {
+  /* the drawing is as wide, in its own units, as the box it goes into (280–720), so its text is not shrunk on a phone */
+  const chartW = host => clamp(Math.round((host && host.clientWidth) || 720), 280, 720);
+  function chartSVG(all, span, end, W = 720) {
     const N0 = Math.min(span, all.length), off = clamp(all.length - N0 - (end || 0), 0, Math.max(0, all.length - N0));
     const I = calc(all), cs = all.slice(off, off + N0), N = cs.length;
-    const W = 720, PL = 8, PR = 60, gap = 14;
+    const PL = 8, PR = 60, gap = 14;
     const panes = [{ k: "price", h: 250 }];
     if (IND.vol) panes.push({ k: "vol", h: 64 });
     if (IND.kd) panes.push({ k: "kd", h: 84 });
@@ -1561,7 +1566,7 @@
     const cross = add("line", { x1: 0, x2: 0, y1: 8, y2: H - 14 }, "cross"); cross.style.opacity = 0;
     const PP = panes[0], hline = add("line", { x1: PL, x2: W - PR, y1: 0, y2: 0 }, "cross hl"), dot = add("circle", { r: 3.5, cx: 0, cy: 0 }, "kdot");
     const ytag = add("g", {}, "ytag"), ytr = add("rect", { x: W - PR + 1, y: -9, width: PR - 2, height: 18, rx: 4 }, "", ytag), ytt = add("text", { x: W - PR + 6, y: 4 }, "", ytag);
-    const xtag = add("g", {}, "ytag xtag"), xtr = add("rect", { x: -34, y: H - 17, width: 68, height: 16, rx: 4 }, "", xtag), xtt = add("text", { x: 0, y: H - 5, "text-anchor": "middle" }, "", xtag);
+    const xtag = add("g", {}, "ytag xtag"), xtr = add("rect", { x: -42, y: H - 17, width: 84, height: 16, rx: 4 }, "", xtag), xtt = add("text", { x: 0, y: H - 5, "text-anchor": "middle" }, "", xtag);
     const ring = add("circle", { r: 8, cx: 0, cy: 0 }, "kring");
     [hline, dot, ytag].forEach(e => { e.style.opacity = 0; });
     const at = i => {
@@ -1583,7 +1588,7 @@
       mark(i, e) {
         const bw = Math.max(3, (W - PL - PR) / N * 0.9);
         band.setAttribute("x", (X(i) - bw / 2).toFixed(1)); band.setAttribute("width", bw.toFixed(1)); band.style.opacity = 1;
-        { const tx = clamp(X(i), PL + 34, W - PR - 34); xtag.setAttribute("transform", `translate(${tx.toFixed(1)} 0)`); xtt.textContent = slash(cs[i][0]); xtag.style.opacity = 1; }
+        { const tx = clamp(X(i), PL + 42, W - PR - 42); xtag.setAttribute("transform", `translate(${tx.toFixed(1)} 0)`); xtt.textContent = slash(cs[i][0]); xtag.style.opacity = 1; }
         cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.style.opacity = 1;
         dot.setAttribute("cx", X(i)); dot.setAttribute("cy", PP.Y(cs[i][4])); dot.setAttribute("class", "kdot " + (cs[i][4] >= cs[i][1] ? "up" : "down")); dot.style.opacity = 1;
         ring.setAttribute("cx", X(i)); ring.setAttribute("cy", PP.Y(cs[i][4])); ring.setAttribute("class", "kring " + (cs[i][4] >= cs[i][1] ? "up" : "down")); ring.style.opacity = 1;
@@ -1606,7 +1611,7 @@
     ktip.innerHTML = `<b>${slash(b[0])}</b><div><span>開</span><em>${fmt(b[1], d)}</em><span>高</span><em>${fmt(b[2], d)}</em><span>低</span><em>${fmt(b[3], d)}</em><span>收</span><em class="${t}">${fmt(b[4], d)}</em></div><p><i class="${tone(ch)}">${ok(ch) ? pct(ch) : ""}</i>　量 ${fmt(b[5])} 張</p>`;
     ktip.hidden = false;
     const r = host.getBoundingClientRect(), x = e.clientX - r.left + host.scrollLeft, y = e.clientY - r.top, w = ktip.offsetWidth || 180;
-    ktip.style.transform = `translate(${Math.round(x + 16 + w > r.width + host.scrollLeft ? x - w - 16 : x + 16)}px, ${Math.round(clamp(y - 30, 4, r.height - 90))}px)`;
+    ktip.style.transform = `translate(${Math.round(Math.max(host.scrollLeft + 4, x + 16 + w > r.width + host.scrollLeft ? x - w - 16 : x + 16))}px, ${Math.round(clamp(y - 30, 4, r.height - 90))}px)`;
   }
   function chartInput(cb, box) {
     const read = () => $(".cread", box);
@@ -1801,7 +1806,13 @@
     KV.len = cs.length; KV.span = clamp(KV.span, Math.min(20, cs.length), cs.length); KV.end = clamp(KV.end, 0, Math.max(0, cs.length - KV.span));
     const oldC = KV.c, oldSvg = KV.morph && oldC && $("svg.kchart", host) || (KV.morph && oldC && oldC.svg) || null;
     const oldBox = oldSvg && oldSvg.getBoundingClientRect(), hostBox = host.getBoundingClientRect();
-    const c = chartSVG(cs, KV.span, KV.end); KV.c = c;
+    KV.w = chartW(host);
+    const c = chartSVG(cs, KV.span, KV.end, KV.w); KV.c = c;
+    if (!host.dataset.ro && window.ResizeObserver) {
+      /* turning the phone or resizing the window (or showing a page drawn while hidden): draw again at the new width */
+      host.dataset.ro = "1";
+      new ResizeObserver(() => { if (KV.c && host.clientWidth && Math.abs(chartW(host) - KV.w) > 24) drawChart(false); }).observe(host);
+    }
     host.replaceChildren(c.svg, ktip);
     /* a new range: the old drawing squeezes (or stretches) toward the latest day while it fades, the new one settles in from the opposite scale */
     if (KV.morph) {
@@ -1861,7 +1872,7 @@
     const res = [["MA20", F.ma20], ["MA60", F.ma60], ["20 日高點", F.high20], ["60 日高點", F.high60], ["布林上軌", F.bollUpper]].filter(x => x[1] != null && x[1] > F.close).sort((a, b) => a[1] - b[1]).slice(0, 2);
     row("支撐", sup.length ? sup.map(x => `${v(x[1])}（${x[0]}）`).join("、") : "下方近期沒有明確支撐", "");
     row("壓力", res.length ? res.map(x => `${v(x[1])}（${x[0]}）`).join("、") : "已在近 60 日高點附近", "");
-    row("報酬", `5 日 ${pct(F.return5dPct)}　20 日 ${pct(F.return20dPct)}${ok(F.return60dPct) ? "　60 日 " + pct(F.return60dPct) : ""}`, "");
+    row("報酬", [[5, F.return5dPct], [20, F.return20dPct], [60, F.return60dPct]].filter(([d, v]) => d < 60 || ok(v)).map(([d, v]) => `<span class="nw">${d} 日 ${pct(v)}</span>`).join("　"), "");
     el.innerHTML = rows.join("");
   }
   function paintFund() {
@@ -1915,15 +1926,17 @@
     drawChart(animate !== false);
   }
   /* opening a stock from a row or a card: the header grows out of the thing that was tapped */
-  /* browser back / forward: every tab and every stock opened is a history entry (#dpList, #stock/2454) */
+  /* browser back / forward: every tab and every stock opened is a history entry (#/dpList, #stock/2454).
+     The slash matters: "#dpList" is also a panel id, so the browser would scroll the page to it after loading */
   let navLock = false;
-  const navHash = () => (cur === "dpStock" ? "#stock/" + CODE : "#" + (cur || "dpOverview"));
+  const navHash = () => (cur === "dpStock" ? "#stock/" + CODE : "#/" + (cur || "dpOverview"));
   function navPush() {
     if (navLock || !cur) return;
     const h = navHash(); if (location.hash === h) return;
     try { history[history.state && history.state.tw ? "pushState" : "replaceState"]({ tw: 1, p: cur, code: CODE }, "", h); } catch (e) {}
   }
   function navGo(h) {
+    h = String(h || "").replace(/^#\/dp/, "#dp");   /* older bookmarks have no slash */
     const m = /^#stock\/([0-9A-Z]{4,6})$/.exec(h || ""), p = m ? "dpStock" : (h || "").slice(1).replace(/^dpWatch$/, "dpList").replace(/^dpMid$/, "dpPre");
     if (h === "#dpMid") anaSub("md", false);
     navLock = true;
@@ -2551,7 +2564,7 @@
   note(); paintIdx(); paintStrip(); paintTable(false); paintWatch(false); paintHead();
   let saved = null; try { saved = sessionStorage.getItem("twdash-tab"); } catch (e) {}
   requestAnimationFrame(() => {
-    if (/^#(stock\/[0-9A-Z]{4,6}|dp\w+)$/.test(location.hash)) { navGo(location.hash); try { history.replaceState({ tw: 1, p: cur, code: CODE }, "", navHash()); } catch (e) {} }
+    if (/^#(stock\/[0-9A-Z]{4,6}|\/?dp\w+)$/.test(location.hash)) { navGo(location.hash); try { history.replaceState({ tw: 1, p: cur, code: CODE }, "", navHash()); } catch (e) {} }
     else { navLock = true; open(saved || ((window.TWSet && window.TWSet.get("home")) || "dpOverview"), false); navLock = false; try { history.replaceState({ tw: 1, p: cur, code: CODE }, "", navHash()); } catch (e) {} }
   });
   window.TWDash = { replay: () => open(cur, false),

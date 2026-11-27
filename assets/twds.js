@@ -5,7 +5,7 @@
   const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
   /* ---------- units after a number: "8,711 張" "22.19 倍" "29.4 億" (the % sign is handled by the font) ---------- */
-  const UNIT = /^([\s▲▼+\-−]*\d[\d,]*(?:\.\d+)?)\s?(張|億元|億|萬|倍|元|檔|天|日|筆|股|點)$/;
+  const UNIT = /^([\s▲▼+\-−]*\d[\d,]*(?:\.\d+)?\s?)(張|億元|億|萬|倍|元|檔|天|日|筆|股|點)$/;
   const UNIT_IN = "td, .snap b, .snap em, .snap span, .mstrip b, .mcell b, .aikv b, .pk-kv b, .hmc-kv b";
   function units() {
     $$(UNIT_IN).forEach(el => {
@@ -47,7 +47,7 @@
       let k = r.width / vb.width;
       if (svg.getAttribute("preserveAspectRatio") === "none") k = Math.min(k, r.height / vb.height || k);
       /* upper limits keep the labels inside the margins each drawing leaves for them */
-      const max = svg.closest(".finp") ? 11 : svg.classList.contains("cmsvg") ? 10 : 13;
+      const max = svg.classList.contains("cmsvg") ? 10 : 13;
       const fs = Math.round(Math.max(7, Math.min(max, (svg.classList.contains("kchart") ? 12 : 11) / k)) * 10) / 10 + "px";
       if (svg.style.getPropertyValue("--ch-fs") !== fs) svg.style.setProperty("--ch-fs", fs);
     });

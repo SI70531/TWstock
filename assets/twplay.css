@@ -174,8 +174,6 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .ixcard h3 .ixen { font-style: normal; font-size: .78em; opacity: .65; margin-left: 6px; letter-spacing: .04em; }
 .ixcard h3 .ixsrc { margin-left: auto; white-space: nowrap; }
 .ixdhead h3 .ixen, .sb-ix .ixen { font-style: normal; font-size: .72em; opacity: .6; margin-left: 4px; letter-spacing: .03em; }
-.ixcard.usx { cursor: default; }
-.ixcard.usx:hover { transform: none; }
 
 /* clock box: the market chip and the futures chip share one row; the date moves to the clock line */
 .sb-clock .s { flex-wrap: nowrap; gap: 6px; justify-content: flex-start; }
@@ -191,13 +189,10 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 
 /* 財報速覽 */
 .fqgrid { display: grid; gap: 6px; }
-.fgh, .fgr { display: grid; grid-template-columns: 3.2em 1fr 1fr 1fr; gap: 10px; align-items: center; font-size: var(--text-sm); }
-.fgh { color: var(--color-muted); font-size: var(--text-xs); }
-.fgc { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.fgc b { font: 500 var(--text-xs)/1 var(--font-outlier); white-space: nowrap; }
+.fgr { display: grid; grid-template-columns: 3.2em 1fr 1fr 1fr; gap: 10px; align-items: center; font-size: var(--text-sm); }
 .fgb { flex: 1; height: 6px; border-radius: var(--r-mark); background: color-mix(in oklch, var(--color-muted) 18%, transparent); overflow: hidden; min-width: 18px; }
 .fgb i { display: block; height: 100%; border-radius: var(--r-mark); transform-origin: left; animation: fgGrow .8s cubic-bezier(.2,.9,.3,1) backwards; }
-.fgb i.up { background: var(--color-up); } .fgb i.down { background: var(--color-down); } .fgb i.neu { background: var(--ring-b, #5b9bd5); }
+.fgb i.up { background: var(--color-up); } .fgb i.down { background: var(--color-down); } 
 @keyframes fgGrow { from { transform: scaleX(0); } }
 
 /* 走勢疊圖 */
@@ -223,7 +218,6 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .kbcard { min-width: 280px; max-width: 90vw; padding: 20px 24px; border-radius: var(--r-md); background: var(--glass-2, #fff); border: 1px solid var(--glass-line-2, #ccd); display: grid; gap: 10px; }
 .kbcard h3 { margin: 0 0 4px; } .kbcard > div { display: flex; gap: 14px; align-items: center; } .kbcard kbd { min-width: 64px; text-align: center; padding: 4px 8px; border-radius: var(--r-sm); border: 1px solid var(--glass-line-2, #bbc); font: 600 var(--text-sm) var(--font-outlier); background: color-mix(in oklch, var(--color-muted) 10%, transparent); }
 /* shared-element transition from a ranking row to the stock page */
-html.vt-stk #dpStock .shead { view-transition-name: stkx; }
 ::view-transition-group(stkx) { animation-duration: .45s; animation-timing-function: cubic-bezier(.2,.9,.3,1); }
 /* odometer digits: the old and the new digit are stacked and slide one line */
 .odo { display: inline-block; height: 1.15em; line-height: 1.15em; overflow: hidden; vertical-align: bottom; }
@@ -284,8 +278,7 @@ input:focus, select:focus, textarea:focus { animation: focuspulse .45s ease-out;
 :root .ixdstats .ixkv b { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-md, 1rem); text-align: left; }
 /* the research tools run inside the AI analysis now; the old drawer stays in the page for them but is not shown */
 .slab { display: none !important; }
-.fqgrid .fgh, .fqgrid .fgr { grid-template-columns: 3.4em repeat(3, minmax(0, 1fr)); }
-.fqgrid .fgh span { white-space: nowrap; }
+.fqgrid .fgr { grid-template-columns: 3.4em repeat(3, minmax(0, 1fr)); }
 
 html, body { overscroll-behavior-y: contain; }
 
@@ -315,13 +308,7 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 .side .sbn { font-style: normal; font: 600 var(--text-2xs)/1 var(--font-outlier); padding: 4px 8px; border-radius: var(--r-pill); background: color-mix(in oklch, var(--color-accent) 30%, transparent); color: var(--color-ink); }
 .side .sbn.up { background: color-mix(in oklch, var(--color-up) 18%, transparent); color: var(--color-up); } .side .sbn.down { background: color-mix(in oklch, var(--color-down) 18%, transparent); color: var(--color-down); }
 .side .sb-recent { display: grid; gap: 2px; } .side .sb-recent[hidden] { display: none; } .side .sb-rlist { display: grid; gap: 2px; }
-.sbm { position: fixed; inset: 0; z-index: var(--z-modal, 400); display: grid; place-items: center; padding: 16px; background: color-mix(in oklch, var(--color-ink) 28%, transparent); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
-.sbm[hidden] { display: none; }
-.sbmc { width: min(560px, 100%); max-height: min(86vh, 760px); overflow: auto; display: grid; align-content: start; gap: 12px; padding: 16px; border-radius: var(--r-md); background: var(--glass-2, var(--color-paper)); border: 1px solid var(--glass-line-2); box-shadow: var(--sh-2); animation: sbmpop .4s cubic-bezier(.2,.9,.3,1.15); }
-.sbmc.wide { width: min(860px, 100%); }
 @keyframes sbmpop { from { opacity: 0; transform: translateY(18px) scale(.95); } to { opacity: 1; transform: none; } }
-.sbmh { display: flex; align-items: center; justify-content: space-between; } .sbmh h3 { margin: 0; }
-.sbmx { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--glass-line-2); background: none; color: var(--color-ink); font-size: var(--text-lg); cursor: pointer; }
 .sbf { display: flex; flex-wrap: wrap; gap: 8px; } .sbf input, .sbf select { flex: 1 1 110px; min-width: 0; padding: 8px 12px; border-radius: var(--r-md); border: 1px solid var(--glass-line-2); background: var(--glass); color: var(--color-ink); font: inherit; }
 .sbhint { margin: 0; min-height: 1em; }
 .sbl { display: grid; gap: 6px; } .sbr { display: grid; grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1.4fr) 30px; gap: 10px; align-items: center; padding: 8px 10px; border-radius: var(--r-md); background: var(--glass); } .sbr.done { opacity: .6; }
@@ -358,7 +345,6 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 .sbpage, .sbpage .sbmb, .sbcal { min-width: 0; max-width: 100%; }
 
 .sbsum small { font-size: var(--text-2xs); color: var(--color-muted); }
-.sbdisc { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-sm); color: var(--color-muted); } .sbdisc input { width: 70px; padding: 6px 8px; border-radius: var(--r-sm); border: 1px solid var(--glass-line-2); background: var(--glass); color: var(--color-ink); font: inherit; }
 
 .dtabs button .tabic { width: 17px; height: 17px; margin-right: 6px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .dtabs button { white-space: nowrap; }
@@ -381,7 +367,7 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 .aurora { filter: none; contain: layout paint style; transform: translateZ(0); }
 .aurora i { mix-blend-mode: normal; will-change: transform; backface-visibility: hidden; }
 :root[data-theme="light"] .aurora i { mix-blend-mode: normal; }
-.topbar.scrolled, .ssug, .thpop, .sbm, .kbhelp { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.topbar.scrolled, .ssug, .kbhelp { -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
 @keyframes panelin { from { opacity: 0; transform: translateY(10px) scale(.995); } to { opacity: 1; transform: none; } }
 @keyframes vtout { to { opacity: 0; transform: translateX(calc(var(--vtd, 1) * -28px)); } }
 @keyframes vtin { from { opacity: 0; transform: translateX(calc(var(--vtd, 1) * 36px)); } }
@@ -391,7 +377,7 @@ svg rect, svg circle { transition: filter .2s; } svg rect:hover, svg circle:hove
 ::view-transition-new(panels) { animation-duration: .24s; }
 a, button, [role="button"], summary, label, input, select, .tp, .ixcard { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 /* 財報速覽: three small charts */
-.fqgrid { grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 14px; }
+.fqgrid { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
 .finp h4 { margin: 0 0 4px; font-size: var(--text-xs); color: var(--color-muted); font-weight: 500; }
 .finp svg { display: block; width: 100%; height: auto; overflow: visible; }
 .fin-ax { stroke: var(--glass-line-2, rgb(128 128 128 / .3)); stroke-width: 1; }

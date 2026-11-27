@@ -25,13 +25,13 @@
 :root :is(.kchart, .ixfig, .mc, .lfig, .cmsvg, .river, .finp svg, .cpsvg) text:not(.fin-v):not(.kat text):not(.ytag text) { fill: var(--ch-axis); }
 
 :root :is(.kchart, .ixfig, .mc, .lfig, .cmsvg, .river, .finp svg, .cpsvg) :is(.gridl, .grid, .gl) { stroke: var(--ch-grid); stroke-width: 1px; stroke-dasharray: none; vector-effect: non-scaling-stroke; }
-:root :is(.ixfig .ixbase, .ftspark line, .bz, .spbase) { stroke: var(--color-rule-2); stroke-width: 1px; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+:root :is(.ixfig .ixbase, .ftspark line, .bz, .spbase, .cpz) { stroke: var(--color-rule-2); stroke-width: 1px; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
 
 :root :is(.kchart .cross, .kchart .cross.hl, .mc .mc-x, .ixfig .ixvl) { stroke: var(--ch-cross); stroke-width: 1px; stroke-dasharray: 3 3; opacity: 1; filter: none; vector-effect: non-scaling-stroke; }
 :root .kchart .cross.hl.snap { stroke: var(--color-accent); stroke-dasharray: none; }
 :root .kchart .cross:not([style*="opacity: 1"]) { opacity: 0; }
 
-:root :is(.mc .mc-l, .ixfig .ixline, .pk-ln, .pkspark .ln, .ftspark polyline) { stroke-width: var(--ch-line); stroke-linejoin: round; stroke-linecap: round; }
+:root :is(.mc .mc-l, .ixfig .ixline, .pk-ln, .pkspark .ln, .ftspark polyline, .cpl) { stroke-width: var(--ch-line); stroke-linejoin: round; stroke-linecap: round; }
 
 /* legends */
 :root :is(.mc-key, .rvkey, .cmkey, .klegend) { font-size: var(--text-xs); color: var(--color-ink-2); }
@@ -60,3 +60,44 @@
 :root [data-state="closed"] { --st-ic: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>'); }
 /* while loading, the shimmer bar stands in for the icon */
 :root .skel::before { display: none; }
+
+/* ================= contrast ================= */
+/* the limit-up / limit-down price tag: white on a deeper shade of the market colour */
+:root .mtbl .pxpill.lim.up, :root .mtbl .pxpill.lim.down { background: color-mix(in oklab, var(--color-up) 68%, black); border-color: transparent; color: #fff; }
+:root .mtbl .pxpill.lim.down { background: color-mix(in oklab, var(--color-down) 62%, black); }
+:root .pxpill.lim::after { background: color-mix(in oklab, var(--lc) 62%, black); }
+:root .mtbl .pxpill.lim::after { background: rgb(0 0 0 / .28); }
+/* heat map: tiles are shaded so the text on the strongest ones stays readable */
+:root[data-theme="dark"] .hmt.up { background: color-mix(in oklab, color-mix(in oklab, var(--color-up) 66%, black) calc(var(--a) * 100%), var(--hm-0)); }
+:root[data-theme="dark"] .hmt.down { background: color-mix(in oklab, color-mix(in oklab, var(--color-down) 60%, black) calc(var(--a) * 100%), var(--hm-0)); }
+:root[data-theme="light"] .hmt.up { background: color-mix(in oklab, color-mix(in oklab, var(--color-up) 72%, white) calc(var(--a) * 100%), var(--hm-0)); }
+:root[data-theme="light"] .hmt.down { background: color-mix(in oklab, color-mix(in oklab, var(--color-down) 72%, white) calc(var(--a) * 100%), var(--hm-0)); }
+
+/* ================= touch ================= */
+@media (pointer: coarse) { :root .hmseg button { height: 36px; } }
+@media (max-width: 720px) { :root .hm { height: 480px; } }
+
+/* ================= layout details ================= */
+:root [data-fxalert] { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+:root [data-fxalert] svg { margin: 0; flex: none; }
+:root .nw, :root .mgtbl > div > :first-child { white-space: nowrap; }
+@media (max-width: 560px) {
+  :root .mgtbl.itbl { font-size: var(--text-xs); }
+  :root .mgtbl.itbl > div { grid-template-columns: minmax(max-content, .9fr) repeat(4, minmax(0, 1fr)) .6fr; gap: 4px; }
+}
+
+/* ================= reduced motion (the system setting) ================= */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
+  /* the quote strip stops scrolling by itself and can be swiped instead */
+  :root .tape { overflow-x: auto; }
+  :root .tape-track { animation: none !important; }
+}
+
+/* long stock names wrap on a phone instead of being cut off */
+@media (max-width: 560px) { :root .bd-nm b { white-space: normal; } }
+
+/* the two drawing tools sit level with the chips beside them */
+:root #dpStock [data-draw] { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; white-space: nowrap; }
+:root #dpStock [data-draw] svg { margin: 0; flex: none; }

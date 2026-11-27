@@ -4,7 +4,7 @@
   const robot = navigator.webdriver && !/[?&]intro=1/.test(location.search);
   let seen = false;
   try { seen = sessionStorage.getItem("twintro-seen") === "1" && !/[?&]intro=1/.test(location.search); sessionStorage.setItem("twintro-seen", "1"); } catch (e) {}
-  if (robot || seen) return;
+  if (robot || seen || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
   const fx = document.createElement("canvas");
   fx.id = "fx"; fx.setAttribute("aria-hidden", "true");

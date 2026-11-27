@@ -4,7 +4,7 @@ Taiwan stock research site, hosted on GitHub Pages: https://si70531.github.io/TW
 
 ## What it does
 
-The interface is in Traditional Chinese; this README uses English names. The menu has Overview, Market calendar, Analysis, Stocks and My holdings. A stock's own page (Stock Analysis) opens when you tap the stock, and the back button returns.
+The interface is in Traditional Chinese; this README uses English names. The menu has Overview, Chips, Industries, Stocks, My holdings, Analysis, Review and Market calendar. A stock's own page (Stock Analysis) opens when you tap the stock, and the back button returns. Some of the features below are grouped under a different one of these menus on screen.
 
 - **Overview**: four indices (TAIEX, front-month TAIEX futures, electronics, finance), a market strip (turnover, net buying of foreign investors / investment trusts / dealers, advancers and decliners) and the market's movers.
   - **Institutional buying / selling streaks** (foreign investors and investment trusts on consecutive days, from the last 10 trading days of TWSE's T86, each day kept in the browser once read) and **attention and disposition stocks** (TWSE's two lists, also marked in the stock list and on the stock page; TPEx stocks are not on them).
@@ -29,15 +29,27 @@ These tools help with research, risk and discipline; none of them can promise a 
 ## Files
 
 ```
-index.html               Page shell and the tabs
-assets/twmain.js/.css    The app: data loading, Overview, Analysis, Stocks, Stock Analysis, charts, AI analysis
-assets/twlab.js          Research tools and the research numbers sent to the AI (uses helpers exposed by twmain.js as window.TWDash.api)
-assets/twmore.js         Price overlay and ex-dividend views, holdings page, market calendar, cross-device sync, sidebar and gestures
-assets/twextra.js/.css   Market chip gauge, technical screening, dividends, equity curve, position size, paper trading, hit rate, backup, line chart
-assets/twui.css / twui.js  UI v3: glass shell (sidebar on wide screens, tabs on tablets, bottom bar on phones), light/dark from the device, drifting aurora tinted by the TAIEX, counting numbers, card tilt and sheen, loading skeletons
-tools/otc_list.py        Writes otc.json (TPEx and Emerging Stock Board stocks, plus every company's industry code); the "OTC list" workflow publishes it on the `data` branch every 10 minutes in trading hours, because TPEx open data cannot be read by the page and refuses the Worker
-assets/twapp.js/.css     App shell: gradient header, floating bottom tab pill (mobile)
-assets/twdash.css, twmarket.css, twglass.css, twtheme.css   Shared look: cards, chips, glass surfaces, theme
+index.html                 Page shell and the tabs
+help.html                  Help page
+manifest.webmanifest, sw.js  Install as an app; the page's own files are kept for opening without a network
+assets/tokens.css          Design spec: corner sizes, heights, type scale, spacing, colours
+assets/base.css            Element defaults
+assets/twds.css / twds.js  Shared layer, loaded last: figures and units, chart styling, data states, contrast, touch sizes, reduced motion
+assets/twconsole.css       Layout and controls
+assets/twset.js            Settings store, animation speed and the system's reduced-motion setting
+assets/twintro.js          Opening animation, once per tab
+assets/twmain.js           The app: data loading, Overview, Analysis, Stocks, Stock Analysis, charts, AI analysis
+assets/twlab.js            Research tools and the research numbers sent to the AI (uses helpers exposed by twmain.js as window.TWDash.api)
+assets/twapp.js            Floating bottom tab bar on phones
+assets/twmore.js           Price overlay and ex-dividend views, holdings page, market calendar, cross-device sync, sidebar and gestures
+assets/twextra.js / .css   Market chip gauge, technical screening, dividends, equity curve, position size, paper trading, hit rate, backup, line chart
+assets/twui.js / .css      Glass shell (sidebar on wide screens, tabs on tablets, bottom bar on phones), drifting backdrop tinted by the TAIEX, counting numbers, card tilt and sheen, loading skeletons
+assets/twpulse.css         Banner and card animation
+assets/twplay.js / .css    Swipe and press gestures, quick peek, finance and ownership panels
+assets/twnew.js / .css, twnew2.js  Chips, Industries, rankings, comparison and the Review page
+assets/twfx.js, twfx2.js, twfx3.js (+ .css)  Page transitions, preview cards, watchlist sorting, overview editor, price-alert lines, share image, install
+tools/twstock-worker.js, wrangler.toml  The Cloudflare Worker
+tools/otc_list.py          Writes otc.json (TPEx and Emerging Stock Board stocks, plus every company's industry code); the "OTC list" workflow publishes it on the `data` branch every 10 minutes in trading hours, because TPEx open data cannot be read by the page and refuses the Worker
 ```
 
 ## Data sources
@@ -57,7 +69,7 @@ assets/twdash.css, twmarket.css, twglass.css, twtheme.css   Shared look: cards, 
   - Institutional ranking: `GET /tw/instrank` returns the top net buyers and sellers (foreign, investment trust, dealers, all three) from TWSE T86 for the latest trading day; the Stocks tab shows it.
   - Ask the AI: `POST /tw/ask {d, code, name, q, facts}` answers one question about the open stock from the page's numbers and recent headlines (one AI call, counted in the per-IP limit).
 - Intraday quotes cover the stocks currently on screen (up to 70 rows, the watchlist, or the open stock) and refresh every 2 seconds during the day session (stocks and indices in one TWSE request, so an open page costs TWSE about one request every 2 seconds) and every 5 seconds for the TAIEX future in the night session; the rest of the list stays at the last close until scrolled into the first rows or opened. Sorting therefore mixes live and closing values.
-- When the Worker does not answer, the page keeps working on closing data and says so in the banner. When TWSE cannot be reached at all, the banner says the data is illustrative and the numbers are sample values.
+- When the Worker does not answer, the page keeps working on closing data and says so in the banner. Anything that cannot be read is shown as unreadable; there are no sample, stale or fallback numbers.
 
 The **Deploy Worker** workflow (`.github/workflows/worker.yml`) deploys it on every push that changes the Worker, or by hand (Actions → Deploy Worker → Run workflow). It needs the repository secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and `TELEGRAM_BOT_TOKEN` for the notification. The Worker's `GEMINI_KEY` is kept in Cloudflare (Workers → twstock-ai → Settings → Variables and Secrets).
 

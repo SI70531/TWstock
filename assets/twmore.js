@@ -168,7 +168,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
   }
   /* closing animates too: setting .hidden = true on a pop-open element first plays a short fade/sink, then hides it */
   function closeAnim() {
-    const POP = ".ixdetail, .hmtip, .ktip, .kbcard, .sresults, .searchbox, .thpop, .thmenu, [role=dialog], [role=menu], [role=listbox], [role=tooltip], .popover, .menu-pop";
+    const POP = ".ixdetail, .hmtip, .ktip, .kbcard, .sresults, .searchbox, [role=dialog], [role=menu], [role=listbox], [role=tooltip], .popover, .menu-pop";
     const d = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "hidden"); if (!d || !d.set) return;
     const pend = new WeakMap();
     Object.defineProperty(HTMLElement.prototype, "hidden", { configurable: true, enumerable: d.enumerable, get() { return pend.has(this) ? true : d.get.call(this); }, set(v) {
@@ -274,7 +274,6 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
       if (!$(".sbpage", el)) el.innerHTML = `<div class="dcard sbpage"><div class="sbmb"></div></div>`;
       const b = $(".sbmb", el); b.innerHTML = body; el.dataset.k = k; cur = el; return el;
     }
-    const closeM = () => {};
 
     /* ----- price alerts ----- */
     const AK = "tw-palerts", alerts = () => store.get(AK, []) || [];
@@ -472,7 +471,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
       if (!list.length && !bars.length && !fills.length) return;   /* nothing rendered yet: wait for it */
       if (quiet(host) && Date.now() - lastAct > 1500) return; seenAt.set(host, Date.now());
       bars.forEach((el, i) => { try { el.style.transformOrigin = "bottom"; el.animate([{ transform: "scaleY(0)", opacity: .3 }, { transform: "scaleY(1)", opacity: 1 }], { duration: 750, delay: i * 55, easing: "cubic-bezier(.2,.9,.3,1.1)", fill: "backwards" }); } catch (e) {} });
-      cnt.forEach((el, i) => { const txt = el.textContent, v = parseFloat(txt.replace(/,/g, "")); if (!Number.isFinite(v)) return; const t0 = performance.now() + i * 55, dur = 750; el.dataset.txt = txt;
+      if (!(window.TWSet && window.TWSet.calm())) cnt.forEach((el, i) => { const txt = el.textContent, v = parseFloat(txt.replace(/,/g, "")); if (!Number.isFinite(v)) return; const t0 = performance.now() + i * 55, dur = 750; el.dataset.txt = txt;
         const step = now => { if (el.dataset.txt !== txt || !el.isConnected) return; const k = Math.max(0, Math.min(1, (now - t0) / dur)), e = 1 - Math.pow(1 - k, 3); el.textContent = k < 1 ? Math.round(v * e).toLocaleString("en-US") : txt; if (k < 1) requestAnimationFrame(step); }; requestAnimationFrame(step); });
       list.forEach((el, i) => { try { el.animate([{ opacity: 0, transform: "translateY(10px)" }, { opacity: 1, transform: "none" }], { duration: 380, delay: Math.min(i, 20) * 35, easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }); } catch (e) {} });
       fills.forEach(el => { try { el.style.transformOrigin = "left"; el.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 700, delay: 120, easing: E, fill: "backwards" }); } catch (e) {} });
@@ -533,7 +532,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
     }, true);
   }
   function popAnim() {
-    const POP = ".ixdetail, .hmtip, .ktip, .thmenu, .kbcard, .sresults, .searchbox, [role=dialog], [role=menu], [role=listbox], [role=tooltip], .popover, .menu-pop";
+    const POP = ".ixdetail, .hmtip, .ktip, .kbcard, .sresults, .searchbox, [role=dialog], [role=menu], [role=listbox], [role=tooltip], .popover, .menu-pop";
     const seen = new WeakMap(), isOpen = el => !el.hidden && getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden" && +getComputedStyle(el).opacity > 0.01;
     const IN = [{ opacity: 0, transform: "translateY(14px) scale(.97)" }, { opacity: 1, transform: "none" }];
     const pop = el => { try { el.animate(IN, { duration: 240, easing: "cubic-bezier(.2,.8,.2,1)" }); } catch (e) {} };

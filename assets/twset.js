@@ -16,6 +16,8 @@
   }
   /* animation speed: every Web Animations call (almost all motion here) has its duration and delay scaled */
   const orig = Element.prototype.animate;
+  /* the system's 減少動態效果: animations jump straight to their end (they still finish, so clean-up code runs) */
+  const still = matchMedia("(prefers-reduced-motion: reduce)");
   Element.prototype.animate = function (kf, o) {
     const f = +get("speed") || 1;
     if (f !== 1 && o != null) {
@@ -28,6 +30,7 @@
       else if (typeof o === "number") o = { duration: o, fill: "forwards" };
       else if (!o.fill) o = Object.assign({}, o, { fill: "forwards" });
     }
+    if (still.matches && o != null) o = Object.assign({}, typeof o === "number" ? {} : o, { duration: 0, delay: 0, iterations: 1 });
     return orig.call(this, kf, o);
   };
   /* NYSE regular session 09:30-16:00 New York (13:00 close on the day after Thanksgiving and on Christmas Eve), Mon-Fri, minus market holidays */
@@ -47,5 +50,5 @@
     return t >= 570 && t < (early ? 780 : 960);
   }
   apply();
-  window.TWSet = { get, set, DEF, usOpen };
+  window.TWSet = { get, set, DEF, usOpen, calm: () => still.matches };
 })();

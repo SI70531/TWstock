@@ -5,8 +5,6 @@
 .nwgrid > .wide { grid-column: 1 / -1 !important; }
 @media (max-width: 900px) { .nwgrid { grid-template-columns: minmax(0, 1fr); } }
 /* 總覽 boards that lost a card keep the full row instead of a half-empty one */
-.board3.solo { grid-template-columns: minmax(0, 1fr); }
-.board2.solo > .dcard { grid-column: 1 / -1; }
 /* 融資融券 */
 .mgsum { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .mgsum > div { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: var(--r-md); background: var(--glass-2); border: 1px solid var(--glass-line); }
@@ -61,7 +59,6 @@
 .bsbar i.up { background: var(--color-up); transform-origin: left center; } .bsbar i.down { background: var(--color-down); transform-origin: right center; }
 /* 個股分析: 三大法人買賣超, 股利政策 */
 .itbl > div { grid-template-columns: .8fr 1fr 1fr 1fr 1fr 1.3fr; }
-.dtbl > div { grid-template-columns: 1.1fr .9fr .9fr 1fr 1fr 1.2fr; }
 .ibar { display: flex !important; align-items: center; }
 .ibar i { display: block; height: 6px; border-radius: var(--r-pill); transform-origin: left center; }
 .ibar i.up { background: var(--color-up); } .ibar i.down { background: var(--color-down); }

@@ -173,10 +173,6 @@
     });
     return { date: last, days: days.length, map: out };
   }
-  /* how many of the wanted days are already kept: lets a page use the figures without asking for a long download */
-  async function techCached() {
-    try { const keys = await tx("readonly", s => s.getAllKeys()); return keys.filter(k => k >= ymdOf(new Date(lastDay().getTime() - 120 * 864e5))).length; } catch (e) { return 0; }
-  }
   function tech(onStep) {
     if (onStep) TECH.listeners.add(onStep);
     if (TECH.v && TECH.v.date >= A.DB.date) return Promise.resolve(TECH.v);

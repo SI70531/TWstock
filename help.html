@@ -25,21 +25,24 @@
     })();
   </script>
   <title>說明 | TWstock</title>
+  <link rel="icon" type="image/png" href="./assets/icon-192.png">
   <link rel="stylesheet" href="https://si70531.github.io/EZexams/assets/fonts/fonts.css">
-  <link rel="stylesheet" href="./assets/twconsole.css?v=20261127ds">
-  <link rel="stylesheet" href="./assets/twui.css?v=20261127ds">
+  <link rel="stylesheet" href="./assets/tokens.css?v=20261127c">
+  <link rel="stylesheet" href="./assets/base.css?v=20261127c">
+  <link rel="stylesheet" href="./assets/twconsole.css?v=20261127c">
+  <link rel="stylesheet" href="./assets/twui.css?v=20261127c">
   <style>
     .faq { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 24px 18px 80px; }
     .top { display: flex; justify-content: space-between; align-items: center; }
     .top a { color: var(--color-ink); text-decoration: none; }
-    .home { padding: 8px 16px; border: 1px solid var(--glass-line-2); border-radius: 12px; background: var(--glass); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
+    .home { padding: 8px 16px; border: 1px solid var(--glass-line-2); border-radius: var(--r-md); background: var(--glass); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); }
     h1 { font-size: clamp(30px, 6vw, 44px); margin: 28px 0 8px; }
     h2 { max-width: none; font-size: 22px; margin: 34px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--color-ink); }
     details { padding: 10px 16px; margin: 10px 0; }
     summary { cursor: pointer; font-weight: 600; }
     details p { margin: 8px 0 2px; color: var(--color-ink-2); line-height: 1.7; }
   </style>
-  <link rel="stylesheet" href="./assets/twds.css?v=20261127ds">
+  <link rel="stylesheet" href="./assets/twds.css?v=20261127c">
 </head>
 <body>
 <div class="aurora" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i></div>
@@ -47,7 +50,7 @@
   <div class="top"><a href="./"><b>TWstock</b> 台股研究</a><a class="home" href="./">回首頁</a></div>
   <h1>說明</h1>
   <p style="color:var(--color-muted)">先看看下面的問題。</p>
-  <h2>分頁怎麼用</h2><details class="dcard"><summary>三個分頁各是什麼？</summary><p>「總覽」看大盤、熱力圖與重點；「分析」放收盤、盤前、盤中三份 AI 分析；「股票」有自選股、強勢股等清單，點任一檔股票就會打開它的個股分析。</p></details><details class="dcard"><summary>怎麼加入自選股？</summary><p>在股票清單中把該列向左滑（手機）或使用該列的星號，就會加入自選股。</p></details><h2>AI 分析</h2><details class="dcard"><summary>什麼時候會自動分析？</summary><p>盤前分析在交易日前一晚 05:30（台北時間）左右自動產生；盤中分析在交易日 13:00；收盤摘要在 15:30 收盤後自動產生，不需要也沒有按鈕。三份都會同步傳到 Telegram。</p></details><details class="dcard"><summary>為什麼「盤中」不能按？</summary><p>盤中分析只在交易日 09:00–13:30 可手動執行；非開盤時間、連假或休市日會顯示無法分析。</p></details><details class="dcard"><summary>分析失敗或顯示額度用完？</summary><p>AI 使用的是免費額度，各模型每天有上限，約在台北時間下午 3、4 點重置。稍後再試，或等下一次自動分析。</p></details><h2>資料與外觀</h2><details class="dcard"><summary>資料從哪裡來？</summary><p>行情與報表來自證交所公開資料，新聞來自 Google 新聞。資料可能有延遲或缺漏，請以券商與證交所為準。</p></details><details class="dcard"><summary>可以換深色或淺色嗎？</summary><p>可以。按右上角的圖示，選「系統」、「淺色」或「深色」；選「系統」會跟隨裝置設定。</p></details><details class="dcard"><summary>這是投資建議嗎？</summary><p>不是。本站僅供個人研究與參考，AI 分析可能出錯，投資請自行判斷並承擔風險。</p></details>
+  <h2>分頁怎麼用</h2><details class="dcard"><summary>每個分頁各是什麼？</summary><p>「總覽」看大盤指數、法人買賣超與漲跌分布；「籌碼」看期貨籌碼、法人與融資融券排行；「產業」看類股熱力圖、產業強弱與估值；「股票」有自選股清單、排行、比較與選股；「持股與損益」記錄持股並可模擬交易；「分析」放收盤、盤前、盤中和週回顧的 AI 分析；「復盤」對照 AI 的判斷和實際結果；「市場日曆」看除權息、股東會和休市日。點任一檔股票就會打開它的個股分析。</p></details><details class="dcard"><summary>怎麼加入自選股？</summary><p>在股票清單中把該列向左滑（手機）或使用該列的星號，就會加入自選股。</p></details><h2>AI 分析</h2><details class="dcard"><summary>什麼時候會自動分析？</summary><p>時間都是台北時間。盤前分析在週一到週五清晨 05:30 左右產生；盤中分析在交易日 13:00；收盤摘要在交易日 15:30；週回顧在週六早上 09:00。這些會傳到 Telegram，各種通知可以在「設定」裡開關。</p></details><details class="dcard"><summary>為什麼「盤中」不能按？</summary><p>盤中分析只在交易日開盤時間可以手動執行；非開盤時間或休市日會顯示無法分析。</p></details><details class="dcard"><summary>分析失敗或顯示額度用完？</summary><p>AI 使用的是免費額度，各模型每天有上限，約在台北時間下午 3、4 點重置。稍後再試，或等下一次自動分析。</p></details><h2>資料與外觀</h2><details class="dcard"><summary>資料從哪裡來？</summary><p>行情與報表主要來自證交所、櫃買中心、期交所和集保的公開資料；美股與國際行情來自 Yahoo Finance，新聞來自 Google 新聞。資料可能有延遲或缺漏，請以券商與交易所為準。讀不到時會直接顯示「讀不到」，不會用舊數字或示意數字代替。</p></details><details class="dcard"><summary>可以換深色或淺色嗎？</summary><p>可以。按右上角的齒輪打開「設定」，在「顯示」分頁選擇；選「跟隨裝置」會跟著裝置設定。</p></details><details class="dcard"><summary>覺得動畫太多？</summary><p>裝置開啟「減少動態效果」時，本站會停用大部分動畫。動畫快慢也可以在「設定」調整。</p></details><details class="dcard"><summary>這是投資建議嗎？</summary><p>不是。本站僅供個人研究與參考，AI 分析可能出錯，投資請自行判斷並承擔風險。</p></details>
 </main>
 </body>
 </html>
