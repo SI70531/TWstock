@@ -91,9 +91,7 @@
     }); };
     addEventListener("scroll", onScroll, { passive: true }); addEventListener("resize", onScroll); onScroll();
     const right = $(".tb-right", bar);
-    /* 說明, search and 設定 (light / dark is inside 設定) */
-    const hb = document.createElement("a"); hb.className = "btn thhelp"; hb.href = "help.html"; hb.textContent = "說明";
-    right.appendChild(hb);
+    /* search and 設定 (light / dark is inside 設定) */
     /* the command palette (twmain.js) also opens with Ctrl+K */
     const sb = document.createElement("button");
     sb.type = "button"; sb.className = "tbsearch"; sb.setAttribute("aria-label", "搜尋股票或頁面（Ctrl+K）");
