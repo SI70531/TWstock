@@ -86,15 +86,6 @@
   :root .mgtbl.itbl > div { grid-template-columns: minmax(max-content, .9fr) repeat(4, minmax(0, 1fr)) .6fr; gap: 4px; }
 }
 
-/* ================= reduced motion (the system setting) ================= */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-property: opacity, color, background-color, border-color, box-shadow, fill, stroke !important; transition-duration: .15s !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
-  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
-  /* the quote strip stops scrolling by itself and can be swiped instead */
-  :root .tape { overflow-x: auto; }
-  :root .tape-track { animation: none !important; }
-}
-
 /* long stock names wrap on a phone instead of being cut off */
 @media (max-width: 560px) { :root .bd-nm b { white-space: normal; } }
 

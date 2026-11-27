@@ -98,7 +98,7 @@
     document.addEventListener("touchmove", move, { passive: true });
     document.addEventListener("touchend", end, { passive: true });
     document.addEventListener("touchcancel", () => { if (g && g.row) resetRow(g.row); g = null; hideHint(); }, { passive: true });
-    setInterval(newHigh, 1500);
+    ["twdash:live", "twdash:list"].forEach(n => document.addEventListener(n, () => setTimeout(newHigh, 0))); newHigh();
   }
   document.addEventListener("twdash:ready", boot);
   if (window.TWDash && window.TWDash.api) boot();

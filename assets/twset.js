@@ -16,8 +16,6 @@
   }
   /* animation speed: every Web Animations call (almost all motion here) has its duration and delay scaled */
   const orig = Element.prototype.animate;
-  /* the system's 減少動態效果: animations jump straight to their end (they still finish, so clean-up code runs) */
-  const still = matchMedia("(prefers-reduced-motion: reduce)");
   Element.prototype.animate = function (kf, o) {
     const f = +get("speed") || 1;
     if (f !== 1 && o != null) {
@@ -29,12 +27,6 @@
       if (o == null) o = { duration: 400, fill: "forwards" };
       else if (typeof o === "number") o = { duration: o, fill: "forwards" };
       else if (!o.fill) o = Object.assign({}, o, { fill: "forwards" });
-    }
-    if (still.matches && o != null) {
-      /* gentler: an animation that fades keeps a short fade; everything that only moves jumps to its end */
-      const fades = Array.isArray(kf) && kf.some(k => k && k.opacity != null);
-      if (fades) kf = kf.map(k => { const r = {}; if (k.opacity != null) r.opacity = k.opacity; if (k.offset != null) r.offset = k.offset; return r; });
-      o = Object.assign({}, typeof o === "number" ? {} : o, { duration: fades ? 150 : 0, delay: 0, iterations: 1 });
     }
     return orig.call(this, kf, o);
   };
@@ -55,5 +47,5 @@
     return t >= 570 && t < (early ? 780 : 960);
   }
   apply();
-  window.TWSet = { get, set, DEF, usOpen, calm: () => still.matches };
+  window.TWSet = { get, set, DEF, usOpen, calm: () => false };
 })();

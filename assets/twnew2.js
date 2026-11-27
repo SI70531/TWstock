@@ -112,29 +112,22 @@
   function cpCodes() {
     if (CP.codes) return CP.codes;
     const s = A.store.get(CK, null);
-    CP.codes = Array.isArray(s) && s.length ? s.filter(c => A.DB.by.get(c)).slice(0, 4) : [];
+    CP.codes = Array.isArray(s) && s.length ? s.filter(c => /^\d{4,6}[A-Z]?$/.test(c)).slice(0, 4) : [];
     if (!CP.codes.length) { const w = A.watch().filter(c => A.DB.by.get(c) && /^\d{4}$/.test(c)); CP.codes = (w.length >= 2 ? w : ["2330", "2454"]).slice(0, 2).filter(c => A.DB.by.get(c)); }
     return CP.codes;
   }
   function buildCompare(dl) {
     const card = document.createElement("div"); card.className = "dcard cpc"; card.dataset.sub = "cp"; card.hidden = true;
-    card.innerHTML = `<div class="cpbar"><div class="cpchips"></div><div class="cpadd"><input class="in cpq" type="text" inputmode="search" autocomplete="off" placeholder="代號或名稱" aria-label="加入比較"><div class="cpsug" hidden></div></div></div><div class="chips cpspan">${[[20, "20 日"], [60, "60 日"], [120, "120 日"]].map(([n, t]) => `<button type="button" class="chip" data-cpspan="${n}" aria-pressed="${n === spanGet()}">${t}</button>`).join("")}</div><div class="cpchart"></div><div class="cptbl"></div>`;
+    card.innerHTML = `<div class="cpbar"><div class="cpchips"></div><div class="cpadd"><input class="in cpq" type="text" inputmode="search" autocomplete="off" placeholder="代號或名稱" aria-label="加入比較"></div></div><div class="chips cpspan">${[[20, "20 日"], [60, "60 日"], [120, "120 日"]].map(([n, t]) => `<button type="button" class="chip" data-cpspan="${n}" aria-pressed="${n === spanGet()}">${t}</button>`).join("")}</div><div class="cpchart"></div><div class="cptbl"></div>`;
     const rk = $(".rk", dl); (rk || dl.lastElementChild).after(card);
-    const q = $(".cpq", card), sug = $(".cpsug", card);
-    q.addEventListener("input", () => {
-      const t = q.value.trim().toLowerCase(); if (!t) { sug.hidden = true; return; }
-      const L = A.DB.list.filter(s => /^\d{4,6}[A-Z]?$/i.test(s.code) && s.mkt !== "esb" && !cpCodes().includes(s.code) && (s.code.toLowerCase().startsWith(t) || s.name.toLowerCase().includes(t))).slice(0, 6);
-      if (!L.length && /^\d{4,6}[a-z]?$/.test(t) && !cpCodes().includes(t.toUpperCase())) L.push({ code: t.toUpperCase(), name: "加入" });
-      sug.innerHTML = L.map(s => `<button type="button" data-add="${esc(s.code)}"><b>${esc(s.name)}</b><em>${esc(s.code)}</em></button>`).join(""); sug.hidden = !L.length;
-    });
-    q.addEventListener("keydown", e => { if (e.key === "Enter") { const f = $("[data-add]", sug); if (f) { e.preventDefault(); f.click(); } } });
+    const q = $(".cpq", card);
+    const add = () => { const hit = A.findStock && A.findStock(q.value); if (!hit) return; q.value = ""; const c = cpCodes(); if (!c.includes(hit.code)) { if (c.length >= 4) c.shift(); c.push(hit.code); CP.codes = c; A.store.set(CK, CP.codes); } cpPaint(true); };
+    q.addEventListener("change", add); q.addEventListener("keydown", e => { if (e.key === "Enter" && !e.defaultPrevented) { e.preventDefault(); add(); } });
     card.addEventListener("click", e => {
       const sp = e.target.closest("[data-cpspan]"); if (sp) { CP.span = +sp.dataset.cpspan; A.store.set("twnew2-cpspan", CP.span); $$("[data-cpspan]", card).forEach(b => b.setAttribute("aria-pressed", String(b === sp))); cpPaint(true); return; }
-      const a = e.target.closest("[data-add]"); if (a) { if (cpCodes().length < 4) { CP.codes.push(a.dataset.add); A.store.set(CK, CP.codes); } q.value = ""; sug.hidden = true; cpPaint(true); return; }
       const x = e.target.closest("[data-rm]"); if (x) { CP.codes = cpCodes().filter(c => c !== x.dataset.rm); A.store.set(CK, CP.codes); cpPaint(true); return; }
       const o = e.target.closest("[data-open]"); if (o) A.openStock(o.dataset.open);
     });
-    document.addEventListener("click", e => { if (!e.target.closest(".cpadd")) sug.hidden = true; });
   }
   const ret = (cs, n) => { if (!cs || cs.length <= n) return NaN; const a = cs[cs.length - 1][4], b = cs[cs.length - 1 - n][4]; return b > 0 ? (a / b - 1) * 100 : NaN; };
   async function cpPaint(animate) {

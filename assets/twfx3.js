@@ -219,6 +219,11 @@
     } });
   })();
 
+  /* one way to read what was typed into any stock box: a code, "code name", or a name; a well-formed code not in today's list is still taken */
+  function findStock(v) {
+    v = String(v || "").trim(); if (!v) return null; const tok = v.split(/\s+/)[0].toUpperCase(), by = A.DB.by;
+    return by.get(tok) || A.DB.list.find(x => x.name === v) || A.DB.list.find(x => x.name.includes(v)) || (/^\d{4,6}[A-Z]?$/.test(tok) ? { code: tok, name: tok } : null);
+  }
   /* ================= stock picker: replaces the browser's own list on every code box ================= */
   const SUG = { el: null, inp: null, rows: [], i: -1 };
   function sugRows(q) {
@@ -227,6 +232,7 @@
     const code = q.split(/\s+/)[0];
     for (const s of A.DB.list) { if (s.code.toLowerCase() === code || s.code.toLowerCase().startsWith(code) || s.name.toLowerCase().includes(q)) { out.push(s); if (out.length >= 40) break; } }
     out.sort((a, b) => (a.code.toLowerCase() === code ? -1 : b.code.toLowerCase() === code ? 1 : 0) || (a.code.length - b.code.length) || (a.code < b.code ? -1 : 1));
+    if (!out.length && /^\d{4,6}[a-z]?$/.test(code)) out.push({ code: code.toUpperCase(), name: "加入 " + code.toUpperCase(), price: NaN, chg: 0, pct: NaN, extra: 1 });
     return out.slice(0, 8);
   }
   function sugPaint() {
@@ -235,7 +241,7 @@
     if (!SUG.rows.length) { sugClose(); return; }
     const r = inp.getBoundingClientRect(), below = innerHeight - r.bottom > 280;
     el.style.cssText = `left:${r.left}px;width:${r.width}px;${below ? `top:${r.bottom + 6}px` : `bottom:${innerHeight - r.top + 6}px`}`;
-    el.innerHTML = SUG.rows.map((s, k) => `<button type="button" class="fxs-row${k === SUG.i ? " on" : ""}" data-k="${k}"><b>${A.esc(s.name)}</b><i>${A.esc(s.code)}</i><span class="${A.tone(s.chg)}">${Number.isFinite(s.price) ? A.fmt(s.price, A.dig(s.price)) : "讀不到"}</span><em class="${A.tone(s.chg)}">${Number.isFinite(s.pct) ? A.pct(s.pct) : ""}</em></button>`).join("");
+    el.innerHTML = SUG.rows.map((s, k) => `<button type="button" class="fxs-row${k === SUG.i ? " on" : ""}" data-k="${k}"><b>${A.esc(s.name)}</b><i>${s.extra ? "" : A.esc(s.code)}</i><span class="${A.tone(s.chg)}">${s.extra ? "" : Number.isFinite(s.price) ? A.fmt(s.price, A.dig(s.price)) : "讀不到"}</span><em class="${A.tone(s.chg)}">${Number.isFinite(s.pct) ? A.pct(s.pct) : ""}</em></button>`).join("");
   }
   function sugOpen(inp) {
     if (!SUG.el) { SUG.el = document.createElement("div"); SUG.el.className = "fxsug"; SUG.el.setAttribute("role", "listbox"); document.body.appendChild(SUG.el);
@@ -250,10 +256,10 @@
   }
   function sugPick(k) {
     const s = SUG.rows[k], inp = SUG.inp; if (!s || !inp) return;
-    inp.value = s.code + " " + s.name; sugClose(); SUG.skip = true; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.dispatchEvent(new Event("change", { bubbles: true })); SUG.skip = false;
+    inp.value = inp._full && !s.extra ? s.code + " " + s.name : s.code; sugClose(); SUG.skip = true; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.dispatchEvent(new Event("change", { bubbles: true })); SUG.skip = false;
   }
   function sugBind(inp) {
-    if (inp._fxs) return; inp._fxs = 1; inp.removeAttribute("list"); inp.setAttribute("autocomplete", "off"); inp.removeAttribute("title");
+    if (inp._fxs) return; inp._fxs = 1; inp._full = inp.getAttribute("list") === "twstocks"; inp.removeAttribute("list"); inp.setAttribute("autocomplete", "off"); inp.removeAttribute("title");
     inp.addEventListener("focus", () => { inp.select(); sugOpen(inp); });
     inp.addEventListener("input", () => { if (!SUG.skip && document.activeElement === inp) sugOpen(inp); });
     inp.addEventListener("blur", () => setTimeout(() => { if (SUG.inp === inp && document.activeElement !== inp) sugClose(); }, 120));
@@ -276,7 +282,8 @@
     inp.addEventListener("input", sync); inp.addEventListener("change", sync);
     b.addEventListener("mousedown", e => e.preventDefault());
     b.addEventListener("click", () => { inp.value = ""; sync(); inp.dispatchEvent(new Event("input", { bubbles: true })); inp.focus(); });
-    let last = inp.value; setInterval(() => { if (inp.value !== last) { last = inp.value; sync(); } }, 300); sync();
+    const pd = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+    Object.defineProperty(inp, "value", { configurable: true, get() { return pd.get.call(this); }, set(v) { pd.set.call(this, v); sync(); } }); sync();
   }
 
   /* the sliding highlight of the sub-tabs follows every change in the width of the tabs themselves: late-added tabs, fonts arriving, a reload */
@@ -324,14 +331,18 @@
       if (changed) document.dispatchEvent(new CustomEvent("twdash:lstsub", { detail: k }));
     };
     const start = () => { const dl = $("#dpList"); if (!dl || on) return; on = true; new MutationObserver(fix).observe(dl, { childList: true }); fix(); };
-    document.addEventListener("twdash:ready", start); setInterval(start, 700);
+    document.addEventListener("twdash:ready", start); new MutationObserver(() => { if (!on) start(); }).observe(document.body, { childList: true, subtree: true });
   })();
 
   function boot() {
     if (A) return; A = window.TWDash && window.TWDash.api; if (!A) return;
     bindChart(); ensureChip(); ensureShare();
     document.addEventListener("twdash:chart", () => { ensureChip(); paintAlerts(); const cb = $("#dpStock .cbox"); if (cb) cb.classList.toggle("alerting", alertMode); });
-    setInterval(() => { ensureChip(); ensureShare(); checkAlerts(); $$('input[list="twstocks"]').forEach(sugBind); $$('.anasub').forEach(hlBind); $$('.lform [name="code"], .lform [name="qty"], .cmq, .cpq, .msearch, .ssearch, .pal-in input').forEach(clearBind); }, 600);
+    A.findStock = findStock;
+    const STK = 'input[list="twstocks"], .cpq, input[name="code"], .lcode, .lpcode, [data-stock]', CLR = '.lform [name="code"], .lform [name="qty"], .cpq, .msearch, .ssearch, .pal-in input, ' + STK;
+    let q = 0; const scan = () => { q = 0; ensureChip(); ensureShare(); $$(STK).forEach(sugBind); $$(".anasub").forEach(hlBind); $$(CLR).forEach(clearBind); };
+    new MutationObserver(() => { if (!q) q = requestAnimationFrame(scan); }).observe(document.body, { childList: true, subtree: true }); scan();
+    setInterval(() => { if (!document.hidden) checkAlerts(); }, 1500);
     document.addEventListener("twdash:tab", () => { if (alertMode) setMode(false); });
   }
   document.addEventListener("twdash:ready", boot);

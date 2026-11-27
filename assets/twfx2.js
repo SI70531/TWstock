@@ -176,9 +176,8 @@
   function boot() {
     if (A) return; A = window.TWDash && window.TWDash.api; if (!A) return;
     ovApply(); ovButton();
-    setInterval(() => { ovButton(); }, 3000);
+    ["twdash:live", "twdash:list", "twdash:tab", "twdash:chart"].forEach(n => document.addEventListener(n, () => setTimeout(() => { ovButton(); miniBar(); }, 0)));
     let raf = 0; addEventListener("scroll", () => { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; miniBar(); }); }, { passive: true });
-    setInterval(miniBar, 1000);
     document.addEventListener("twdash:tab", () => { setTimeout(ovApply, 0); miniBar(); });
   }
   document.addEventListener("twdash:ready", boot);

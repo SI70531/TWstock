@@ -172,7 +172,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
     A = window.TWDash && window.TWDash.api; if (!A) return;
     let tries = 0; const t = setInterval(() => { if (mountList() || ++tries > 40) clearInterval(t); }, 250);
     document.addEventListener("twdash:list", () => { if ($("#dpList .cm") && !$("#dpList .cm").hidden) cmPaint(false); });
-    setInterval(ritualTick, 1000); ritualTick();
+    setInterval(() => { if (!document.hidden) ritualTick(); }, 5000); ritualTick();
     swipe(); keys();
     sideToggle(); instant(); popAnim(); closeAnim(); actionAnim(); visAnim(); sortTables(); sidePlus(); syncInit();
     window.TWDash.ritual = ritualShow;      /* TWDash.ritual("open") plays the opening animation for a look */

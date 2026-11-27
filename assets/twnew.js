@@ -168,7 +168,7 @@
     b3.insertAdjacentHTML("beforeend", `<div class="dcard bs"><div class="bd-h"><h3>期現貨價差</h3><span class="sub bsn"></span></div><div class="bsout"><p class="sub">載入中…</p></div></div>`);
     paintBasis();
     document.addEventListener("twdash:live", paintBasis);
-    setInterval(paintBasis, 5000);
+    ["twdash:live", "twdash:tab"].forEach(n => document.addEventListener(n, () => setTimeout(paintBasis, 0)));
   }
   let basisHist = [], bsFirst = true;
   /* the day's spread so far: one point per change, kept for the session so a reload keeps the line */

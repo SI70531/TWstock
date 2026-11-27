@@ -350,8 +350,8 @@
   function start() {
     A = window.TWDash && window.TWDash.api;
     buildShell(); tickClock(); paintSide(); scanSkeletons(); scanHot(); backdrop();
-    setInterval(tickClock, 1000);
-    setInterval(paintSide, 3000);
+    setInterval(() => { if (!document.hidden) tickClock(); }, 1000);
+    ["twdash:live", "twdash:list", "twdash:tab"].forEach(n => document.addEventListener(n, () => setTimeout(paintSide, 0)));
     document.addEventListener("twdash:list", paintSide);
     document.addEventListener("twdash:live", paintSide);
     new MutationObserver(schedule).observe(document.querySelector(".app") || document.body, { subtree: true, childList: true, characterData: true });

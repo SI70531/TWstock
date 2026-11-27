@@ -19,7 +19,7 @@
     shortcut: (e, typing) => ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") || e.key === "Escape" ||
       (!typing && (/^[1-9/?]$/.test(e.key) || (/^Arrow/.test(e.key) && !!(e.target.closest && e.target.closest(".dtabs, [role=tablist]"))))),
   };
-  const calm = matchMedia("(prefers-reduced-motion: reduce)");
+  const calm = { matches: false };
   const root = document.documentElement;
 
   const css = document.createElement("style");
@@ -42,11 +42,6 @@ html.kb-now *, html.kb-now *::before, html.kb-now *::after { transition-duration
     clearTimeout(kbTimer); kbTimer = setTimeout(() => root.classList.remove("kb-now"), 450);
   }, true);
   addEventListener("pointerdown", () => { kbUntil = 0; root.classList.remove("kb-now"); }, true);
-  const animate = Element.prototype.animate;
-  Element.prototype.animate = function (frames, opts) {
-    if (byKeyboard() && opts != null) opts = Object.assign({}, typeof opts === "number" ? {} : opts, { duration: 0, delay: 0, iterations: 1 });
-    return animate.call(this, frames, opts);
-  };
 
   /* ---------- entrances for popups that have none ---------- */
   const KIND = { menu: [180, .96, -4], tip: [125, 1, 0], dialog: [220, .96, 8] };
@@ -55,7 +50,7 @@ html.kb-now *, html.kb-now *::before, html.kb-now *::after { transition-duration
   function enter(el, kind, origin) {
     const was = shownState.get(el), now = visible(el);
     shownState.set(el, now);
-    if (!now || was || byKeyboard()) return;
+    if (!now || was) return;
     /* its own entrance (CSS or script) wins */
     if (el.getAnimations().length) return;
     const [ms, from, dy] = KIND[kind];
