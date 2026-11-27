@@ -129,7 +129,7 @@
       if (closed) return;
       closed = true;
       document.removeEventListener("keydown", onKey);
-      C.animate([{ transform: "none", opacity: 1 }, { transform: "scale(1.5)", opacity: 0 }], { duration: 520, easing: "ease-in", fill: "forwards" });
+      C.animate([{ transform: "none", opacity: 1 }, { transform: "scale(1.5)", opacity: 0 }], { duration: 520, easing: "cubic-bezier(.23,1,.32,1)", fill: "forwards" });
       sk.remove();
       const R = Math.hypot(W, H) / 2 + 30, t0 = performance.now(), D = 1000;
       ring.style.opacity = "1";

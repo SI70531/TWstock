@@ -164,7 +164,7 @@
       mini.addEventListener("click", () => scrollTo({ top: 0, behavior: "smooth" }));
       mini.animate([{ transform: "translate(-50%, -140%)", opacity: 0 }, { transform: "translate(-50%, 0)", opacity: 1 }], { duration: 420, easing: "cubic-bezier(.16,1,.3,1)" });
     }
-    if (!show && mini) { const el = mini; mini = null; el.animate([{ transform: "translate(-50%, 0)", opacity: 1 }, { transform: "translate(-50%, -140%)", opacity: 0 }], { duration: 260, fill: "forwards", easing: "ease-in" }).onfinish = () => el.remove(); }
+    if (!show && mini) { const el = mini; mini = null; el.animate([{ transform: "translate(-50%, 0)", opacity: 1 }, { transform: "translate(-50%, -140%)", opacity: 0 }], { duration: 260, fill: "forwards", easing: "cubic-bezier(.23,1,.32,1)" }).onfinish = () => el.remove(); }
     if (mini) {
       const s = A.DB.by.get(A.code()); if (!s) return;
       const t = A.tone(s.chg), html = `<b>${esc(s.name)}</b><i>${esc(s.code)}</i><strong class="${t}">${Number.isFinite(s.price) ? A.fmt(s.price, A.dig(s.price)) : "—"}</strong><em class="${t}">${Number.isFinite(s.pct) ? A.pct(s.pct) : ""}</em>`;

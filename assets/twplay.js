@@ -49,7 +49,7 @@
       const back = () => { pnl.style.transition = "transform .35s cubic-bezier(.2,.9,.3,1), opacity .35s"; pnl.style.transform = ""; pnl.style.opacity = ""; setTimeout(() => { pnl.style.transition = ""; }, 400); };
       if ((Math.abs(dx) > 90 || fast) && list[j]) {
         buzz(8);
-        pnl.style.transition = "transform .18s ease-in, opacity .18s"; pnl.style.transform = `translateX(${dx < 0 ? -60 : 60}px)`; pnl.style.opacity = "0";
+        pnl.style.transition = "transform .18s cubic-bezier(.23,1,.32,1), opacity .18s"; pnl.style.transform = `translateX(${dx < 0 ? -60 : 60}px)`; pnl.style.opacity = "0";
         const old = pnl;
         setTimeout(() => { old.style.transition = ""; old.style.transform = ""; old.style.opacity = ""; list[j].click();
           const np = panelOn(); if (np && np !== old) np.animate([{ transform: `translateX(${dx < 0 ? 50 : -50}px)`, opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 320, easing: "cubic-bezier(.16,1,.3,1)" }); }, 170);
@@ -146,7 +146,7 @@
       if (!row || !A) return;
       e.stopPropagation(); e.preventDefault();
       const open = row.nextElementSibling && row.nextElementSibling.classList.contains("peek") ? row.nextElementSibling : null;
-      $$("#dpOverview .peek").forEach(p => { p.animate([{ opacity: 1, maxHeight: p.offsetHeight + "px" }, { opacity: 0, maxHeight: "0px" }], { duration: 220, easing: "ease-in" }).onfinish = () => p.remove(); });
+      $$("#dpOverview .peek").forEach(p => { p.animate([{ opacity: 1, maxHeight: p.offsetHeight + "px" }, { opacity: 0, maxHeight: "0px" }], { duration: 220, easing: "cubic-bezier(.23,1,.32,1)" }).onfinish = () => p.remove(); });
       $$("#dpOverview .bd-row.peeking").forEach(r => r.classList.remove("peeking"));
       if (open) return;
       const s = A.DB.by.get(row.dataset.code); if (!s) return;

@@ -266,7 +266,7 @@
     const d = Math.hypot(Math.max(e.clientX - r.left, r.right - e.clientX), Math.max(e.clientY - r.top, r.bottom - e.clientY)) * 2;
     dot.style.cssText = `left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px;width:${d}px;height:${d}px`;
     host.appendChild(dot); document.body.appendChild(host);
-    const a = dot.animate([{ transform: "scale(0)", opacity: 0.5 }, { transform: "scale(1)", opacity: 0 }], { duration: 650, easing: "cubic-bezier(.16,1,.3,1)" });
+    const a = dot.animate([{ transform: "scale(.15)", opacity: 0.5 }, { transform: "scale(1)", opacity: 0 }], { duration: 650, easing: "cubic-bezier(.16,1,.3,1)" });
     a.onfinish = () => host.remove();
     if (el.matches("button, .chip, .bd-row, .tp, .sb-row")) el.animate([{ transform: "scale(1)" }, { transform: "scale(.96)" }, { transform: "scale(1)" }], { duration: 260, easing: "cubic-bezier(.16,1,.3,1)" });
   }

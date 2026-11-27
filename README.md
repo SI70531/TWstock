@@ -35,6 +35,7 @@ manifest.webmanifest, sw.js  Install as an app; the page's own files are kept fo
 assets/tokens.css          Design spec: corner sizes, heights, type scale, spacing, colours
 assets/base.css            Element defaults
 assets/twds.css / twds.js  Shared layer, loaded last: figures and units, chart styling, data states, contrast, touch sizes, reduced motion
+assets/twmotion.js         Motion layer: popup entrances, press feedback, no animation for keyboard actions, off-screen loops paused
 assets/twconsole.css       Layout and controls
 assets/twset.js            Settings store, animation speed and the system's reduced-motion setting
 assets/twintro.js          Opening animation, once per tab

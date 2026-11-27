@@ -175,7 +175,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
       const el = this;
       if (pend.has(el)) { if (v) return; try { pend.get(el).cancel(); } catch (e) {} pend.delete(el); }
       if (v && !d.get.call(el) && el.matches(POP) && el.isConnected && el.getClientRects().length) {
-        let a; try { a = el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(10px) scale(.98)" }], { duration: 140, easing: "ease-in", fill: "forwards" }); } catch (e) { d.set.call(el, v); return; }
+        let a; try { a = el.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(10px) scale(.98)" }], { duration: 140, easing: "cubic-bezier(.23,1,.32,1)", fill: "forwards" }); } catch (e) { d.set.call(el, v); return; }
         pend.set(el, a);
         a.onfinish = () => { pend.delete(el); d.set.call(el, true); try { a.cancel(); } catch (e) {} };
         return;
@@ -195,7 +195,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
         const r = el.getBoundingClientRect(); if (r.height < 24 || r.width < 40 || !el.parentNode) return;
         const g = el.cloneNode(true); g.removeAttribute("id"); g.querySelectorAll("[id]").forEach(x => x.removeAttribute("id")); g.classList.add("xghost"); g.setAttribute("aria-hidden", "true"); g.style.cssText += `;pointer-events:none;overflow:hidden;box-sizing:border-box;height:${r.height}px`;
         el.parentNode.insertBefore(g, el);
-        const a = g.animate([{ height: r.height + "px", opacity: 1, transform: "none" }, { height: "0px", opacity: 0, transform: "translateX(-14px)", marginTop: "0px", marginBottom: "0px", paddingTop: "0px", paddingBottom: "0px" }], { duration: 260, easing: "ease-in", fill: "forwards" });
+        const a = g.animate([{ height: r.height + "px", opacity: 1, transform: "none" }, { height: "0px", opacity: 0, transform: "translateX(-14px)", marginTop: "0px", marginBottom: "0px", paddingTop: "0px", paddingBottom: "0px" }], { duration: 260, easing: "cubic-bezier(.23,1,.32,1)", fill: "forwards" });
         a.onfinish = () => rm.call(g);
       } catch (e) {}
     };
@@ -456,7 +456,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
             el.animate([{ transform: "scaleY(0)", opacity: .2 }, { transform: "scaleY(1)", opacity: 1 }], { duration: 650, delay: Math.min(n, 30) * 18, easing: E, fill: "backwards" });
           } else if (tag === "circle") {
             el.style.transformBox = "fill-box"; el.style.transformOrigin = "center";
-            el.animate([{ transform: "scale(0)", opacity: 0 }, { transform: "scale(1)", opacity: 1 }], { duration: 420, delay: 300 + Math.min(n, 30) * 15, easing: "cubic-bezier(.2,.9,.3,1.4)", fill: "backwards" });
+            el.animate([{ transform: "scale(.6)", opacity: 0 }, { transform: "scale(1)", opacity: 1 }], { duration: 420, delay: 300 + Math.min(n, 30) * 15, easing: "cubic-bezier(.2,.9,.3,1.4)", fill: "backwards" });
           } else if (tag === "path" || tag === "polygon") {
             el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 700, delay: 250, easing: "ease-out", fill: "backwards" });
           } else if (tag === "line") {

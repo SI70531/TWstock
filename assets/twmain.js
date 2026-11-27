@@ -698,7 +698,7 @@
         }
         t.title = it.name + " " + pct(it.pct); keep.add(it.key);
       });
-      old.forEach((t, k) => { if (keep.has(k)) return; t.style.pointerEvents = "none"; t.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.4)" }], { duration: 300, easing: "ease-in", fill: "forwards" }).onfinish = () => t.remove(); });
+      old.forEach((t, k) => { if (keep.has(k)) return; t.style.pointerEvents = "none"; t.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "scale(.4)" }], { duration: 300, easing: "cubic-bezier(.23,1,.32,1)", fill: "forwards" }).onfinish = () => t.remove(); });
       return;
     }
     hm.dataset.level = level;
@@ -796,7 +796,7 @@
     c.style.left = x + "px"; c.style.top = y + "px";
     c.animate([{ opacity: 0, transform: "scale(.85) translateY(6px)", filter: "blur(4px)" }, { opacity: 1, transform: "none", filter: "none" }], { duration: 320, easing: "cubic-bezier(.16,1,.3,1)" });
     const f = $(".hmc-fill", c); if (f) f.animate([{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }], { duration: 600, delay: 120, easing: "ease-out", fill: "backwards" });
-    const dt = $(".hmc-dot", c); if (dt) dt.animate([{ transform: "translate(-50%, -50%) scale(0)" }, { transform: "translate(-50%, -50%) scale(1.4)", offset: .7 }, { transform: "translate(-50%, -50%) scale(1)" }], { duration: 420, delay: 600, fill: "backwards" });
+    const dt = $(".hmc-dot", c); if (dt) dt.animate([{ transform: "translate(-50%, -50%) scale(.6)", opacity: 0 }, { transform: "translate(-50%, -50%) scale(1.4)", offset: .7 }, { transform: "translate(-50%, -50%) scale(1)" }], { duration: 420, delay: 600, fill: "backwards" });
     $$(".hmt.picked", hm).forEach(x => x.classList.remove("picked")); t.classList.add("picked");
   }
   function heatCardClose(hm) {

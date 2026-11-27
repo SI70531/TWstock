@@ -30,7 +30,12 @@
       else if (typeof o === "number") o = { duration: o, fill: "forwards" };
       else if (!o.fill) o = Object.assign({}, o, { fill: "forwards" });
     }
-    if (still.matches && o != null) o = Object.assign({}, typeof o === "number" ? {} : o, { duration: 0, delay: 0, iterations: 1 });
+    if (still.matches && o != null) {
+      /* gentler: an animation that fades keeps a short fade; everything that only moves jumps to its end */
+      const fades = Array.isArray(kf) && kf.some(k => k && k.opacity != null);
+      if (fades) kf = kf.map(k => { const r = {}; if (k.opacity != null) r.opacity = k.opacity; if (k.offset != null) r.offset = k.offset; return r; });
+      o = Object.assign({}, typeof o === "number" ? {} : o, { duration: fades ? 150 : 0, delay: 0, iterations: 1 });
+    }
     return orig.call(this, kf, o);
   };
   /* NYSE regular session 09:30-16:00 New York (13:00 close on the day after Thanksgiving and on Christmas Eve), Mon-Fri, minus market holidays */

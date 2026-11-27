@@ -88,7 +88,7 @@
 
 /* ================= reduced motion (the system setting) ================= */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important; transition-property: opacity, color, background-color, border-color, box-shadow, fill, stroke !important; transition-duration: .15s !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
   ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation: none !important; }
   /* the quote strip stops scrolling by itself and can be swiped instead */
   :root .tape { overflow-x: auto; }

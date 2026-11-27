@@ -61,7 +61,7 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .anasub { position: relative; display: flex; width: 100%; max-width: 420px; margin: 0 auto 4px; padding: 4px; border-radius: var(--r-pill); background: var(--glass); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); border: 1px solid var(--glass-line-2); }
 .anasub button { position: relative; z-index: 1; flex: 1; height: 38px; border: 0; border-radius: var(--r-pill); background: none; color: var(--color-muted); font-size: var(--text-sm); font-weight: 700; cursor: pointer; transition: color .25s; }
 .anasub button[aria-selected="true"] { color: var(--color-ink); }
-.anasub > i { position: absolute; left: 0; top: 4px; bottom: 4px; border-radius: var(--r-pill); background: color-mix(in oklch, var(--color-accent) 28%, transparent); border: 1px solid color-mix(in oklch, var(--color-accent) 50%, transparent); box-shadow: var(--sh-1); transition: transform .45s cubic-bezier(.2,.9,.3,1.2), width .45s cubic-bezier(.2,.9,.3,1.2); }
+.anasub > i { position: absolute; left: 0; top: 4px; bottom: 4px; border-radius: var(--r-pill); background: color-mix(in oklch, var(--color-accent) 28%, transparent); border: 1px solid color-mix(in oklch, var(--color-accent) 50%, transparent); box-shadow: var(--sh-1); transition: transform .28s cubic-bezier(.2,.9,.3,1.2), width .28s cubic-bezier(.2,.9,.3,1.2); }
 #dpPre > .dcard[hidden], #dpList > .dcard[hidden] { display: none !important; }
 
 /* press and drag a switch (twplay.js dragSeg) */
@@ -263,8 +263,8 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 /* every control answers a touch or a hover */
 button, [role="button"], [role="tab"], summary, .chip, .ixcard, .dcard, .trow, .sb-row, .bd-row, .wrow, select, input[type="checkbox"], input[type="radio"] { transition: transform .18s cubic-bezier(.2,.8,.2,1), background-color .2s, border-color .2s, box-shadow .25s, color .2s, opacity .2s; }
 button:not(:disabled):active, [role="button"]:active, [role="tab"]:active, summary:active, .chip:active, .ixcard:active, .sb-row:active, .bd-row:active { transform: scale(.95); }
-button:not(:disabled):hover, .chip:hover, [role="tab"]:hover { transform: translateY(-1px); }
-.ixcard:hover, .dcard:hover { transform: translateY(-2px); }
+@media (hover: hover) { button:not(:disabled):hover, .chip:hover, [role="tab"]:hover { transform: translateY(-1px); } }
+@media (hover: hover) { .ixcard:hover, .dcard:hover { transform: translateY(-2px); } }
 input:focus, select:focus, textarea:focus { animation: focuspulse .45s ease-out; }
 @keyframes focuspulse { from { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-accent) 55%, transparent); } to { box-shadow: 0 0 0 8px transparent; } }
 .dpanel { animation: none; }
