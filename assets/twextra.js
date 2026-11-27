@@ -239,7 +239,7 @@
       const all = await dividends(String(+t.slice(0, 4) - 5) + "0101", t);
       if (c !== A.code()) return;
       DV.code = c; DV.list = all.filter(r => r.code === c).sort((a, b) => (a.date < b.date ? -1 : 1)); paintDivList();
-    } catch (e) { if (c === A.code()) el.innerHTML = msg("股利資料讀不到。") + `<button type="button" class="btn" data-xdivload>再試一次</button>`; }
+    } catch (e) { if (c === A.code()) el.innerHTML = msg("讀不到股利資料。") + `<button type="button" class="btn" data-xdivload>再試一次</button>`; }
   }
   async function runFill() {
     const c = DV.code; if (DV.busy) return;
@@ -286,7 +286,7 @@
   }
   async function runTempTech() {
     if (TP.techBusy) return;
-    TP.techBusy = true; TP.techMsg = "讀取中…"; paintTemp();
+    TP.techBusy = true; TP.techMsg = "載入中…"; paintTemp();
     try { TP.tech = await tech((i, n) => { TP.techMsg = `讀取交易日 ${i}/${n}`; TP.techPct = Math.round(i / n * 100); paintTemp(); }); }
     catch (e) { TP.techMsg = e.message; }
     TP.techBusy = false; paintTemp();
@@ -324,9 +324,9 @@
     el.innerHTML = `<p class="sub">${A.esc(SCT.note || "技術條件要先讀最近 61 個交易日的收盤資料。第一次約 3 分鐘，之後只讀新的日期。只含上市股票，收盤價未還原除權息。")}</p>${SCT.busy ? "" : `<button type="button" class="btn xscload">讀取技術資料</button>`}`;
     const b = $(".xscload", el);
     if (b) b.addEventListener("click", async () => {
-      SCT.busy = true; SCT.note = "讀取中…"; repaint();
+      SCT.busy = true; SCT.note = "載入中…"; repaint();
       try { SCT.v = await tech((i, n) => { SCT.note = `讀取交易日 ${i}/${n}…`; repaint(); }); SCT.note = ""; }
-      catch (e) { SCT.note = e.message || "技術資料讀不到。"; }
+      catch (e) { SCT.note = e.message || "讀不到技術資料。"; }
       SCT.busy = false; repaint();
     });
     return false;
@@ -352,7 +352,7 @@
     }
     const used = H.filter(h => (series.get(h.code) || []).length > 20), left = H.filter(h => !used.includes(h));
     const bench = series.get("0050") || [];
-    if (!used.length || bench.length < 20) return say("日線讀不到。");
+    if (!used.length || bench.length < 20) return say("讀不到日線資料。");
     /* from the first day every used holding and 0050 have a price; a day without a trade keeps the last close */
     const start = used.map(h => series.get(h.code)[0][0]).concat([bench[0][0]]).sort().pop();
     const maps = used.map(h => new Map(series.get(h.code).map(c => [c[0], c[4]]))), last = used.map(() => NaN);

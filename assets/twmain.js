@@ -395,7 +395,7 @@
   function note() {
     const el = $(".dash-note"); if (!el) return;
     if (!DB.list.length && !DB.failed) { el.innerHTML = `<b>載入中</b>正在讀取證交所公開資料…`; return; }
-    if (!DB.live) { el.innerHTML = `<b>讀不到</b>證交所資料讀不到。`; return; }
+    if (!DB.live) { el.innerHTML = `<b>讀不到</b>讀不到證交所資料。`; return; }
     if (DB.rt) el.innerHTML = `<b class="live">即時</b>${esc(DB.rtAt)} 更新${marketOpen() ? "・每 2 秒更新" : nightOpen() ? "・股票已收盤，台指期夜盤更新中" : "・非交易時段"}`;
     else el.innerHTML = `<b>收盤</b>${slash(DB.date)} 收盤資料${DB.rt === false ? "（即時報價讀不到）" : ""}`;
   }
@@ -593,7 +593,7 @@
       const bt = ok(i.z) ? fmt(i.z, 2) : "—";
       if (big.dataset.txt !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.dataset.txt = bt; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }
       big.dataset.z = ok(i.z) ? i.z : ""; big.className = "big " + t + (big.classList.contains("fl-up") ? " fl-up" : big.classList.contains("fl-down") ? " fl-down" : "");
-      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (DB.failed || (Date.now() - T_START > 30000 && DB.list.length) ? "讀不到資料" + (DB.failed ? "（證交所連不上）" : i.us ? (i.why ? "（" + i.why + "）" : "") : DB.rtErr ? "（" + DB.rtErr + "）" : i.why ? "（" + i.why + "）" : "") : "讀取中，請稍後…"), cg = $(".ixchg", c); c.classList.toggle("ixwait", !ok(d));
+      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (DB.failed || (Date.now() - T_START > 30000 && DB.list.length) ? "讀不到資料" + (DB.failed ? "（證交所連不上）" : i.us ? (i.why ? "（" + i.why + "）" : "") : DB.rtErr ? "（" + DB.rtErr + "）" : i.why ? "（" + i.why + "）" : "") : "載入中…"), cg = $(".ixchg", c); c.classList.toggle("ixwait", !ok(d));
       if (cg.textContent !== ct) cg.textContent = ct;
       cg.className = "sub ixchg " + t;
       const ht = i.h > 0 && i.l > 0 ? `高 ${fmt(i.h, 2)}　低 ${fmt(i.l, 2)}` : "", hl = $(".ixhl", c); if (hl.textContent !== ht) hl.textContent = ht;
@@ -1305,16 +1305,16 @@
     const miss = m => `<p class="sub">${m}</p>`, s0 = DB.by.get(code);
     ["smg", "shd", "spe", "sfin", "sinst"].forEach(c => put(c, miss("載入中…")));
     if (!s0 || !/^\d{4,6}[A-Z]?$/.test(code)) return;
-    if (/^00/.test(code)) { put("smg", miss("沒有資料")); put("spe", miss("沒有資料")); }   /* ETFs have no margin trading and no P/E */
+    if (/^00/.test(code)) { put("smg", miss("沒有資料。")); put("spe", miss("沒有資料。")); }   /* ETFs have no margin trading and no P/E */
     else xtGet("margin", code).then(j => {
       const r = (j.rows || []).slice().reverse(), sg = v => (v > 0 ? "+" : "") + Number(v).toLocaleString("zh-TW");
       put("smg", `<div class="mgtbl"><div class="mgh"><span>日期</span><span>融資餘額</span><span>增減</span><span>融券餘額</span><span>增減</span><span>券資比</span></div>${r.map(x => `<div><span>${esc(x.d.slice(5).replace("-", "/"))}</span><span>${x.fin.toLocaleString("zh-TW")}</span><span class="${tone(x.finChg)}">${sg(x.finChg)}</span><span>${x.sht.toLocaleString("zh-TW")}</span><span class="${tone(x.shtChg)}">${sg(x.shtChg)}</span><span>${x.fin > 0 ? (x.sht / x.fin * 100).toFixed(1) + "%" : "—"}</span></div>`).join("")}</div>`, "單位：張");
-    }, () => put("smg", miss("沒有資料")));
+    }, () => put("smg", miss("讀不到資料。")));
     xtGet("holders", code).then(j => {
       const L = j.levels || [], g = (a, b) => Math.round(L.filter(x => x.lv >= a && x.lv <= b).reduce((t, x) => t + (x.pct || 0), 0) * 100) / 100;
       const bands = [["10 張以下", g(1, 3)], ["10–50 張", g(4, 8)], ["50–200 張", g(9, 10)], ["200–400 張", g(11, 11)], ["400–1,000 張", g(12, 14)], ["1,000 張以上", g(15, 15)]], mx = Math.max(1, ...bands.map(b => b[1]));
       put("shd", `<div class="hdtiles"><div><span>千張大戶持股</span><b>${j.big1000.toFixed(2)}%</b></div><div><span>400 張以上</span><b>${j.big400.toFixed(2)}%</b></div><div><span>10 張以下散戶</span><b>${j.small10.toFixed(2)}%</b></div><div><span>股東人數</span><b>${Number(j.totalPeople).toLocaleString("zh-TW")}</b></div></div>${bands.map(([n, v]) => `<div class="hdrow"><span>${n}</span><span class="hdbar"><i style="width:${Math.max(1, Math.min(100, v)).toFixed(0)}%"></i></span><b>${v.toFixed(2)}%</b></div>`).join("")}`, String(j.date).slice(5).replace("-", "/") + " 週資料");
-    }, () => put("shd", miss("沒有資料")));
+    }, () => put("shd", miss("讀不到資料。")));
     if (!/^00/.test(code)) peRiver(code, tok, put);
     finGlance(code, put); instGlance(code, put);
   }
@@ -1331,18 +1331,18 @@
       a.forEach(r => { const o = by.get(r.date) || { f: 0, t: 0, d: 0 }, v = (Number(r.buy) || 0) - (Number(r.sell) || 0), n = String(r.name);
         if (/^Foreign/.test(n)) o.f += v; else if (n === "Investment_Trust") o.t += v; else if (/^Dealer/.test(n)) o.d += v; by.set(r.date, o); });
       const days = [...by.keys()].sort().slice(-10).map(d => { const o = by.get(d), L = x => Math.round(x / 1000); return { d, f: L(o.f), t: L(o.t), dl: L(o.d), a: L(o.f + o.t + o.d) }; });
-      if (days.length < 2) { put("sinst", miss("沒有資料")); return; }
+      if (days.length < 2) { put("sinst", miss("沒有資料。")); return; }
       const mx = Math.max(1, ...days.map(x => Math.abs(x.a))), c = v => (v > 0 ? "up" : v < 0 ? "down" : ""), n = v => (v > 0 ? "+" : "") + v.toLocaleString("zh-TW");
       const sum = k => days.reduce((t, x) => t + x[k], 0);
       put("sinst", `<div class="mgtbl itbl"><div class="mgh"><span>日期</span><span>外資</span><span>投信</span><span>自營商</span><span>合計</span><span></span></div>${days.slice().reverse().map(x => `<div><span>${esc(x.d.slice(5).replace("-", "/"))}</span><span class="${c(x.f)}">${n(x.f)}</span><span class="${c(x.t)}">${n(x.t)}</span><span class="${c(x.dl)}">${n(x.dl)}</span><b class="${c(x.a)}">${n(x.a)}</b><span class="ibar"><i class="${c(x.a)}" style="width:${Math.max(3, Math.abs(x.a) / mx * 100).toFixed(0)}%"></i></span></div>`).join("")}<div class="isum"><span>${days.length} 日合計</span><span class="${c(sum("f"))}">${n(sum("f"))}</span><span class="${c(sum("t"))}">${n(sum("t"))}</span><span class="${c(sum("dl"))}">${n(sum("dl"))}</span><b class="${c(sum("a"))}">${n(sum("a"))}</b><span></span></div></div>`, "單位：張");
       setTimeout(() => { rise($$(".sinst .mgtbl > div:not(.mgh)"), 30); $$(".sinst .ibar i").forEach(b => b.animate([{ transform: "scaleX(0)" }, { transform: "scaleX(1)" }], { duration: 650, easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" })); }, 30);
-    } catch (e) { put("sinst", miss("沒有資料")); }
+    } catch (e) { put("sinst", miss("讀不到資料。")); }
   }
   /* 財報速覽: the last 8 quarters of EPS, gross margin and operating margin (FinMind's quarterly statements; ETFs have none) */
   const FING = new Map();
   async function finGlance(code, put) {
     const miss = m => `<p class="sub">${m}</p>`;
-    if (/^00/.test(code)) { put("sfin", miss("沒有資料")); return; }
+    if (/^00/.test(code)) { put("sfin", miss("沒有資料。")); return; }
     try {
       if (!FING.has(code)) {
         const from = new Date(Date.now() + 8 * 3600e3 - 800 * 864e5).toISOString().slice(0, 10);
@@ -1351,7 +1351,7 @@
       const a = ((await FING.get(code)).data || []), by = {};
       a.forEach(r => { (by[r.date] = by[r.date] || {})[r.type] = Number(r.value); });
       const qs = Object.keys(by).sort().slice(-8).map(d => { const o = by[d], rev = o.Revenue; return { d, eps: o.EPS, gm: rev > 0 && Number.isFinite(o.GrossProfit) ? o.GrossProfit / rev * 100 : null, om: rev > 0 && Number.isFinite(o.OperatingIncome) ? o.OperatingIncome / rev * 100 : null }; }).filter(q => Number.isFinite(q.eps));
-      if (qs.length < 2) { put("sfin", miss("沒有資料")); return; }
+      if (qs.length < 2) { put("sfin", miss("沒有資料。")); return; }
       const qn = d => { const m = +d.slice(5, 7); return d.slice(2, 4) + "Q" + Math.ceil(m / 3); };
       const W = 320, H = 156, L = 20, R = 20, T = 26, B = 24, n = qs.length, step = (W - L - R) / n, cx = i => L + step * (i + .5);
       const panel = (title, vals, kind, unit) => {
@@ -1380,13 +1380,13 @@
         $$(".fqgrid .fin-b").forEach((b, i) => { if (b.dataset.a) return; b.dataset.a = "1"; b.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 400, delay: 80 * (i % 8) + 200, fill: "backwards" }); });
         $$(".fqgrid rect.fin-up:not([data-a]), .fqgrid rect.fin-dn:not([data-a])").forEach((r, i) => { r.dataset.a = "1"; r.animate([{ transform: "scaleY(0)" }, { transform: "scaleY(1)" }], { duration: 650, delay: 70 * (i % 8), easing: "cubic-bezier(.2,.8,.2,1)", fill: "backwards" }); });
       }, 30);
-    } catch (e) { put("sfin", miss("沒有資料")); }
+    } catch (e) { put("sfin", miss("讀不到資料。")); }
   }
   async function peRiver(code, tok, put) {
     const miss = m => `<p class="sub">${m}</p>`;
     try {
       const j = await xtGet("pe", code, "&m=12"), pes = (j.rows || []).filter(r => r[1] > 0);
-      if (pes.length < 30) { put("spe", miss("沒有資料")); return; }
+      if (pes.length < 30) { put("spe", miss("沒有資料。")); return; }
       const px = new Map(); let ms = monthsBack(12);
       for (let i = 0; i < ms.length; i++) {
         if (tok !== chartTok) return;
@@ -1396,7 +1396,7 @@
         if (!cached && i < ms.length - 1) await wait(500);
       }
       const pts = pes.map(r => ({ d: r[0].replace(/-/g, ""), pe: r[1], p: px.get(r[0].replace(/-/g, "")) })).filter(x => x.p > 0).map(x => ({ ...x, eps: x.p / x.pe }));
-      if (pts.length < 30) { put("spe", miss("沒有資料")); return; }
+      if (pts.length < 30) { put("spe", miss("沒有資料。")); return; }
       const sorted = pts.map(x => x.pe).sort((a, b) => a - b), q = f => sorted[Math.min(sorted.length - 1, Math.floor(f * (sorted.length - 1)))];
       const lv = [[.1, "低"], [.3, ""], [.5, "中"], [.7, ""], [.9, "高"]].map(([f, n]) => ({ f, n, m: q(f) }));
       const all = pts.flatMap(x => [x.p, ...lv.map(l => l.m * x.eps)]), lo = Math.min(...all) * .97, hi = Math.max(...all) * 1.03, W = 640, H = 230, X = i => 8 + i / (pts.length - 1) * (W - 16), Y = v => 8 + (hi - v) / (hi - lo) * (H - 24);
@@ -1405,7 +1405,7 @@
       put("spe", `<svg class="river" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="本益比河流圖">${lv.map((l, k) => `<polyline fill="none" stroke="${cols[k]}" stroke-width="1.4" opacity=".85" points="${pts.map((x, i) => `${X(i).toFixed(1)},${Y(l.m * x.eps).toFixed(1)}`).join(" ")}"/>`).join("")}<polyline class="rvline" fill="none" stroke-width="2.2" points="${pts.map((x, i) => `${X(i).toFixed(1)},${Y(x.p).toFixed(1)}`).join(" ")}"/></svg>
         <div class="rvleg">${lv.map((l, k) => `<span><i style="background:${cols[k]}"></i>${l.m.toFixed(1)} 倍${l.n ? "（" + l.n + "）" : ""}</span>`).join("")}<span><i class="rvk"></i>股價</span></div>
         <p class="sub">目前本益比 ${cur.pe.toFixed(1)} 倍，在近 12 個月的區間裡高過約 ${rank}% 的日子。每條線是「近 12 個月這個本益比 × 當時每股盈餘」，只是歷史參考，不代表會漲或跌。</p>`, `${pts.length} 個交易日`);
-    } catch (e) { put("spe", miss("沒有資料")); }
+    } catch (e) { put("spe", miss("讀不到資料。")); }
   }
 
   /* ---------------- 問 AI (one question about the stock that is open) ---------------- */
@@ -1507,7 +1507,7 @@
   function chartSVG(all, span, end) {
     const N0 = Math.min(span, all.length), off = clamp(all.length - N0 - (end || 0), 0, Math.max(0, all.length - N0));
     const I = calc(all), cs = all.slice(off, off + N0), N = cs.length;
-    const W = 720, PL = 8, PR = 54, gap = 14;
+    const W = 720, PL = 8, PR = 60, gap = 14;
     const panes = [{ k: "price", h: 250 }];
     if (IND.vol) panes.push({ k: "vol", h: 64 });
     if (IND.kd) panes.push({ k: "kd", h: 84 });

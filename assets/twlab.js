@@ -542,7 +542,7 @@
       let cs = []; try { cs = await bars(h.code, 3); } catch (e) {}
       for (let i = 1; i < cs.length; i++) { const d = cs[i][0], amt = (cs[i][4] - cs[i - 1][4]) * h.shares; const o = (daily[d] = daily[d] || { total: 0, by: [] }); o.total += amt; o.by.push([h.code, amt]); }
     }
-    const days = Object.keys(daily).sort(); if (!days.length) { msg.textContent = "沒有資料"; return; }
+    const days = Object.keys(daily).sort(); if (!days.length) { msg.textContent = "沒有資料。"; return; }
     msg.textContent = "";
     const fmtM = v => (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(Math.round(v)).toLocaleString("zh-TW"), mx = Math.max(1, ...days.map(d => Math.abs(daily[d].total)));
     const months = [...new Set(days.map(d => d.slice(0, 6)))].slice(-2);

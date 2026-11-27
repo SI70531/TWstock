@@ -1,0 +1,62 @@
+/* TWstock shared layer, loaded last: figures, charts and data states look the same on every page.
+   The corner, height and type spec itself lives in tokens.css. */
+
+/* ================= figures ================= */
+/* in the figure face the percent sign is set a size smaller than the digits beside it (no extra markup needed) */
+@font-face { font-family: "TWunit"; src: local("Segoe UI"), local("SegoeUI"), local("Helvetica Neue"), local("Roboto"), local("Arial"); unicode-range: U+0025; size-adjust: 82%; }
+:root { --font-outlier: "TWunit", "Atkinson Hyperlegible Mono", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", ui-monospace, monospace; }
+
+/* every table figure: same face, equal-width lining digits, so places line up down a column */
+:root .app table td:not(.l), :root .app table th:not(.l) { font-variant-numeric: tabular-nums lining-nums slashed-zero; }
+:root .app table td:not(.l):not(.empty):not(.mempty) { font-family: var(--font-outlier); }
+:root .app table td.l .num, :root .snap b, :root .snap em, :root .mstrip b, :root .mcell b, :root .aikv b, :root .pk-kv b, :root .hmc-kv b,
+:root .instrow em, :root .sb-ix b { font-family: var(--font-outlier); font-variant-numeric: tabular-nums lining-nums slashed-zero; }
+:root .app { font-variant-numeric: lining-nums; }
+/* the tables and rankings drawn as grids rather than <table> */
+:root .mgtbl > div:not(.mgh) > *, :root .mgsum :is(b, i), :root .instrow .rr, :root .bd-row :is(span, b, em, i):not(.nm):not(.nm *) { font-family: var(--font-outlier); font-variant-numeric: tabular-nums lining-nums slashed-zero; }
+
+/* units: one size down and quieter than the number (marked by twds.js) */
+:root .u { font-size: .8em; font-style: normal; font-weight: 400; margin-left: .15em; opacity: .66; }
+
+/* ================= charts: one grid, one axis face, one crosshair, one tooltip ================= */
+:root { --ch-grid: color-mix(in oklab, var(--color-ink) 11%, transparent); --ch-axis: var(--color-muted); --ch-cross: color-mix(in oklab, var(--color-ink) 55%, transparent); --ch-line: 1.8px; }
+
+:root :is(.kchart, .ixfig, .mc, .lfig, .cmsvg, .river, .finp svg, .cpsvg) text { font-family: var(--font-outlier); font-weight: 400; font-size: var(--ch-fs, 11px); font-variant-numeric: tabular-nums lining-nums; }
+:root :is(.kchart, .ixfig, .mc, .lfig, .cmsvg, .river, .finp svg, .cpsvg) text:not(.fin-v):not(.kat text):not(.ytag text) { fill: var(--ch-axis); }
+
+:root :is(.kchart, .ixfig, .mc, .lfig, .cmsvg, .river, .finp svg, .cpsvg) :is(.gridl, .grid, .gl) { stroke: var(--ch-grid); stroke-width: 1px; stroke-dasharray: none; vector-effect: non-scaling-stroke; }
+:root :is(.ixfig .ixbase, .ftspark line, .bz, .spbase) { stroke: var(--color-rule-2); stroke-width: 1px; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+
+:root :is(.kchart .cross, .kchart .cross.hl, .mc .mc-x, .ixfig .ixvl) { stroke: var(--ch-cross); stroke-width: 1px; stroke-dasharray: 3 3; opacity: 1; filter: none; vector-effect: non-scaling-stroke; }
+:root .kchart .cross.hl.snap { stroke: var(--color-accent); stroke-dasharray: none; }
+:root .kchart .cross:not([style*="opacity: 1"]) { opacity: 0; }
+
+:root :is(.mc .mc-l, .ixfig .ixline, .pk-ln, .pkspark .ln, .ftspark polyline) { stroke-width: var(--ch-line); stroke-linejoin: round; stroke-linecap: round; }
+
+/* legends */
+:root :is(.mc-key, .rvkey, .cmkey, .klegend) { font-size: var(--text-xs); color: var(--color-ink-2); }
+
+/* every floating reading is the same box */
+:root :is(.ktip, .hmtip, .dtip, .fxpeek) {
+  border: 1px solid var(--glass-line); border-radius: var(--r-md); background: color-mix(in oklab, var(--color-paper-2) 94%, transparent);
+  box-shadow: var(--sh-2); color: var(--color-ink); font-size: var(--text-xs); line-height: 1.5;
+}
+
+/* ================= data states ================= */
+/* where a card says when and from where its data is: top right of the card, the same quiet line everywhere */
+:root :is(.bd-h, .aihead) > .sub, :root .ixsrc {
+  margin: 0 0 0 auto; font-family: var(--font-outlier); font-size: var(--text-xs); font-weight: 400; color: var(--color-muted); text-align: right; font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* twds.js marks each message as loading, error, empty or closed */
+:root [data-state] { color: var(--color-muted); }
+:root [data-state="error"] { color: color-mix(in oklab, var(--color-bad) 60%, var(--color-ink)); }
+:root :is(p, .empty, .mempty)[data-state]::before {
+  content: ""; display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; background: currentColor;
+  -webkit-mask: var(--st-ic) center / contain no-repeat; mask: var(--st-ic) center / contain no-repeat;
+}
+:root [data-state="error"] { --st-ic: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></svg>'); }
+:root [data-state="empty"] { --st-ic: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" stroke-dasharray="4 3"/><path d="M8 12h8"/></svg>'); }
+:root [data-state="closed"] { --st-ic: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"/></svg>'); }
+/* while loading, the shimmer bar stands in for the icon */
+:root .skel::before { display: none; }

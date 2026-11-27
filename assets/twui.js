@@ -232,7 +232,7 @@
   }
 
   /* ---------- skeletons for anything still loading ---------- */
-  const LOADING = /^(載入中…?|載入走勢…|讀取中…?)$/;
+  const LOADING = /^(載入中…?|載入走勢…)$/;
   function scanSkeletons() {
     $$(".app p, .app .mempty, .app .sub, .app .big, .app td, .side .sb-empty").forEach(el => {
       if (el.children.length > 1) return;

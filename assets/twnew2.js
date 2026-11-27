@@ -184,7 +184,7 @@
   async function ivPaint(animate) {
     const card = $(".ival"); if (!card) return;
     await Promise.resolve(A.loadFund()).catch(() => {});
-    const F = A.FUND.map; if (!F) { $(".ivout", card).innerHTML = `<p class="sub">估值資料讀不到。</p>`; return; }
+    const F = A.FUND.map; if (!F) { $(".ivout", card).innerHTML = `<p class="sub">讀不到估值資料。</p>`; return; }
     const G = A.heatGroups(); if (!G.length) { $(".ivout", card).innerHTML = `<p class="sub">產業分類還沒發布，稍後會出現。</p>`; return; }
     const key = IV.k, rows = G.map(g => { const v = g.list.map(s => (F.get(s.code) || {})[key]).filter(x => x > 0); return { g, m: median(v), n: v.length }; }).filter(r => Number.isFinite(r.m) && r.n >= 3);
     rows.sort((a, b) => (key === "yld" ? b.m - a.m : a.m - b.m));

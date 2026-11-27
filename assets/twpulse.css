@@ -3,10 +3,10 @@
    and phone fixes for the top bar and the data banner. Red is up, green is down. */
 
 /* ---------- breadth: one bar, red share / flat / green share ---------- */
-.breadth { display: flex; gap: 2px; height: 8px; border-radius: 999px; overflow: hidden; background: color-mix(in oklch, var(--color-ink) 8%, transparent); }
+.breadth { display: flex; gap: 2px; height: 8px; border-radius: var(--r-pill); overflow: hidden; background: color-mix(in oklch, var(--color-ink) 8%, transparent); }
 .breadth i { flex: 0 1 0; min-width: 0; transition: flex-grow .6s var(--ease-out); }
-.breadth i.up { background: linear-gradient(90deg, color-mix(in oklch, var(--color-up) 65%, transparent), var(--color-up)); box-shadow: 0 0 12px -2px var(--color-up); }
-.breadth i.down { background: linear-gradient(90deg, var(--color-down), color-mix(in oklch, var(--color-down) 65%, transparent)); box-shadow: 0 0 12px -2px var(--color-down); }
+.breadth i.up { background: linear-gradient(90deg, color-mix(in oklch, var(--color-up) 65%, transparent), var(--color-up)); box-shadow: none; }
+.breadth i.down { background: linear-gradient(90deg, var(--color-down), color-mix(in oklch, var(--color-down) 65%, transparent)); box-shadow: none; }
 .breadth i.flat { background: color-mix(in oklch, var(--color-ink) 28%, transparent); }
 
 /* the 上漲 / 下跌 / 平盤 reading stays on one line, the bar sits under it */
@@ -41,7 +41,7 @@
 .wlead { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .wpick {
   display: inline-flex; align-items: baseline; gap: 8px; min-height: 40px; padding: 0 14px;
-  border: 1px solid var(--glass-line-2, var(--color-rule-2)); border-radius: 999px; background: var(--glass-2, var(--color-paper-3)); color: var(--color-ink); cursor: pointer;
+  border: 1px solid var(--glass-line-2, var(--color-rule-2)); border-radius: var(--r-pill); background: var(--glass-2, var(--color-paper-3)); color: var(--color-ink); cursor: pointer;
   transition: transform .2s var(--ease-out), border-color .2s var(--ease-out), background-color .2s var(--ease-out);
 }
 .wpick:hover { transform: translateY(-1px); border-color: var(--color-accent); }
@@ -71,7 +71,7 @@
 .sfind { gap: 8px; }
 .sback {
   flex: none; display: inline-flex; align-items: center; gap: 4px; min-height: var(--ctl, 40px); padding: 0 14px 0 10px;
-  border: 1px solid var(--glass-line-2, var(--color-rule-2)); border-radius: 999px; background: var(--glass-2, var(--color-paper-3));
+  border: 1px solid var(--glass-line-2, var(--color-rule-2)); border-radius: var(--r-pill); background: var(--glass-2, var(--color-paper-3));
   color: var(--color-ink); font-size: var(--text-sm); font-weight: 600; white-space: nowrap; cursor: pointer;
   transition: border-color .2s var(--ease-out), transform .2s var(--ease-out);
 }

@@ -34,7 +34,7 @@
     const out = $(".cmout", card);
     if (!CM.sel.length) { out.innerHTML = `<p class="sub">上面點選 2–5 檔股票。</p>`; return; }
     const sets = await Promise.all(CM.sel.map(async c => { try { const got = await A.loadHist(c), h = A.HIST.get(c); const cs = (Array.isArray(got) ? got : h && h.cs ? h.cs : []).slice(-CM.span); return { c, cs }; } catch (e) { return { c, cs: [] }; } }));
-    const ok2 = sets.filter(s => s.cs.length > 5); if (!ok2.length) { out.innerHTML = `<p class="sub">沒有資料</p>`; return; }
+    const ok2 = sets.filter(s => s.cs.length > 5); if (!ok2.length) { out.innerHTML = `<p class="sub">沒有資料。</p>`; return; }
     const n = Math.max(...ok2.map(s => s.cs.length)), series = ok2.map((s, i) => ({ ...s, i, v: s.cs.map(r => (r[4] / s.cs[0][4] - 1) * 100) }));
     const all = series.flatMap(s => s.v), lo = Math.min(0, ...all), hi = Math.max(0, ...all), sp = hi - lo || 1, Wd = 320, H = 170, X = k => 8 + k / (n - 1) * (Wd - 70), Y = v => 10 + (hi - v) / sp * (H - 24);
     const grid = [lo, 0, hi].map(v => `<line x1="8" x2="${Wd - 62}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" class="cmg${v === 0 ? " z" : ""}"/><text x="${Wd - 58}" y="${(Y(v) + 3).toFixed(1)}">${v.toFixed(0)}%</text>`).join("");
@@ -75,12 +75,12 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
       if (onlyW && !rows.some(r => W.has(r.code)) && !card.dataset.auto) { card.dataset.auto = "1"; $$("[data-dv]", card).forEach(x => x.setAttribute("aria-pressed", String(x.dataset.dv === "a"))); dvPaint(); return; }   /* nothing of yours goes ex soon: show everyone */
       let list = rows.filter(r => !onlyW || W.has(r.code)); const total = list.length; list = list.slice(0, 120);
       $(".dvn", card).textContent = total ? `${total} 檔` : "";
-      if (!list.length) { out.innerHTML = `<p class="sub">沒有資料</p>`; return; }
+      if (!list.length) { out.innerHTML = `<p class="sub">沒有資料。</p>`; return; }
       const by = {}; list.forEach(r => (by[r.d] = by[r.d] || []).push(r));
       const wd = "日一二三四五六";
       out.innerHTML = Object.entries(by).map(([d, rs]) => `<div class="dvday"><div class="dvdh"><b>${+d.slice(5, 7)}/${+d.slice(8)}</b><span>週${wd[new Date(d + "T00:00:00Z").getUTCDay()]}</span></div>${rs.map(r => `<button type="button" class="instrow dvrow" data-code="${A.esc(r.code)}"><span class="nm"><b>${A.esc(r.name)}</b><em>${A.esc(r.code)}</em></span><span class="dvk">${A.esc(r.kind || "")}</span><span class="dvv">${r.cash != null ? "現金 " + r.cash : ""}${r.stock != null && r.stock > 0 ? " 股票 " + r.stock : ""}</span></button>`).join("")}</div>`).join("");
       if (!RM) A.rise($$(".dvday", out).slice(0, 12), 40);
-    } catch (e) { out.innerHTML = `<p class="sub">沒有資料</p>`; }
+    } catch (e) { out.innerHTML = `<p class="sub">讀不到資料。</p>`; }
   }
 
   /* put the two cards and their buttons into 股票 */
