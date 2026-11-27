@@ -62,11 +62,24 @@ async def main():
         async def dead(route):
             await route.abort()
 
+        SYNC_HDR, ERR_BODY = [], []
+
+        async def sync(route):
+            r = route.request
+            if r.url.endswith("/tw/sync"):
+                SYNC_HDR.append(r.headers.get("x-tw"))
+                return await route.fulfill(status=200, content_type="application/json", headers=hdr, body='{"data":{}}')
+            if r.url.endswith("/tw/err"):
+                ERR_BODY.append(r.post_data or "")
+                return await route.fulfill(status=200, content_type="application/json", headers=hdr, body='{"ok":1}')
+            await route.abort()
+
         await pg.route("**/STOCK_DAY_ALL*", lambda r: r.fulfill(status=200, content_type="application/json", headers=hdr, body=json.dumps(ROWS)))
         await pg.route("**/exchangeReport/STOCK_DAY?*", lambda r: r.fulfill(status=200, content_type="application/json", headers=hdr, body=json.dumps(stock_day(r.request.url))))
-        for pat in ["**/rwd/**", "**/MI_INDEX", "**/*workers.dev/**", "**/*raw.githubusercontent.com/**", "**/fonts.googleapis.com/**", "**/fonts.gstatic.com/**"]:
+        for pat in ["**/rwd/**", "**/MI_INDEX", "**/*raw.githubusercontent.com/**", "**/fonts.googleapis.com/**", "**/fonts.gstatic.com/**"]:
             await pg.route(pat, dead)
         await pg.add_init_script('localStorage.setItem("twtrade-wl",JSON.stringify([["2330","2454","2317"],[],[],[],[]]));localStorage.setItem("twtrade-watch",JSON.stringify(["2330","2454","2317"]));localStorage.setItem("twtrade-wl-seed","1")')
+        await pg.route("**/*workers.dev/**", sync)
         url = f"http://127.0.0.1:{PORT}/index.html"
         await pg.goto(url)
         await pg.wait_for_timeout(3000)
@@ -125,6 +138,39 @@ async def main():
         await pg.wait_for_timeout(300)
         v = await pg.evaluate('(document.querySelector(".pal-in input")||{}).value||""')
         check(v == "2330", f"search takes typing at once ({v!r})")
+
+        await pg.keyboard.press("Escape")
+        await pg.wait_for_timeout(500)
+        # simulated order: buying clears the quantity box and books the position
+        await pg.evaluate('window.TWDash.api.openTab("dpHold")')
+        await pg.wait_for_timeout(800)
+        await pg.click('[data-xview="sim"]')
+        await pg.wait_for_timeout(600)
+        await pg.fill('.dcard:has(.simbuy) [name="code"]', "2330")
+        await pg.fill('.dcard:has(.simbuy) [name="qty"]', "1000")
+        await pg.click(".simbuy")
+        await pg.wait_for_timeout(1500)
+        q = await pg.evaluate('document.querySelector(\'.lform [name="qty"]\').value')
+        pos = await pg.evaluate('(document.querySelector(".simpos")||{}).textContent||""')
+        check(q == "" and "2330" in pos, f"simulated buy clears qty ({q!r}) and shows the position")
+
+        # personal data is sent to the Worker with the guard header, and script errors are reported
+        await pg.evaluate('localStorage.setItem("twsim-test", JSON.stringify({a:1}))')
+        await pg.evaluate('window.TWDash.api.store.set("twtrade-watch", ["2330","2454","0050"])')
+        await pg.wait_for_timeout(2500)
+        check(any(h == "1" for h in SYNC_HDR), f"sync request carries X-TW ({SYNC_HDR})")
+        await pg.evaluate('setTimeout(()=>{ throw new Error("smoke-test-error") }, 0)')
+        await pg.wait_for_timeout(800)
+        check(any("smoke-test-error" in x for x in ERR_BODY), "script errors are reported to the Worker")
+        errs[:] = [e for e in errs if "smoke-test-error" not in e]
+
+        # a number counting up: no frame takes long
+        await pg.evaluate('window.TWDash.api.openTab("dpOverview")')
+        await pg.wait_for_timeout(800)
+        worst = await pg.evaluate("""new Promise(res=>{const el=document.querySelector(".ixcard .big");let last=performance.now(),w=0,n=0;
+          const t=el.textContent;el.dataset.txt="";el.textContent="1";
+          const loop=n0=>{const d=n0-last;last=n0;if(n++>3)w=Math.max(w,d);if(n<50)requestAnimationFrame(loop);else{el.textContent=t;res(Math.round(w))}};requestAnimationFrame(loop)})""")
+        check(worst < 250, f"worst frame while numbers move: {worst} ms")
 
         check(not errs, "no script errors " + (json.dumps(errs, ensure_ascii=False) if errs else ""))
         await b.close()

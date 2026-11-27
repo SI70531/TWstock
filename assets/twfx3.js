@@ -227,7 +227,7 @@
       let open = null, foc = null, scr = null;
       try { const o = this.querySelectorAll ? this.querySelectorAll("details[open]") : []; if (o.length) { open = {}; o.forEach(x => { const k = key(x); open[k] = (open[k] || 0) + 1; }); } } catch (e) {}
       if (inside(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) { const p = path(this, ae); if (p) foc = { p, v: ae.value, s: ae.selectionStart, e: ae.selectionEnd, n: ae.name, c: ae.className }; }
-      try { if (this.isConnected && this.getElementsByTagName("*").length < 2500) { const sc = []; this.querySelectorAll("*").forEach(x => { if (x.scrollTop > 0 || x.scrollLeft > 0) { const p = path(this, x); if (p) sc.push([p, x.scrollTop, x.scrollLeft, x.className]); } }); if (sc.length) scr = sc; } } catch (e) {}
+      try { if (this.isConnected && this.getElementsByTagName("*").length < 2500) { const sc = []; this.querySelectorAll(".bd-list, .xscroll, .irout, .cptbl, .hm, .rkgrid, .cpchart, .rotout, .sresults").forEach(x => { if (x.scrollTop > 0 || x.scrollLeft > 0) { const p = path(this, x); if (p) sc.push([p, x.scrollTop, x.scrollLeft, x.className]); } }); if (sc.length) scr = sc; } } catch (e) {}
       d.set.call(this, v);
       if (open) try { const seen = {}; this.querySelectorAll("details").forEach(x => { const k = key(x); seen[k] = (seen[k] || 0) + 1; if (open[k] >= seen[k]) x.setAttribute("open", ""); }); } catch (e) {}
       if (foc) try { const n = walk(this, foc.p); if (n && /^(INPUT|TEXTAREA)$/.test(n.tagName) && n.name === foc.n && n.className === foc.c) { if (!n.value) n.value = foc.v; n.focus({ preventScroll: true }); try { n.setSelectionRange(foc.s, foc.e); } catch (e) {} } } catch (e) {}
@@ -348,6 +348,14 @@
     };
     const start = () => { const dl = $("#dpList"); if (!dl || on) return; on = true; new MutationObserver(fix).observe(dl, { childList: true }); fix(); };
     document.addEventListener("twdash:ready", start); new MutationObserver(() => { if (!on) start(); }).observe(document.body, { childList: true, subtree: true });
+  })();
+
+  /* script errors go to the Worker (once per message per page load) */
+  (function () {
+    const sent = new Set(); let n = 0;
+    const send = (m, w) => { const k = m + w; if (sent.has(k) || n++ > 8 || !window.TWDash || !TWDash.api) return; sent.add(k); try { fetch(TWDash.api.worker + "/tw/err", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ m, w, ua: navigator.userAgent }), keepalive: true }).catch(() => {}); } catch (e) {} };
+    addEventListener("error", e => send(e.message || "error", (e.filename || "").split("/").pop() + ":" + (e.lineno || 0)));
+    addEventListener("unhandledrejection", e => send("promise: " + String((e.reason && e.reason.message) || e.reason), ""));
   })();
 
   function boot() {

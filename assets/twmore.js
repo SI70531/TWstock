@@ -227,7 +227,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
     const mine = k => /^tw/.test(k) && !SKIP.test(k), TK = "tw-sync-t", SK = "tw-sync-seen";
     const rd = k => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch (e) { return {}; } }, wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
     const url = A.worker + "/tw/sync"; let pushT = 0, busy = false;
-    const post = body => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json());
+    const post = body => fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-TW": "1" }, body: JSON.stringify(body) }).then(r => r.json());
     const raw = A.store.set.bind(A.store);
     A.store.set = (k, v) => { raw(k, v); if (mine(k)) { clearTimeout(pushT); pushT = setTimeout(sync, 1500); } };
     async function sync() {

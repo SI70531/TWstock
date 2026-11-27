@@ -57,7 +57,7 @@ export default {
     const cors = {
       "Access-Control-Allow-Origin": ok ? origin : ALLOWED[0],
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      "Access-Control-Allow-Headers": "Content-Type, X-TW",
       "Access-Control-Expose-Headers": "Retry-After",
       "Access-Control-Max-Age": "86400",
       "Vary": "Origin",
@@ -118,10 +118,22 @@ export default {
       let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
       const ALLOW = { has: k => /^tw[\w.:-]{1,40}$/.test(k) && !/^(twh:|twinst-|twdash-m-|twlog-|twstock-device|tw-sync)/.test(k) };
       const cur = ((await pmStore(env, "kv", { k: "sync" })).v) || {}; let ch = false;
-      for (const [k, x] of Object.entries(b.set || {})) { if (!ALLOW.has(k) || !x || typeof x.t !== "number" || x.v === undefined) continue; if (!cur[k] || x.t > cur[k].t) { cur[k] = { v: x.v, t: x.t }; ch = true; } }
+      if (req.headers.get("X-TW") !== "1") return fail(403, "PERMISSION_DENIED", "Missing header");
+      const prevs = ((await pmStore(env, "kv", { k: "syncprev" })).v) || {};
+      for (const [k, x] of Object.entries(b.set || {})) { if (!ALLOW.has(k) || !x || typeof x.t !== "number" || x.v === undefined) continue; if (!cur[k] || x.t > cur[k].t) { if (cur[k] && JSON.stringify(cur[k].v) !== JSON.stringify(x.v)) { prevs[k] = (prevs[k] || []).concat([cur[k]]).slice(-3); } cur[k] = { v: x.v, t: x.t }; ch = true; } }
+      if (ch) await pmStore(env, "kv", { k: "syncprev", set: prevs });
       if (ch) { if (JSON.stringify(cur).length > 400000) return fail(413, "TOO_BIG", "Too much data to sync"); await pmStore(env, "kv", { k: "sync", set: cur }); }
       return json({ data: cur }, 200, { "Cache-Control": "no-store" });
     }
+    /* script errors from the page, so a broken control is seen without anyone having to report it (the last 60, newest last) */
+    if (url.pathname === "/tw/err" && req.method === "POST") {
+      let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
+      const log = ((await pmStore(env, "kv", { k: "errlog" })).v) || [];
+      const m = String(b.m || "").slice(0, 200), w = String(b.w || "").slice(0, 120);
+      const hit = log.find(x => x.m === m && x.w === w); if (hit) { hit.n++; hit.t = Date.now(); } else log.push({ m, w, n: 1, t: Date.now(), ua: String(b.ua || "").slice(0, 80) });
+      await pmStore(env, "kv", { k: "errlog", set: log.slice(-60) }); return json({ ok: 1 });
+    }
+    if (url.pathname === "/tw/err" && req.method === "GET") return json({ log: ((await pmStore(env, "kv", { k: "errlog" })).v) || [] }, 200, { "Cache-Control": "no-store" });
     if (url.pathname === "/tw/alerts/sync" && req.method === "POST") {
       let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
       if (!dev) return fail(400, "BAD_DEVICE", "No device id");

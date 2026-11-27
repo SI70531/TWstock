@@ -60,3 +60,5 @@
 .indx .aihead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .indpanes>.indpane{margin:0;padding:0;border:0;background:none;box-shadow:none}
 .nwgrid>.gp{grid-column:1/-1}
+.big,.sb-ix b,.ixcard .big{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.ixcard .big,.shead .big{contain:layout style;white-space:nowrap}

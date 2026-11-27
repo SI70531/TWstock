@@ -175,11 +175,12 @@
     if (window.TWSet && window.TWSet.calm()) { el.textContent = text; return; }
     const d = decs(text), t0 = performance.now(), dur = 700, prefix = text.match(/^[^\d-]*/)[0], suffix = text.match(/[^\d.,]*$/)[0];
     RUN.add(el);
+    const nf = new Intl.NumberFormat("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); el.style.willChange = "contents";
     const step = now => {
       if (el.dataset.txt && el.dataset.txt !== text) { RUN.delete(el); return; }   /* a newer quote arrived: let it stand */
       const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3), v = from + (to - from) * e;
-      el.textContent = k < 1 ? prefix + v.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }) + suffix : text;
-      if (k < 1) requestAnimationFrame(step); else RUN.delete(el);
+      el.textContent = k < 1 ? prefix + nf.format(v) + suffix : text;
+      if (k < 1) requestAnimationFrame(step); else { RUN.delete(el); el.style.willChange = ""; }
     };
     requestAnimationFrame(step);
   }
@@ -314,7 +315,7 @@
     let last = 0, next = 1500;
     const frame = now => {
       requestAnimationFrame(frame);
-      if (document.hidden) return;
+      if (document.hidden || now - last < 30) return;   /* 30 frames a second is enough for slow drifting glows, and every redraw makes the blurred cards behind it repaint */
       const dt = Math.min(50, now - last); last = now;
       ctx.clearRect(0, 0, W, H);
       ctx.globalCompositeOperation = root.dataset.theme === "light" ? "source-over" : "lighter";
