@@ -9,10 +9,16 @@ on:
 jobs:
   smoke:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      BROWSER: ${{ matrix.browser }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install playwright && python -m playwright install --with-deps chromium
+      - run: pip install playwright && python -m playwright install --with-deps ${{ matrix.browser }}
       - run: python tests/smoke.py

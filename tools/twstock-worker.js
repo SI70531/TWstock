@@ -130,7 +130,7 @@ export default {
       let b; try { b = JSON.parse(bodyText); } catch (e) { return fail(400, "BAD_JSON", "Body is not JSON"); }
       const log = ((await pmStore(env, "kv", { k: "errlog" })).v) || [];
       const m = String(b.m || "").slice(0, 200), w = String(b.w || "").slice(0, 120);
-      const hit = log.find(x => x.m === m && x.w === w); if (hit) { hit.n++; hit.t = Date.now(); } else log.push({ m, w, n: 1, t: Date.now(), ua: String(b.ua || "").slice(0, 80) });
+      const hit = log.find(x => x.m === m && x.w === w); if (hit) { hit.n++; hit.t = Date.now(); } else { log.push({ m, w, n: 1, t: Date.now(), ua: String(b.ua || "").slice(0, 80) }); try { await tgSend(env, "網站出現新的錯誤：" + m.replace(/[<>&]/g, "") + "（" + w.replace(/[<>&]/g, "") + "）"); } catch (e) {} }
       await pmStore(env, "kv", { k: "errlog", set: log.slice(-60) }); return json({ ok: 1 });
     }
     if (url.pathname === "/tw/err" && req.method === "GET") return json({ log: ((await pmStore(env, "kv", { k: "errlog" })).v) || [] }, 200, { "Cache-Control": "no-store" });

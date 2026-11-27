@@ -1,6 +1,6 @@
 """Smoke test for the TWstock page: serves the repo, mocks every market source, and walks the site.
 Run: pip install playwright && playwright install chromium && python3 tests/smoke.py
-Set CHROME=/path/to/chrome to use an installed browser instead of Playwright's own."""
+Set CHROME=/path/to/chrome to use an installed browser instead of Playwright's own; BROWSER=firefox or webkit to test those."""
 import asyncio, datetime, functools, http.server, json, os, re, sys, threading
 from playwright.async_api import async_playwright
 
@@ -20,7 +20,7 @@ def serve():
 
 
 ROC = f"{TODAY.year - 1911}{TODAY.month:02d}{TODAY.day:02d}"
-STOCKS = [("2330", "台積電"), ("2454", "聯發科"), ("2317", "鴻海"), ("0050", "元大台灣50")] + [(str(1100 + i), f"測{i}") for i in range(150)]
+STOCKS = [("2330", "台積電"), ("2454", "聯發科"), ("2317", "鴻海"), ("0050", "元大台灣50")] + [(str(1100 + i), f"測{i}") for i in range(int(os.environ.get("NSTOCKS", "150")))]
 ROWS = [{"Date": ROC, "Code": c, "Name": n, "TradeVolume": "50000000", "ClosingPrice": "100", "Change": "1", "OpeningPrice": "99",
          "HighestPrice": "101", "LowestPrice": "98"} for c, n in STOCKS]
 
@@ -52,7 +52,10 @@ async def main():
         kw = {"args": ["--no-sandbox"]}
         if os.environ.get("CHROME"):
             kw["executable_path"] = os.environ["CHROME"]
-        b = await p.chromium.launch(**kw)
+        eng = getattr(p, os.environ.get("BROWSER", "chromium"))
+        if os.environ.get("BROWSER", "chromium") != "chromium":
+            kw = {}
+        b = await eng.launch(**kw)
         ctx = await b.new_context(viewport={"width": 1280, "height": 900})
         pg = await ctx.new_page()
         errs = []
@@ -171,6 +174,28 @@ async def main():
           const t=el.textContent;el.dataset.txt="";el.textContent="1";
           const loop=n0=>{const d=n0-last;last=n0;if(n++>3)w=Math.max(w,d);if(n<50)requestAnimationFrame(loop);else{el.textContent=t;res(Math.round(w))}};requestAnimationFrame(loop)})""")
         check(worst < 250, f"worst frame while numbers move: {worst} ms")
+
+        # K-line price alert: the alert chip draws a line and it is kept
+        await pg.evaluate('window.TWDash.api.openStock("2330")')
+        await pg.wait_for_timeout(2500)
+        chip = await pg.query_selector("[data-fxalert]")
+        check(chip is not None, "stock page has the alert chip")
+        if chip:
+            await chip.click()
+            box = await (await pg.query_selector("#dpStock .cbox")).bounding_box()
+            await pg.mouse.click(box["x"] + box["width"] * 0.5, box["y"] + box["height"] * 0.4)
+            await pg.wait_for_timeout(900)
+            n = await pg.evaluate('(JSON.parse(localStorage.getItem("twfx-palert")||"{}")&&Object.values(JSON.parse(localStorage.getItem("twfx-palert")||"{}")).flat().length)||0')
+            check(n >= 1, f"clicking the chart sets a price alert ({n})")
+
+        # share image: the card renders into a dialog
+        sh = await pg.query_selector("#dpStock .fxshare")
+        check(sh is not None, "stock page has the share button")
+        if sh:
+            await pg.evaluate("document.querySelector(\"#dpStock .fxshare\").click()")
+            await pg.wait_for_timeout(1500)
+            ok_img = await pg.evaluate('(()=>{const i=document.querySelector(".fxshare-box img");return !!(i&&i.src.startsWith("data:image")&&i.naturalWidth>200)})()')
+            check(ok_img, "share image renders")
 
         check(not errs, "no script errors " + (json.dumps(errs, ensure_ascii=False) if errs else ""))
         await b.close()
