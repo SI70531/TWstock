@@ -45,3 +45,10 @@
 .fxs-row em{font-size:.86em}
 .fxs-row:hover,.fxs-row.on{background:color-mix(in oklch,var(--color-accent,#d98a1a) 16%,transparent)}
 .fxs-row .up{color:var(--color-up)}.fxs-row .down{color:var(--color-down)}
+/* × inside an input */
+.fxclr{position:relative;display:block}
+.fxclr>input{width:100%;padding-right:42px;box-sizing:border-box}
+.fxclr-x{position:absolute;right:10px;top:50%;width:26px;height:26px;margin-top:-13px;border:0;border-radius:50%;background:color-mix(in oklch,var(--color-ink) 12%,transparent);color:var(--color-ink);display:grid;place-items:center;cursor:pointer;opacity:0;transform:scale(.6);pointer-events:none;transition:opacity .18s,transform .22s cubic-bezier(.34,1.4,.5,1),background .15s}
+.fxclr.has .fxclr-x{opacity:.8;transform:none;pointer-events:auto}
+.fxclr-x:hover{background:color-mix(in oklch,var(--color-ink) 22%,transparent);opacity:1}
+.fxclr-x svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}

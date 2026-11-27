@@ -601,6 +601,7 @@
       if (!h.qty) a.pos = a.pos.filter(x => x !== h);
     }
     a.log.unshift(rec); a.log.length = Math.min(a.log.length, 500); a.pick = c; save(a); paintSim();
+    { const q = $('[name="qty"]', el); q.value = ""; q.dispatchEvent(new Event("input", { bubbles: true })); }   /* the next order starts from an empty box */
     say(`已模擬${side === "buy" ? "買進" : "賣出"} ${s.name} ${A.fmt(n)} 股 @ ${A.fmt(s.price, A.dig(s.price))}。`);
   }
   function paintSim() {
