@@ -905,7 +905,8 @@
   let ANA = "pm";
   function anaDefault() {
     const t = new Date(Date.now() + 8 * 3600e3), m = t.getUTCHours() * 60 + t.getUTCMinutes(), wd = t.getUTCDay();
-    if (wd === 0 || wd === 6) return "cl";
+    if (wd === 6) return m >= 9 * 60 ? "wk" : "cl";   /* the weekly review is written on Saturday 09:00 */
+    if (wd === 0) return "cl";
     return m < 9 * 60 ? "pm" : m < 13 * 60 + 30 ? "md" : "cl";
   }
   /* 盤中 can only be analysed while the day session is open (weekdays 09:00–13:30; the Worker also refuses on exchange holidays) */
