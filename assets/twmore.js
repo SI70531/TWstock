@@ -357,9 +357,9 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
     async function calView() {
       const body = `<h3 class="sbtitle">市場日曆</h3><div class="sbcal"><div class="sbsm"></div><div class="sbch"><button type="button" class="chip" data-cm="-1" aria-label="上個月">‹</button><b></b><button type="button" class="chip" data-cm="1" aria-label="下個月">›</button><button type="button" class="chip" data-cm="0">今天</button></div><div class="sbctl"><div class="sbseg" role="group" aria-label="範圍"><button type="button" data-cmine="0" aria-pressed="true">全部</button><button type="button" data-cmine="1" aria-pressed="false">我的</button></div><div class="sbseg" role="group" aria-label="檢視"><button type="button" data-cmode="list" aria-pressed="true">列表</button><button type="button" data-cmode="grid" aria-pressed="false">月曆</button></div></div><div class="sbgrid"></div><div class="sbday"></div><p class="sub sbhint">紅點＝除權息　綠點＝股東會　藍點＝財報／營收申報期限　灰底＝週末或休市。「我的」只看持股和自選股的事件；除權息只列出尚未發生的場次，休市日取自證交所公告，抓不到時只標週末。股息發放日以公司公告為準；法說會沒有公開資料可抓，這裡沒有列。</p></div>`;
       const el = document.getElementById(PID.cal); if (!el || $(".sbcal", el)) { await calPaint(); return el; }
-      const m = page("cal", "市場日曆", body); await calPaint(); return m;
+      const m = page("cal", "市場日曆", body); await calPaint(true); await calPaint(); return m;
     }
-    async function calPaint() {
+    async function calPaint(quick) {
       if (!isOn("cal")) return;
       const root = $(".sbcal", cur); if (!root) return;
       /* the three sources are read side by side, and the last answer is kept for the day so the page opens at once and refreshes behind it */
@@ -371,7 +371,8 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
         return [h, d, g];
       };
       let hol, dv, ag;
-      if (fresh && !HOL) { hol = C.hol; dv = C.dv; ag = C.ag; HOL = { y: CY, m: hol }; pull().then(() => { if (isOn("cal")) calPaint(); }); }
+      if (quick) { hol = {}; dv = []; ag = []; }   /* the first paint shows what needs no download: the range, the filters and the fixed dates; the numbers read … until the data arrives */
+      else if (fresh && !HOL) { hol = C.hol; dv = C.dv; ag = C.ag; HOL = { y: CY, m: hol }; pull().then(() => { if (isOn("cal")) calPaint(); }); }
       else { [hol, dv, ag] = await pull(); if (!dv.length && !ag.length && C && C.y === CY) { dv = C.dv; ag = C.ag; } }   /* the sources are down: keep showing the last answer */
       const L = legal(CY), W = new Set(A.watch()), Hd = store.get(HK, []) || [], HM = new Map(Hd.map(h => [h.code, h.shares])), mine = c => W.has(c) || HM.has(c);
       const ev = []; dv.forEach(r => ev.push({ ...r, t: "ex" })); ag.forEach(r => ev.push({ ...r, t: "agm" }));
@@ -379,6 +380,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
       const T0 = taipei().iso, T1 = (() => { const d = new Date(T0 + "T00:00:00"); d.setMonth(d.getMonth() + 1); return ymd(d.getFullYear(), d.getMonth(), d.getDate()); })(), mp = CY + "-" + String(CM + 1).padStart(2, "0"), inM = shown.filter(e => CMODE === "list" ? (e.d >= T0 && e.d <= T1) : e.d.startsWith(mp)), exM = inM.filter(e => e.t === "ex"), agM = inM.filter(e => e.t === "agm");
       const myEx = ev.filter(e => e.t === "ex" && (CMODE === "list" ? (e.d >= T0 && e.d <= T1) : e.d.startsWith(mp)) && HM.has(e.code) && e.cash > 0), income = myEx.reduce((a, e) => a + e.cash * HM.get(e.code), 0);
       $(".sbsm", root).innerHTML = `<div><span>${CMODE === "list" ? "未來一個月" : "本月"}除權息</span><b>${exM.length}</b><small>${CMINE ? "我的" : "全部"}檔數</small></div><div><span>${CMODE === "list" ? "未來一個月" : "本月"}股東會</span><b>${agM.length}</b><small>${CMINE ? "我的" : "全部"}場數</small></div><div><span>我的預估股息</span><b class="${income ? "up" : ""}">${income ? Math.round(income).toLocaleString("en-US") : "—"}</b><small>${myEx.length ? myEx.length + " 檔持股除息" : (CMODE === "list" ? "未來一個月" : "本月") + "沒有持股除息"}</small></div>`;
+      if (quick || (!dv.length && !ag.length)) $$(".sbsm b", root).forEach(b => { b.textContent = quick ? "…" : "讀不到"; });
       $$("[data-cmine]", root).forEach(b => b.setAttribute("aria-pressed", String((b.dataset.cmine === "1") === CMINE))); $$("[data-cmode]", root).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.cmode === CMODE)));
       $(".sbch b", root).textContent = CMODE === "list" ? `${T0.slice(5).replace("-", "/")} – ${T1.slice(5).replace("-", "/")}（未來一個月）` : `${CY} 年 ${CM + 1} 月`; $$("[data-cm]", root).forEach(b => { b.hidden = CMODE === "list"; });
       const evHTML = e => { const mineTag = mine(e.code) ? "<i>我的</i>" : "", sh = HM.get(e.code);
@@ -392,7 +394,7 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
         const inR = d => d >= T0 && d <= T1, all = [...new Set([...Object.keys(byD), ...Object.keys(LL)])].filter(inR).sort();
         g.hidden = true; g.innerHTML = "";
         out.innerHTML = all.length ? all.map(d => `<div class="sbld"><h4>${dayHead(d)}${hol2[d] ? "　休市：" + esc(hol2[d]) : ""}</h4>${(byD[d] || []).slice(0, 60).map(evHTML).join("")}${(LL[d] || []).map(t => `<p class="sbev lg"><u class="dl"></u><em class="sbt">${esc(t)}</em></p>`).join("")}</div>`).join("") : `<p class="sub">${CMINE ? "未來一個月沒有你的持股或自選股的事件。切到「全部」可以看所有公司。" : "未來一個月沒有已知的事件。"}</p>`;
-        out.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.2,.8,.2,1)" });
+        if (quick) root.dataset.q = "1"; else if (root.dataset.q) delete root.dataset.q; else out.animate([{ opacity: 0, transform: "translateY(8px)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.2,.8,.2,1)" });
         return;
       }
       g.hidden = false;
