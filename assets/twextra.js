@@ -429,7 +429,7 @@
   function paintTg() {
     const el = $(".settg"); if (!el) return;
     const S = tgState;
-    el.textContent = !S ? "" : S.old ? "目前部署的 Worker 還是舊版，這些開關要部署新版後才生效。" : S.ok ? "已同步到 Worker。" : S.owner === false ? "只有擁有者裝置的設定會生效。" : "同步失敗。";
+    el.textContent = !S ? "" : S.old ? "目前部署的 Worker 還是舊版，這些開關要部署新版後才生效。" : S.ok ? "" : S.owner === false ? "只有擁有者裝置的設定會生效。" : "同步失敗。";
   }
 
   function holdExtraHTML() {
