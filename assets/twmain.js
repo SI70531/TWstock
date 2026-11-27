@@ -958,7 +958,6 @@
       ${a.check && (a.check.open || a.check.close) ? `<div class="clcheck lrise"><h4>盤前預測對帳</h4>${[a.check.open, a.check.close].filter(Boolean).map(x => `<p class="${/✅/.test(x) ? "ok" : /❌/.test(x) ? "miss" : ""}">${esc(x)}</p>`).join("")}${a.check.note ? `<p class="sub">${esc(a.check.note)}</p>` : ""}</div>` : ""}
       <div class="aicols"><div class="lrise"><h4>領漲</h4><ul>${li(a.lead)}</ul></div><div class="lrise"><h4>落後</h4><ul>${li(a.lag)}</ul></div></div>
       ${a.flows ? `<div class="lrise"><h4>法人</h4><p>${esc(a.flows)}</p></div>` : ""}
-      ${Array.isArray(a.mine) && a.mine.length ? `<div class="lrise"><h4>你的股票</h4><div class="bd-list">${a.mine.map(x => { const m = mineBy.get(String(x.code)) || {}; return `<button type="button" class="bd-row cl-row" data-code="${esc(x.code)}"><span class="bd-nm"><b>${esc(x.name || x.code)}</b><i>${esc(x.code)}</i>${m.flag ? `<em class="sflag ${m.flag === "處置股" ? "punish" : "notice"}">${esc(m.flag.slice(0, 2))}</em>` : ""}</span><span class="cl-note">${esc(x.note || "")}</span><span class="bd-v ${tone(m.pct)}">${ok(m.pct) ? pct(m.pct) : esc(x.pct || "")}</span></button>`; }).join("")}</div></div>` : ""}
       ${Array.isArray(a.next) && a.next.length ? `<div class="lrise"><h4>下個交易日要盯</h4><ul>${li(a.next)}</ul></div>` : ""}
       ${n.news && n.news.length ? `<details class="pmmore"><summary>參考的新聞</summary><div class="newslist">${newsHTML(n.news, null)}</div></details>` : ""}`;
     if (animate) rise($$(".lrise", el), 70);
