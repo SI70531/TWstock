@@ -520,7 +520,7 @@
   }
   const rowHTML = s => {
     const d = dig(s.price), t = tone(s.chg);
-    return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm"><b>${esc(s.name)}${flagTag(s.code)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : s.mkt === "esb" ? " 興櫃" : ""}</span></td>
+    return `<tr data-code="${esc(s.code)}" tabindex="0"><td class="l nm">${/^w[1-5]$/.test(VIEW.preset) && VIEW.key === "ord" && !VIEW.q ? '<i class="dgrip" aria-label="拖曳排序" title="拖曳排序">⋮⋮</i>' : ""}<b>${esc(s.name)}${flagTag(s.code)}</b><span>${esc(s.code)}${s.mkt === "otc" ? " 櫃" : s.mkt === "esb" ? " 興櫃" : ""}</span></td>
       <td><span class="pxpill ${t}${s.pct >= 9.4 || s.pct <= -9.4 ? " lim" : ""}"${s.pct >= 9.4 ? ' title="漲停"' : s.pct <= -9.4 ? ' title="跌停"' : ""}>${fmt(s.price, d)}</span></td><td class="${t}">${arrow(s.chg)}${fmt(Math.abs(s.chg), d)}</td><td class="${t} pctc" style="--w:${ok(s.pct) ? Math.min(Math.abs(s.pct) / 10, 1).toFixed(3) : 0}">${pct(s.pct)}</td>
       <td class="vol">${fmt(s.vol)}</td><td>${wlBtn(s)}</td></tr>`;
   };
@@ -1727,7 +1727,7 @@
       if (e.target.closest("#dpLab")) return;                 /* the research tools handle their own clicks */
       const s = e.target.closest(".ssug button"); if (s) { inp.value = ""; sug.hidden = true; setStock(s.dataset.code, true); navPush(); return; }
       if (e.target.closest(".sback")) { goBack(); return; }
-      const sp = e.target.closest("[data-span]"); if (sp) { SPAN = +sp.dataset.span; KV.span = SPAN; KV.end = 0; store.set("twmain-span", SPAN); drawChart(true); return; }
+      const sp = e.target.closest("[data-span]"); if (sp) { SPAN = +sp.dataset.span; KV.span = SPAN; KV.end = 0; store.set("twmain-span", SPAN); KV.morph = true; drawChart(false); return; }
       if (e.target.closest("[data-draw]")) { KV.draw = !KV.draw; drawChart(false); return; }
       if (e.target.closest("[data-clrline]")) { store.set(linesKey(), []); drawChart(false); return; }
       const ind = e.target.closest("[data-ind]"); if (ind) { IND[ind.dataset.ind] = !IND[ind.dataset.ind]; store.set("twmain-ind", IND); drawChart(true); return; }
@@ -1799,9 +1799,24 @@
     $(".clegend", box).hidden = !IND.ma;
     if (!cs) return;
     KV.len = cs.length; KV.span = clamp(KV.span, Math.min(20, cs.length), cs.length); KV.end = clamp(KV.end, 0, Math.max(0, cs.length - KV.span));
+    const oldC = KV.c, oldSvg = KV.morph && oldC && $("svg.kchart", host) || (KV.morph && oldC && oldC.svg) || null;
+    const oldBox = oldSvg && oldSvg.getBoundingClientRect(), hostBox = host.getBoundingClientRect();
     const c = chartSVG(cs, KV.span, KV.end); KV.c = c;
     host.replaceChildren(c.svg, ktip);
+    /* a new range: the old drawing squeezes (or stretches) toward the latest day while it fades, the new one settles in from the opposite scale */
+    if (KV.morph) {
+      KV.morph = false;
+      if (oldSvg && oldBox && oldBox.width && oldC.N !== c.N && box.classList.contains("on") && oldSvg !== c.svg) {
+        const k = c.N / oldC.N, org = "93% 50%";
+        oldSvg.style.cssText = `position:absolute;left:${(oldBox.left - hostBox.left + host.scrollLeft).toFixed(1)}px;top:${(oldBox.top - hostBox.top).toFixed(1)}px;width:${oldBox.width.toFixed(1)}px;height:${oldBox.height.toFixed(1)}px;pointer-events:none;transform-origin:${org}`;
+        host.appendChild(oldSvg);
+        oldSvg.animate([{ transform: "none", opacity: 1, filter: "none" }, { transform: `scaleX(${(1 / k).toFixed(3)})`, opacity: 0, filter: "blur(3px)" }], { duration: 480, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" }).onfinish = () => oldSvg.remove();
+        c.svg.style.transformOrigin = org;
+        c.svg.animate([{ transform: `scaleX(${k.toFixed(3)})`, opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 560, easing: "cubic-bezier(.16,1,.3,1)" });
+      }
+    }
     paintLines(c);
+    document.dispatchEvent(new Event("twdash:chart"));
     const zl = $(".czoom", box); if (zl) zl.textContent = `${c.N} 日${KV.end ? `・往前 ${KV.end} 日` : ""}`;
     if (quick) return;
     read.textContent = c.read(c.N - 1); c.unmark(); ktip.hidden = true;
@@ -2461,7 +2476,7 @@
       else stocks = DB.list.filter(s => s.code.toLowerCase().startsWith(q) || s.name.toLowerCase().includes(q))
         .sort((a, b) => (b.code.toLowerCase() === q) - (a.code.toLowerCase() === q) || (b.code.toLowerCase().startsWith(q)) - (a.code.toLowerCase().startsWith(q)) || b.vol - a.vol).slice(0, 8);
       const pages = PAGES.filter(p => !q || p[1].toLowerCase().includes(q) || p[2].toLowerCase().includes(q)).map(p => ({ k: "p:" + p[0], h: row("p:" + p[0], "→", p[1], p[2]) }));
-      const QA = [["a:settings", "開啟設定", "⚙"], ["a:ud", "切換漲跌顏色（" + (window.TWSet && window.TWSet.get("ud") === "intl" ? "目前綠漲紅跌" : "目前紅漲綠跌") + "）", "◑"], ["a:top", "回到頂端", "↑"], ...[["rk", "股票・排行"], ["cp", "股票・比較"], ["sc", "股票・選股"], ["rv", "股票・營收"], ["cm", "股票・疊圖"], ["dv", "股票・除息"]].map(([k, l]) => ["l:" + k, l, "▤"])];
+      const QA = [["a:settings", "開啟設定", "⚙"], ["a:ud", "切換漲跌顏色（" + (window.TWSet && window.TWSet.get("ud") === "intl" ? "目前綠漲紅跌" : "目前紅漲綠跌") + "）", "◑"], ["a:top", "回到頂端", "↑"], ["a:install", "加到主畫面（安裝成 App）", "⤓"], ["a:ovl", "自訂總覽版面", "⇅"], ...[["rk", "股票・排行"], ["cp", "股票・比較"], ["sc", "股票・選股"], ["rv", "股票・營收"], ["cm", "股票・疊圖"], ["dv", "股票・除息"]].map(([k, l]) => ["l:" + k, l, "▤"])];
       const quick = QA.filter(a => !q || a[1].toLowerCase().includes(q)).slice(0, q ? 6 : 5).map(a => ({ k: a[0], h: row(a[0], a[2], a[1], "") }));
       const acts = [["t:dark", "深色模式"], ["t:light", "淺色模式"], ["t:system", "外觀跟隨裝置"]].filter(a => !q || a[1].includes(q) || /dark|light|theme|深|淺|外觀/.test(q)).map(a => ({ k: a[0], h: row(a[0], "◐", a[1], T && T.mode === a[0].slice(2) ? "目前" : "") }));
       const sec = (t, arr) => (arr.length ? `<p class="pal-sec">${t}</p>` + arr.map(x => x.h).join("") : "");
@@ -2478,6 +2493,8 @@
       else if (k === "a:settings") document.dispatchEvent(new Event("twdash:settings"));
       else if (k === "a:ud") { if (window.TWSet) window.TWSet.set("ud", window.TWSet.get("ud") === "intl" ? "tw" : "intl"); }
       else if (k === "a:top") scrollTo({ top: 0, behavior: "smooth" });
+      else if (k === "a:install") document.dispatchEvent(new Event("twdash:install"));
+      else if (k === "a:ovl") { open("dpOverview", true); setTimeout(() => document.dispatchEvent(new Event("twdash:overview-edit")), 120); }
       else if (k.startsWith("l:")) { open("dpList", true); setTimeout(() => lstSub(k.slice(2), true), 60); }
     };
     inp.addEventListener("input", () => { on = 0; paint(); });
@@ -2539,7 +2556,9 @@
   });
   window.TWDash = { replay: () => open(cur, false),
     /* shared with the 研究室 tab (assets/twlab.js) */
-    api: { rowStar: code => { const i = listIdx(), had = LISTS[i].includes(code); toggleWatch(code, i); return !had; }, goBackNow: () => { const b = $("#dpStock .sback"); if (b && !b.hidden) b.click(); return !!(b && !b.hidden); }, whyOf, paintHeat, gpPaint, instLoad, ftLoad, paintStreak, heatGroups, heatTip, heatFocus, segMark, DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
+    api: { chartC: () => KV.c, listCodes: () => LISTS[listIdx()].slice(), canSort: () => /^w[1-5]$/.test(VIEW.preset) && VIEW.key === "ord" && !VIEW.q,
+      setOrder: codes => { const i = listIdx(); LISTS[i] = codes.slice(); WATCH = LISTS[0]; saveLists(); if (i === 0) { alertSync(); paintTape(); } paintWatch(false); paintTable(false); },
+      rowStar: code => { const i = listIdx(), had = LISTS[i].includes(code); toggleWatch(code, i); return !had; }, goBackNow: () => { const b = $("#dpStock .sback"); if (b && !b.hidden) b.click(); return !!(b && !b.hidden); }, whyOf, paintHeat, gpPaint, instLoad, ftLoad, paintStreak, heatGroups, heatTip, heatFocus, segMark, DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
       refresh: () => Promise.all([rtPoll(), pmLoad(), pmLoad(true), clLoad()]).then(() => open(cur, true)),
       rtPoll, quoteNow,
       store, worker: WORKER, openTab: p => open(p, true), lstSub: k => lstSub(k, true), tabNow: () => cur, ixk: () => IXV.k, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };
