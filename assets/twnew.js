@@ -219,8 +219,13 @@
     const pre = $("#dpPre"); if (!pre || $(".arc", pre)) return;
     const bar = $(".anasub", pre), on = bar && $('[data-sub="ar"]', bar) && $('[data-sub="ar"]', bar).getAttribute("aria-selected") === "true";
     pre.insertAdjacentHTML("beforeend", `<div class="dcard arc" data-sub="ar"${on ? "" : " hidden"}><div class="aihead"><div><h3>收盤摘要存檔</h3></div><span class="sub arn"></span></div><div class="arout"></div></div>`);
-    $(".arc", pre).addEventListener("click", e => {
-      const h = e.target.closest(".arh"); if (h) { h.parentElement.classList.toggle("open"); return; }
+    /* a day opens and closes on release of the press itself; the browser's own click is not always sent when the press animation moves the row, so it is only the keyboard's way in */
+    const arc = $(".arc", pre); let dn = null, at = 0;
+    const flip = h => { h.parentElement.classList.toggle("open"); };
+    arc.addEventListener("pointerdown", e => { const h = e.target.closest && e.target.closest(".arh"); dn = h && e.button === 0 ? { h, x: e.clientX, y: e.clientY } : null; });
+    arc.addEventListener("pointerup", e => { const d = dn; dn = null; if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8) return; at = Date.now(); flip(d.h); });
+    arc.addEventListener("click", e => {
+      const h = e.target.closest(".arh"); if (h) { if (Date.now() - at > 600) flip(h); return; }
       const m = e.target.closest("[data-code]"); if (m) A.openStock(m.dataset.code);
     });
     const tab = bar && $('[data-sub="ar"]', bar); if (tab) tab.addEventListener("click", () => arPaint(true));
@@ -231,9 +236,12 @@
     $(".arn").textContent = L.length ? `${L.length} 天` : "";
     if (!L.length) { el.innerHTML = `<p class="sub">還沒有存檔</p>`; return; }
     const li = a => (Array.isArray(a) ? a : []).map(x => `<li>${A.esc(x)}</li>`).join("");
-    el.innerHTML = L.map(x => { const t = /紅/.test(x.call) ? "up" : /黑/.test(x.call) ? "down" : "";
+    const open = new Set($$(".arg.open .ard", el).map(x => x.textContent));
+    const html = L.map(x => { const t = /紅/.test(x.call) ? "up" : /黑/.test(x.call) ? "down" : "";
       return `<div class="arg"><button type="button" class="arh"><span class="ard">${A.esc(String(x.day).slice(5).replace("-", "/"))}</span><span class="aitag ${t}">${A.esc(x.call)}</span><span class="arl">${A.esc(x.headline)}</span>${Number.isFinite(x.pct) ? `<b class="${A.tone(x.pct)}">${A.pct(x.pct)}</b>` : ""}</button>
         <div class="arb"><p>${A.esc(x.market)}</p>${x.lead.length || x.lag.length ? `<div class="aicols"><div><h4>領漲</h4><ul>${li(x.lead)}</ul></div><div><h4>落後</h4><ul>${li(x.lag)}</ul></div></div>` : ""}${x.flows ? `<h4>法人</h4><p>${A.esc(x.flows)}</p>` : ""}${x.next.length ? `<h4>當時盯的</h4><ul>${li(x.next)}</ul>` : ""}</div></div>`; }).join("");
+    if (el.dataset.h === html) return; el.dataset.h = html; el.innerHTML = html;   /* a repaint with nothing new must not close what was opened */
+    $$(".arg", el).forEach(g => { if (open.has($(".ard", g).textContent)) g.classList.add("open"); });
     if (animate) A.rise($$(".arg", el).slice(0, 20), 28);
   }
 
