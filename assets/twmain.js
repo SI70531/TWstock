@@ -483,7 +483,7 @@
     /* the pre-market note and the stock list each have their own tab */
     /* 分析: one tab with three parts (收盤摘要, 盤前分析, 盤中分析), one shown at a time */
     const pre = $("#dpPre");
-    pre.insertAdjacentHTML("beforeend", `<div class="anasub" role="tablist" aria-label="分析">${[["cl", "收盤"], ["pm", "盤前"], ["md", "盤中"], ["wk", "週回顧"], ["ar", "存檔"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
+    pre.insertAdjacentHTML("beforeend", `<div class="anasub" role="tablist" aria-label="分析">${[["pm", "盤前"], ["md", "盤中"], ["cl", "收盤"], ["wk", "週回顧"], ["ar", "存檔"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
     const pmc = $(".pm:not(.md)", box), mdc = $(".pm.md", box), clc = $(".cl", box), wkc = $(".wk", box);
     clc.dataset.sub = "cl"; pmc.dataset.sub = "pm"; mdc.dataset.sub = "md"; wkc.dataset.sub = "wk";
     pre.appendChild(clc); pre.appendChild(pmc); pre.appendChild(mdc); pre.appendChild(wkc);
@@ -904,10 +904,9 @@
   /* ---------------- 分析 tab: which part shows. By default the one that fits the hour: 盤前 before 09:00, 盤中 in the session, 收盤 after it ---------------- */
   let ANA = "pm";
   function anaDefault() {
-    try { const s = sessionStorage.getItem("twana"); if (s) return s; } catch (e) {}
     const t = new Date(Date.now() + 8 * 3600e3), m = t.getUTCHours() * 60 + t.getUTCMinutes(), wd = t.getUTCDay();
     if (wd === 0 || wd === 6) return "cl";
-    return m < 9 * 60 ? "pm" : m < 14 * 60 ? "md" : "cl";
+    return m < 9 * 60 ? "pm" : m < 13 * 60 + 30 ? "md" : "cl";
   }
   /* 盤中 can only be analysed while the day session is open (weekdays 09:00–13:30; the Worker also refuses on exchange holidays) */
   function mdOpenNow() { const t = new Date(Date.now() + 8 * 3600e3), m = t.getUTCHours() * 60 + t.getUTCMinutes(), wd = t.getUTCDay(); return wd >= 1 && wd <= 5 && m >= 9 * 60 && m <= 13 * 60 + 30; }
@@ -929,11 +928,11 @@
     if (!["cl", "pm", "md", "wk", "ar"].includes(k)) k = "pm";
     const prev = ANA; ANA = k;
     try { if (animate) sessionStorage.setItem("twana", k); } catch (e) {}
-    const bs = $$("[data-sub]", bar), b = bs.find(x => x.dataset.sub === k) || bs[1];
+    const bs = $$("[data-sub]", bar), b = bs.find(x => x.dataset.sub === k) || bs[0];
     bs.forEach(x => x.setAttribute("aria-selected", String(x === b)));
     anaMark(bar);
     if (!bar._ro && window.ResizeObserver) { bar._ro = new ResizeObserver(() => anaMark(bar, true)); bar._ro.observe(bar); } /* the bar has no size while 分析 is hidden: place the highlight again once it shows */
-    const order = ["cl", "pm", "md", "wk", "ar"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
+    const order = ["pm", "md", "cl", "wk", "ar"], dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1;
     $$(".dcard[data-sub]", pre).forEach(c => {
       const on = c.dataset.sub === k; c.hidden = !on;
       if (on && animate) { c.animate([{ opacity: 0, transform: `translateX(${dir * 40}px)` }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.16,1,.3,1)" }); rise($$(".lrise", c), 50, 120); }
