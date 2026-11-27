@@ -10,8 +10,8 @@
      STOCK_DAY (history), BWIBBU_ALL, t187ap05_L, T86.
    - Intraday quotes, the futures quote, headlines and the AI analysis come from the Worker (/tw/rt, /tw/news,
      /tw/analyze in the EZexams repo, tools/ezexams-worker.js). When the Worker does not answer, the page keeps
-     working on closing data and says so.
-   - If TWSE itself cannot be reached the page shows clearly labelled sample numbers.
+     working on closing data and says what could not be read.
+   - Anything that cannot be read is shown as "讀不到": no sample numbers, no stale or fallback values.
    No accounts: the watchlist stays in this browser, and a random device id (twstock-device) tells the Worker which
    device's saved analyses and alert list are which. */
 (function () {
@@ -137,15 +137,6 @@
     (await otc).forEach(s => { if (!names.has(s.code)) names.set(s.code, s); });
     setList([...names.values()].filter(s => s.code && s.name), true, best.date);
   }
-  function sampleList() {
-    const base = [["2330", "台積電", 1085], ["2317", "鴻海", 215], ["2454", "聯發科", 1385], ["2308", "台達電", 415], ["2412", "中華電", 131], ["2881", "富邦金", 92],
-      ["2882", "國泰金", 78], ["2603", "長榮", 225], ["1301", "台塑", 52], ["2891", "中信金", 40], ["0050", "元大台灣50", 190], ["2002", "中鋼", 24], ["3008", "大立光", 2310], ["2303", "聯電", 48]];
-    let s = 20261110; const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-    setList(base.map(([code, name, p]) => {
-      const pc = (r() - 0.48) * 6, prev = p / (1 + pc / 100), hi = Math.max(p, prev) * (1 + r() * 0.01), lo = Math.min(p, prev) * (1 - r() * 0.01);
-      return { code, name, price: p, prev, chg: p - prev, pct: pc, open: prev * (1 + (r() - 0.5) * 0.01), high: hi, low: lo, vol: Math.round(3000 + r() * 60000) };
-    }), false, taipei().ymd);
-  }
   /* indices at the close (used until the Worker supplies intraday values) */
   async function loadIdxEod() {
     const a = await J("https://openapi.twse.com.tw/v1/exchangeReport/MI_INDEX");
@@ -213,24 +204,12 @@
     if (finished) store.set(key, rows);
     return rows;
   }
-  function sampleHist(s) {
-    let seed = 7; for (const c of s.code) seed = (seed * 31 + c.charCodeAt(0)) >>> 0;
-    const r = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
-    const out = [], d = new Date(); const days = [];
-    while (days.length < 130) { if (d.getDay() % 6) days.unshift(d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0")); d.setDate(d.getDate() - 1); }
-    let p = s.price * (0.82 + r() * 0.2);
-    days.forEach((ds, i) => {
-      const o = p, c = i === days.length - 1 ? s.price : o * (1 + (r() - 0.48) * 0.04 + (s.price - o) / o * 0.04);
-      out.push([ds, o, Math.max(o, c) * (1 + r() * 0.012), Math.min(o, c) * (1 - r() * 0.012), c, Math.round(s.vol * (0.5 + r()))]); p = c;
-    });
-    return out;
-  }
   const HIST = new Map();                          /* code → { cs, full } */
   async function loadHist(code, onMore) {
     const hit = HIST.get(code);
     if (hit) return hit.cs;
     const s = DB.by.get(code);
-    if (!DB.live) { const cs = s ? sampleHist(s) : null; if (cs) HIST.set(code, { cs, full: true }); return cs; }
+    if (!DB.live) return null;
     const ms = monthsBack(7);
     let cs = [];
     try { cs = [...(await histMonth(code, ms[1], true)), ...(await histMonth(code, ms[0], false))]; } catch (e) { return null; }
@@ -304,7 +283,13 @@
   }
 
   /* ---------------- intraday quotes through the Worker ---------------- */
-  let rtTimer = 0, rtBusy = false, rtFailAt = 0;
+  let rtTimer = 0, rtBusy = false, rtFailAt = 0, rtFails = 0;
+  /* live quotes stopped arriving: show "讀不到" instead of the last live numbers */
+  function rtDrop() {
+    DB.list.forEach(s => { if (s.rt) Object.assign(s, { price: NaN, chg: 0, pct: 0, rt: false, flash: "" }); });
+    IDX.forEach(i => { if (i.rt && !i.us) Object.assign(i, { z: NaN, y: NaN, h: NaN, l: NaN, tm: "", src: "", rt: false }); });
+    try { paintLive(); paintIdx(); } catch (e) {}
+  }
   function rtCodes() {
     if (cur === "dpWatch") return WATCH.slice(0, 80);
     if (cur === "dpStock") return [CODE];
@@ -374,7 +359,7 @@
   }
   async function rtPoll() {
     if (rtBusy || !DB.live || document.hidden) return;
-    if (DB.rt === false && Date.now() - rtFailAt < 300000) return;
+    if (DB.rt === false && Date.now() - rtFailAt < (marketOpen() || nightOpen() ? 4000 : 300000)) return;
     rtBusy = true;
     try {
       const codes = rtCodes(), wantIdx = cur === "dpOverview" || !IDX[0].rt;
@@ -388,9 +373,10 @@
       if (j.exf && j.exf.z > 0) { any = true; Object.assign(IDX[3], { z: j.exf.z, y: j.exf.y, h: j.exf.h, l: j.exf.l, v: j.exf.v, tm: j.exf.tm, src: j.exf.src === "night" ? "夜盤" : j.exf.src === "rt" ? "盤中" : (j.exf.sess || "") + "收盤", rt: true, label: "" }); }
       if (j.fut && j.fut.z > 0) { any = true; Object.assign(IDX[1], { z: j.fut.z, y: j.fut.y, h: j.fut.h, l: j.fut.l, tm: j.fut.tm, src: j.fut.src === "night" ? "夜盤" : j.fut.src === "rt" ? "盤中" : (j.fut.sess || "") + "收盤", rt: true, label: j.fut.n }); }
       DB.rtSrc = j.src || "mis";
+      rtFails = 0;
       if (any) { DB.rt = true; DB.rtAt = new Date().toLocaleTimeString("zh-TW", { hour12: false }); paintLive(); }
       else if (DB.rt == null) DB.rt = false;
-    } catch (e) { DB.rt = false; rtFailAt = Date.now(); }
+    } catch (e) { DB.rt = false; rtFailAt = Date.now(); if (++rtFails >= 2) rtDrop(); }
     rtBusy = false; note();
   }
   document.addEventListener("twset:change", e => { if (e.detail.k === "poll") { clearTimeout(rtTimer); rtLoop(); } });
@@ -403,10 +389,10 @@
   /* ---------------- banner ---------------- */
   function note() {
     const el = $(".dash-note"); if (!el) return;
-    if (!DB.list.length) { el.innerHTML = `<b>載入中</b>正在讀取證交所公開資料…`; return; }
-    if (!DB.live) { el.innerHTML = `<b>示意資料</b>目前連不到證交所，以下數字是示意，不代表真實行情。`; return; }
+    if (!DB.list.length && !DB.failed) { el.innerHTML = `<b>載入中</b>正在讀取證交所公開資料…`; return; }
+    if (!DB.live) { el.innerHTML = `<b>讀不到</b>證交所資料讀不到。`; return; }
     if (DB.rt) el.innerHTML = `<b class="live">即時</b>${esc(DB.rtAt)} 更新${marketOpen() ? "・每 2 秒更新" : nightOpen() ? "・股票已收盤，台指期夜盤更新中" : "・非交易時段"}`;
-    else el.innerHTML = `<b>收盤</b>${slash(DB.date)} 收盤資料${DB.rt === false ? "（即時報價暫時連不上）" : ""}`;
+    else el.innerHTML = `<b>收盤</b>${slash(DB.date)} 收盤資料${DB.rt === false ? "（即時報價讀不到）" : ""}`;
   }
 
   /* ---------------- 總覽 ---------------- */
@@ -575,7 +561,7 @@
     const box = $("#dpList"); if (!$(".mtbl", box)) return;
     const rows = rowsNow(), show = rows.slice(0, VIEW.shown);
     $(".mtbl tbody", box).innerHTML = show.map(rowHTML).join("") ||
-      `<tr><td class="mempty" colspan="6">${/^w[1-5]$/.test(VIEW.preset) && !VIEW.q ? `自選${listIdx() + 1} 還沒有股票。`  : DB.list.length ? "找不到符合的股票。" : "載入中…"}</td></tr>`;
+      `<tr><td class="mempty" colspan="6">${DB.failed ? "讀不到資料。" : /^w[1-5]$/.test(VIEW.preset) && !VIEW.q ? `自選${listIdx() + 1} 還沒有股票。`  : DB.list.length ? "找不到符合的股票。" : "載入中…"}</td></tr>`;
     $(".mmore", box).hidden = rows.length <= VIEW.shown;
     const dl = VIEW.dist != null && !VIEW.q && DIST[VIEW.dist];
     $(".mcount", box).innerHTML = !DB.list.length ? "" : dl ? `<button type="button" class="chip distclr" aria-pressed="true">漲跌幅 ${esc(dl[0])}${/~/.test(dl[0]) ? "%" : ""}<i aria-hidden="true">✕</i></button> ${fmt(rows.length)} 檔`
@@ -589,8 +575,6 @@
     IDX.forEach(i => {
       const c = $(`.ixcard[data-k="${i.k}"]`); if (!c) return;
       const cd = CH[i.k + ":tick"];
-      if (i.us && cd && cd.high > 0) { i.h = cd.high; i.l = cd.low; }   /* no live quote from the Worker: fall back on the chart's last bar (Yahoo, a little delayed) */
-      if (!i.rt && cd && cd.last > 0) { const tz = cd.at ? new Date(cd.at + 8 * 3600e3).toISOString() : ""; Object.assign(i, { z: cd.last, y: cd.prev, h: cd.high, l: cd.low, tm: i.us ? "" : tz.slice(11, 19), src: i.us ? "UTC+8 " + tz.slice(5, 16).replace("-", "/").replace("T", " ") : "延遲" }); }
       /* the first time a card shows its number, its line must be ready too, so the count-up and the line draw start together and end together (give up waiting after 6 s) */
       if (ok(i.z) && !c.dataset.shown) { const sp = $(".spark path", c); if (!(sp && sp.getAttribute("d")) && Date.now() - T_START < 6000) { c.classList.add("ixwait"); return; } c.dataset.shown = "1"; }
       const d = ok(i.z) && ok(i.y) ? i.z - i.y : NaN, t = tone(d), big = $(".big", c);
@@ -599,7 +583,7 @@
       const bt = ok(i.z) ? fmt(i.z, 2) : "—";
       if (big.dataset.txt !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.dataset.txt = bt; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }
       big.dataset.z = ok(i.z) ? i.z : ""; big.className = "big " + t + (big.classList.contains("fl-up") ? " fl-up" : big.classList.contains("fl-down") ? " fl-down" : "");
-      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (Date.now() - T_START > 30000 && DB.list.length ? "讀不到資料" : "讀取中，請稍後…"), cg = $(".ixchg", c); c.classList.toggle("ixwait", !ok(d));
+      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (DB.failed || (Date.now() - T_START > 30000 && DB.list.length) ? "讀不到資料" : "讀取中，請稍後…"), cg = $(".ixchg", c); c.classList.toggle("ixwait", !ok(d));
       if (cg.textContent !== ct) cg.textContent = ct;
       cg.className = "sub ixchg " + t;
       const ht = i.h > 0 && i.l > 0 ? `高 ${fmt(i.h, 2)}　低 ${fmt(i.l, 2)}` : "", hl = $(".ixhl", c); if (hl.textContent !== ht) hl.textContent = ht;
@@ -618,7 +602,7 @@
       cell("外資（億）", I ? signed(I.f, 1) : "—", I ? tone(I.f) : "", I && last && I.date !== last[0] ? shortDay(I.date) : ""),
       cell("投信（億）", I ? signed(I.t, 1) : "—", I ? tone(I.t) : ""),
       cell("自營商（億）", I ? signed(I.d, 1) : "—", I ? tone(I.d) : ""),
-      cell("上漲 / 下跌 / 平盤", DB.list.length ? `<em class="up">${fmt(up)}</em><s>/</s><em class="down">${fmt(down)}</em><s>/</s>${fmt(flat)}` : "—", "brd", DB.live ? "含 ETF" : "示意"),
+      cell("上漲 / 下跌 / 平盤", DB.list.length ? `<em class="up">${fmt(up)}</em><s>/</s><em class="down">${fmt(down)}</em><s>/</s>${fmt(flat)}` : "—", "brd", DB.live ? "含 ETF" : "讀不到"),
     ].join("");
     const bc = el.lastElementChild;
     if (bc && DB.list.length) bc.insertAdjacentHTML("beforeend", breadthBar(up, flat, down));
@@ -661,7 +645,7 @@
     const card = $(".bd-heat"); if (!card) return;
     const hm = $(".hm", card), head = $(".hmsel", card);
     if (!DB.list.length) return;
-    if (!INDMAP) { hm.innerHTML = `<p class="sub hmwait">${DB.live ? "產業分類還沒發布，稍後會出現。" : "示意資料模式下沒有熱力圖。"}</p>`; return; }
+    if (!INDMAP) { hm.innerHTML = `<p class="sub hmwait">${DB.live ? "產業分類還沒發布，稍後會出現。" : "讀不到資料。"}</p>`; return; }
     const groups = heatGroups(), g = HEAT.sel && groups.find(x => x.id === HEAT.sel); HEAT.groups = groups;
     if (HEAT.sel && !g) HEAT.sel = null;
     let items = g ? g.list.slice().sort((a, b) => b.price * b.vol - a.price * a.vol).slice(0, 60).map(s => ({ key: s.code, name: s.name, val: s.price * s.vol * 1000, pct: s.pct, sub: fmt(s.price, dig(s.price)) }))
@@ -831,7 +815,7 @@
     const list = [...FLAGS.entries()].map(([c, f]) => ({ s: DB.by.get(c), f })).filter(x => x.s).sort((a, b) => (a.f.k === "punish" ? 0 : 1) - (b.f.k === "punish" ? 0 : 1) || b.s.vol - a.s.vol);
     const mineSet = new Set(LISTS.flat());
     $(".bd-n", card).textContent = FLAGS.ready ? `處置 ${list.filter(x => x.f.k === "punish").length}・注意 ${list.filter(x => x.f.k === "notice").length}` : "";
-    $(".bd-list", card).innerHTML = !FLAGS.ready ? `<p class="sub">${DB.live ? "載入中…" : "示意資料模式下沒有名單。"}</p>` : !list.length ? `<p class="sub">今天沒有上市股票被列入。</p>`
+    $(".bd-list", card).innerHTML = !FLAGS.ready ? `<p class="sub">${DB.live ? "載入中…" : "讀不到資料。"}</p>` : !list.length ? `<p class="sub">今天沒有上市股票被列入。</p>`
       : list.map(({ s, f }) => `<button type="button" class="bd-row fl-row" data-code="${esc(s.code)}"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i>${mineSet.has(s.code) ? `<i class="fl-mine">自選</i>` : ""}</span><span class="fl-info">${esc(f.info)}</span><span class="bd-v"><em class="sflag ${f.k}">${f.t}</em></span></button>`).join("");
     if (animate) $$(".fl-row", card).forEach((r, i) => r.animate([{ opacity: 0, transform: "translateX(-8px)" }, { opacity: 1, transform: "none" }], { duration: 380, delay: Math.min(i, 12) * 40, fill: "backwards" }));
   }
@@ -1115,7 +1099,7 @@
   async function scGo() { const el = $(".scout"); if (el && !FUND.map) el.innerHTML = `<p class="sub">讀取財務與法人資料…</p>`; await Promise.all([loadFund(), loadChip()]); scPaint(false); }
   function scPaint(animate) {
     const card = $("#dpList .sc"), el = $(".scout", card); if (!card) return;
-    if (!DB.live) { el.innerHTML = `<p class="sub">示意資料模式下無法選股，連上證交所後才能用。</p>`; return; }
+    if (!DB.live) { el.innerHTML = `<p class="sub">讀不到資料。</p>`; return; }
     const v = {}; $$("select", card).forEach(x => (v[x.dataset.f] = x.value));
     const F = FUND.map || new Map(), C = CHIP.map || new Map(), rows = [];
     const tw = window.TWExtra && TWExtra.screenWants(v);
@@ -1175,7 +1159,7 @@
   ];
   function gpPaint() {
     const el = $(".gpout"); if (!el) return;
-    if (!DB.live || !DB.list.length) { el.innerHTML = `<p class="sub">示意資料模式下沒有族群資料。</p>`; return; }
+    if (!DB.live || !DB.list.length) { el.innerHTML = `<p class="sub">讀不到資料。</p>`; return; }
     const open = new Set($$(".gpg.open .gpname").map(x => x.textContent));
     const gs = GROUPS.map(([n, cs]) => { const ms = cs.map(c => DB.by.get(c)).filter(s => s && s.price > 0 && ok(s.pct)); return { n, ms, avg: ms.length ? ms.reduce((t, s) => t + s.pct, 0) / ms.length : null, up: ms.filter(s => s.chg > 0).length }; }).filter(g => g.ms.length >= 3).sort((a, b) => b.avg - a.avg);
     const mx = Math.max(1, ...gs.map(g => Math.abs(g.avg)));
@@ -1192,7 +1176,7 @@
   }
   async function instLoad() {
     const el = $(".instout"); if (!el) return;
-    try { INST.data = await J(`${WORKER}/tw/instrank`); } catch (e) { el.innerHTML = `<p class="sub">法人買賣超需要部署新版 Worker，或證交所還沒有資料。</p>`; return; }
+    try { INST.data = await J(`${WORKER}/tw/instrank`); } catch (e) { el.innerHTML = `<p class="sub">法人買賣超讀不到資料。</p>`; return; }
     instPaint(true);
   }
   function instPaint(animate) {
@@ -1223,7 +1207,7 @@
       const dg = r => (/殖利率/.test(r.name) ? 3 : r.last >= 1000 ? 0 : 2);
       el.innerHTML = `<div class="wdgrid">${rows.filter(r => !/^(S&P 500|Nasdaq|道瓊|費城半導體|加權指數)$/.test(r.name) && !/^\^(GSPC|IXIC|DJI|SOX|TWII)$/.test(r.symbol || "")).map(r => `<div class="wdcell"><span>${esc(r.name)}</span><b>${fmt(r.last, dg(r))}</b><i class="${/VIX/.test(r.name) ? tone(-r.changePct) : tone(r.changePct)}">${r.changePct == null ? "—" : pct(r.changePct)}</i></div>`).join("")}</div>`;
       const t = rows.map(r => r.asOfTaipei).filter(Boolean).sort().pop(); $("#dpOverview .wdn").textContent = t ? t.slice(5).replace("-", "/") + " 更新" : "";
-    } catch (e) { el.innerHTML = `<p class="sub">國際行情需要部署新版 Worker，或暫時讀不到。</p>`; }
+    } catch (e) { IDX.filter(i => i.us).forEach(i => Object.assign(i, { z: NaN, y: NaN, h: NaN, l: NaN, src: "", rt: false, hist: null })); try { paintIdx(); } catch (er) {} el.innerHTML = `<p class="sub">讀不到資料。</p>`; }
   }
   async function ftLoad() {
     const el = $(".ftout"); if (!el) return;
@@ -1237,7 +1221,7 @@
         spark = `<div class="ftspark"><span>外資淨部位 近 ${h.length} 天</span><svg viewBox="0 0 120 38" preserveAspectRatio="none"><line x1="0" x2="120" y1="${Y(0)}" y2="${Y(0)}"/><polyline points="${v.map((y, i) => `${(i / (v.length - 1) * 120).toFixed(1)},${Y(y)}`).join(" ")}"/></svg></div>`;
       }
       el.innerHTML = who.map(([k, l]) => { const x = j[k]; if (!x || x.net == null) return ""; return `<div class="ftrow"><span>${l}</span><span class="ftbar"><i class="${tone(x.net)}" style="width:${Math.max(3, Math.abs(x.net) / mx * 100).toFixed(0)}%"></i></span><b class="${tone(x.net)}">${x.net > 0 ? "+" : ""}${x.net.toLocaleString("zh-TW")}</b><em>多 ${(x.long || 0).toLocaleString("zh-TW")}／空 ${(x.short || 0).toLocaleString("zh-TW")}</em></div>`; }).join("") + spark + `<p class="sub ftfoot">${esc(String(j.date).slice(5).replace("-", "/"))} 收盤後，單位：口。淨口數為正代表偏多、為負代表偏空。</p>`;
-    } catch (e) { el.innerHTML = `<p class="sub">期貨籌碼需要部署新版 Worker，或期交所暫時讀不到。</p>`; }
+    } catch (e) { el.innerHTML = `<p class="sub">期貨籌碼讀不到資料。</p>`; }
   }
   let wdAt = Date.now();   /* US session: every 10 s; otherwise every 5 minutes */
   setInterval(() => { if (document.hidden || cur !== "dpOverview") return; const gap = window.TWSet && window.TWSet.usOpen() ? 10000 : 300000; if (Date.now() - wdAt >= gap - 500) { wdAt = Date.now(); wdLoad(); } }, 5000);
@@ -1419,7 +1403,7 @@
     const box = $("#dpStock"), out = $(".askout", box), inp = $(".askin", box), go = $(".askform .aigo", box), code = CODE, s = DB.by.get(code), cs = barsOf(code);
     q = String(q || "").trim(); if (q.length < 2) return;
     if (!s || !cs || cs.length < 30) { out.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">這檔的歷史資料還不夠，無法回答。</p>`); return; }
-    if (!DB.live) { out.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">目前是示意資料，連上證交所後才能問。</p>`); return; }
+    if (!DB.live) { out.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">讀不到資料。</p>`); return; }
     if (ASK.code !== code) { out.innerHTML = ""; ASK.code = code; }
     $$(".runmsg", out).forEach(x => x.remove());
     const item = document.createElement("div"); item.className = "askitem";
@@ -1746,7 +1730,7 @@
     HEADLAST.code = CODE; HEADLAST.px = s.price;
     $(".spx .big", box).textContent = fmt(s.price, d); $(".spx .big", box).className = "big " + t;
     $(".schg", box).textContent = `${arrow(s.chg)} ${fmt(Math.abs(s.chg), d)}（${pct(s.pct)}）`; $(".schg", box).className = "schg " + t;
-    $(".stime", box).textContent = s.rt ? `盤中 ${s.tm || ""}` : DB.live ? `收盤 ${slash(DB.date)}` : "示意資料";
+    $(".stime", box).textContent = s.rt ? `盤中 ${s.tm || ""}` : DB.live ? `收盤 ${slash(DB.date)}` : "讀不到資料";
     $(".sohlc", box).innerHTML = [["開", fmt(s.open, d)], ["高", fmt(s.high, d)], ["低", fmt(s.low, d)], ["昨收", fmt(s.prev, d)], ["量（張）", fmt(s.vol)]].map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
     /* the empty lower left: where the price sits in today's range, the 52-week range and the ±10% limit band */
     (() => {
@@ -1848,7 +1832,7 @@
   }
   function paintFund() {
     const el = $("#dpStock .fundlist"); if (!el) return;
-    if (!DB.live) { el.innerHTML = `<p class="sub">示意資料模式下沒有基本面與籌碼資料。</p>`; return; }
+    if (!DB.live) { el.innerHTML = `<p class="sub">讀不到資料。</p>`; return; }
     const f = FUND.map && FUND.map.get(CODE), ch = CHIP.map && CHIP.map.get(CODE), rows = [];
     const row = (k, val, t) => rows.push(`<div class="snap"><span>${k}</span><b class="${t || ""}">${val}</b></div>`);
     const lots = x => (ok(x) ? signed(Math.round(x), 0) + " 張" : "—");
@@ -1893,7 +1877,7 @@
     loadNews(code); stockExtras(code, tok);
     const cs = await loadHist(code, () => { if (tok === chartTok) drawChart(false); });
     if (tok !== chartTok) return;
-    if (!cs) { $(".cbox", box).innerHTML = `<p class="mempty">這檔的歷史資料暫時讀不到，請稍後再試。</p>`; $(".snaplist", box).innerHTML = `<p class="sub">沒有歷史資料。</p>`; return; }
+    if (!cs) { $(".cbox", box).innerHTML = `<p class="mempty">這檔的歷史資料讀不到，請稍後再試。</p>`; $(".snaplist", box).innerHTML = `<p class="sub">沒有歷史資料。</p>`; return; }
     drawChart(animate !== false);
   }
   /* opening a stock from a row or a card: the header grows out of the thing that was tapped */
@@ -1981,7 +1965,8 @@
   /* ---------------- overview board: distribution, movers, volume, watchlist heat map, pre-market summary ---------------- */
   let PMN = null, boardSig = "";
   function paintBoard() {
-    const box = $("#dpOverview .board"); if (!box || !DB.list.length) return;
+    const box = $("#dpOverview .board"); if (!box) return;
+    if (!DB.list.length) { if (DB.failed) { const b = $(".bd-bars", box); if (b && !b.dataset.f) { b.dataset.f = "1"; b.innerHTML = `<p class="sub">讀不到資料。</p>`; $(".bd-n", box).textContent = ""; } } return; }
     const live = DB.list.filter(s => ok(s.price) && s.price > 0 && ok(s.pct)), liq = live.filter(s => s.vol >= 500 && s.mkt !== "esb");
     const sig = live.length + ":" + live.reduce((a, s) => a + s.pct, 0).toFixed(1) + ":" + (PMN ? PMN.at : 0) + ":" + WATCH.join();
     const first = !boardSig; if (sig === boardSig) return; boardSig = sig;
@@ -2036,9 +2021,7 @@
   async function loadChart(k, r) {
     const j = await J(`${WORKER}/tw/chart?k=${k}&r=${r}`);
     if (j && Array.isArray(j.pts)) {
-      const old = CH[k + ":" + r];
-      /* Yahoo empties the intraday series between sessions: keep the last good one, and for a card that never had one draw the daily closes instead */
-      if (r === "tick" && j.pts.length < 2 && old && old.pts && old.pts.length >= 2) return old;
+      /* no intraday series: draw the daily closes instead */
       CH[k + ":" + r] = j;
       if (r === "tick" && j.pts.length < 2 && !CH[k + ":sday"]) loadChart(k, "day").then(dj => { if (dj && dj.pts && dj.pts.length > 2) { CH[k + ":sday"] = dj; paintSparks(); } }).catch(() => null);
     }
@@ -2081,7 +2064,7 @@
   async function ixPaint(animate) {
     const panel = $("#dpOverview .ixdetail"), k = IXV.k, r = IXV.r; if (!k || panel.hidden) return;
     const it = IDX.find(i => i.k === k), key = k + ":" + (r === "tick" ? "tick" : "day");
-    if (!CH[key] || (r !== "tick" && !CH[key].pts.length)) { panel.innerHTML = `<p class="sub">載入走勢…</p>`; try { await loadChart(k, r === "tick" ? "tick" : "day"); } catch (e) { const syn = histChart(it, r); if (syn) CH[key] = syn; else { panel.innerHTML = `<p class="sub">走勢暫時讀不到，請稍後再試。</p>`; return; } } }
+    if (!CH[key] || (r !== "tick" && !CH[key].pts.length)) { panel.innerHTML = `<p class="sub">載入走勢…</p>`; try { await loadChart(k, r === "tick" ? "tick" : "day"); } catch (e) { const syn = histChart(it, r); if (syn) CH[key] = syn; else { panel.innerHTML = `<p class="sub">走勢讀不到，請稍後再試。</p>`; return; } } }
     if (IXV.k !== k || IXV.r !== r) return;
     const d = CH[key], pts = r === "tick" ? d.pts : d.pts.slice(r === "3mo" ? -66 : -250);
     const z = ok(it.z) ? it.z : d.last, y = ok(it.y) ? it.y : d.prev, ch = z - y, t = tone(ch), dg = 2;
@@ -2250,7 +2233,7 @@
     const box = $("#dpStock"), msg = $(".aimsg", box), go = $(".aihead .aigo", box), code = CODE, s = DB.by.get(code);
     const cs = barsOf(code);
     if (!s || !cs || cs.length < 30) { msg.textContent = "這檔的歷史資料還不夠，無法分析。"; return; }
-    if (!DB.live) { msg.textContent = "目前是示意資料，連上證交所後才能分析。"; return; }
+    if (!DB.live) { msg.textContent = "讀不到資料。"; return; }
     const fresh = AI.has(code);                    /* 重新分析 asks for a new one; 開始分析 may get today's saved one at no cost */
     go.disabled = true; go.textContent = "分析中…"; msg.textContent = "五位分析師正在讀數據與新聞，大約需要 20 到 40 秒。";
     $(".aiout", box).innerHTML = `<div class="aiwait"><i></i><i></i><i></i><i></i><i></i></div>`;
@@ -2537,7 +2520,7 @@
   document.dispatchEvent(new Event("twdash:ready"));
 
   (async () => {
-    try { await loadList(); } catch (e) { sampleList(); }
+    try { await loadList(); } catch (e) { DB.failed = true; setList([], false, ""); }
     note(); paintTable(true); paintStrip(); paintWatch(true); paintHead(); paintHeat(true); paintTape();
     if (cur === "dpStock") setStock(CODE, true);
     loadFlags();
@@ -2547,9 +2530,6 @@
       loadIdxEod().then(paintIdx, () => {}).then(paintIdx);
       loadMarket().then(() => { paintIdx(); paintStrip(); if (cur === "dpOverview") drawSpark(); setTimeout(loadStreak, 800); }, () => {});
       rtLoop();
-    } else {
-      IDX.forEach((i, k) => Object.assign(i, { z: [45120.5, 45180, 2410.3, 2105.8][k], y: [44890.2, 44950, 2395.1, 2110.2][k], src: "示意" }));
-      paintIdx();
-    }
+    } else paintIdx();
   })();
 })();

@@ -65,7 +65,7 @@
   async function ccLoad(ep) {
     const S = CS[ep]; if (!S || S.busy) return; S.busy = true;
     try { S.data = await A.J(`${A.worker}/tw/${ep}`); ccPaint(ep, true); }
-    catch (e) { if (!S.data) $(".ccout", S.card).innerHTML = `<p class="sub">這項資料需要部署新版 Worker，或證交所暫時讀不到。</p>`; }
+    catch (e) { S.data = null; $(".ccout", S.card).innerHTML = `<p class="sub">讀不到資料。</p>`; }
     S.busy = false;
   }
   function ccPaint(ep, animate) {
@@ -101,7 +101,7 @@
   async function loadTech() {
     if (techBusy || !A.tech) return; techBusy = true;
     try { A.techNow = await A.tech((i, n) => { techPct = Math.round(i / n * 100); const rk = $("#dpList .rk"); if (rk && !rk.hidden && !A.techNow) { const w = $$('[data-x="hi"] .xprog i, [data-x="lo"] .xprog i', rk); w.forEach(x => { x.style.width = techPct + "%"; }); } }); rkPaint(true); }
-    catch (e) { const rk = $("#dpList .rk"); if (rk) $$('[data-x="hi"] .xl, [data-x="lo"] .xl', rk).forEach(el => { el.dataset.h = ""; el.innerHTML = `<p class="sub">${esc(e.message || "暫時讀不到")}</p>`; }); }
+    catch (e) { const rk = $("#dpList .rk"); if (rk) $$('[data-x="hi"] .xl, [data-x="lo"] .xl', rk).forEach(el => { el.dataset.h = ""; el.innerHTML = `<p class="sub">${esc(e.message || "讀不到")}</p>`; }); }
     techBusy = false;
   }
 
@@ -184,7 +184,7 @@
   async function ivPaint(animate) {
     const card = $(".ival"); if (!card) return;
     await Promise.resolve(A.loadFund()).catch(() => {});
-    const F = A.FUND.map; if (!F) { $(".ivout", card).innerHTML = `<p class="sub">估值資料暫時讀不到。</p>`; return; }
+    const F = A.FUND.map; if (!F) { $(".ivout", card).innerHTML = `<p class="sub">估值資料讀不到。</p>`; return; }
     const G = A.heatGroups(); if (!G.length) { $(".ivout", card).innerHTML = `<p class="sub">產業分類還沒發布，稍後會出現。</p>`; return; }
     const key = IV.k, rows = G.map(g => { const v = g.list.map(s => (F.get(s.code) || {})[key]).filter(x => x > 0); return { g, m: median(v), n: v.length }; }).filter(r => Number.isFinite(r.m) && r.n >= 3);
     rows.sort((a, b) => (key === "yld" ? b.m - a.m : a.m - b.m));

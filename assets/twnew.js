@@ -58,7 +58,7 @@
   async function mgLoad() {
     if (MG.loading) return; MG.loading = true;
     try { MG.data = await A.J(`${A.worker}/tw/margintop`); mgPaint(true); }
-    catch (e) { if (!MG.data) { const el = $(".mgout"); if (el) el.innerHTML = `<p class="sub">融資融券排行需要部署新版 Worker，或證交所暫時讀不到。</p>`; } }
+    catch (e) { MG.data = null; { const el = $(".mgout"); if (el) el.innerHTML = `<p class="sub">融資融券排行讀不到資料。</p>`; } }
     finally { MG.loading = false; }
   }
   function mgPaint(animate) {
@@ -102,7 +102,7 @@
   async function rotLoad() {
     if (ROT.loading) return; ROT.loading = true;
     try { ROT.data = await A.J(`${A.worker}/tw/sectorhist`); rotPaint(true); }
-    catch (e) { if (!ROT.data) { const el = $(".rotout"); if (el) el.innerHTML = `<p class="sub">產業輪動需要部署新版 Worker，或證交所暫時讀不到。</p>`; } }
+    catch (e) { ROT.data = null; { const el = $(".rotout"); if (el) el.innerHTML = `<p class="sub">產業輪動讀不到資料。</p>`; } }
     finally { ROT.loading = false; }
   }
   function rotPaint(animate) {
@@ -118,7 +118,7 @@
   function irPaint(animate) {
     const el = $(".irout"); if (!el) return;
     const groups = A.heatGroups ? A.heatGroups() : [];
-    if (!groups.length) { el.innerHTML = `<p class="sub">${A.DB.live ? "產業分類還沒發布，稍後會出現。" : "示意資料模式下沒有產業資料。"}</p>`; return; }
+    if (!groups.length) { el.innerHTML = `<p class="sub">${A.DB.live ? "產業分類還沒發布，稍後會出現。" : "讀不到資料。"}</p>`; return; }
     const open = new Set($$(".ir .gpg.open .gpname").map(x => x.textContent)), tot = groups.reduce((a, g) => a + g.val, 0);
     const gs = groups.filter(g => g.list.length >= 3).sort((a, b) => b.pct - a.pct), mx = Math.max(0.5, ...gs.map(g => Math.abs(g.pct)));
     const html = gs.map(g => `<div class="gpg${open.has(g.name) ? " open" : ""}"><button type="button" class="gphead"><span class="gpname">${A.esc(g.name)}</span><span class="gpbar"><i class="${A.tone(g.pct)}" style="width:${Math.max(4, Math.abs(g.pct) / mx * 100).toFixed(0)}%"></i></span><b class="${A.tone(g.pct)}">${A.pct(g.pct)}</b><em>${g.up}/${g.list.length} 漲・${(g.val / tot * 100).toFixed(0)}%</em></button><div class="gpmem">${g.list.slice().sort((a, b) => b.price * b.vol - a.price * a.vol).slice(0, 8).map(s => `<button type="button" data-code="${A.esc(s.code)}"><span>${A.esc(s.name)}</span><i class="${A.tone(s.pct)}">${A.pct(s.pct)}</i></button>`).join("")}</div></div>`).join("");
@@ -140,7 +140,7 @@
   async function rvLoad() {
     if (RV.loading) return; RV.loading = true;
     try { const j = await A.J(`${A.worker}/tw/review`); RV.rows = Array.isArray(j.rows) ? j.rows : []; rvPaint(true); }
-    catch (e) { if (!RV.rows) { const el = $(".rvwout"); if (el) el.innerHTML = `<p class="sub">每日對帳需要部署新版 Worker，或暫時讀不到。</p>`; } }
+    catch (e) { RV.rows = null; { const el = $(".rvwout"); if (el) el.innerHTML = `<p class="sub">每日對帳讀不到資料。</p>`; } }
     finally { RV.loading = false; }
   }
   const mark = h => (h == null ? "—" : h ? "✓" : "✗");
@@ -187,7 +187,10 @@
   function paintBasis() {
     const el = $(".bsout"); if (!el) return;
     const spot = A.IDX.find(i => i.k === "t00"), fut = A.IDX.find(i => i.k === "fut");
-    if (!spot || !fut || !(spot.z > 0) || !(fut.z > 0)) return;
+    if (!spot || !fut || !(spot.z > 0) || !(fut.z > 0)) {
+      if (A.DB.failed || A.DB.rt === false || (el.dataset.h && el.dataset.h.indexOf("bsrow") > -1) || Date.now() - (window.__tw0 || (window.__tw0 = Date.now())) > 30000) { basisHist = []; const m = `<p class="sub">讀不到資料。</p>`; if (el.dataset.h !== m) { el.dataset.h = m; el.innerHTML = m; $(".bsn").textContent = ""; } }
+      return;
+    }
     const d = fut.z - spot.z, p = d / spot.z * 100, cls = d > 0 ? "up" : d < 0 ? "down" : "";
     /* the future only trades live when the cash market is closed too: say which two numbers are compared */
     const when = fut.src ? String(fut.src) : "";

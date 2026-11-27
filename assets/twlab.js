@@ -699,7 +699,7 @@
     if ($(".lpdata").checked && s && [0, 1, 2, 6, 7, 9].includes(i)) {
       if (!A.HIST.get(code)) { $(".lmsg").textContent = "讀取這檔的日線…"; await A.loadHist(code); await A.loadFund(); $(".lmsg").textContent = ""; }
       const F = A.facts(code), csv = ohlcv(code, i === 1 ? 140 : 60);
-      text += `\n\n---\n以下是 TWstock 從臺灣證券交易所公開資料整理的數據（資料日期 ${d}，${A.DB.live ? "收盤資料" : "示意資料，不可用於分析"}；未經你驗證）：\n` + (F ? "技術與基本面摘要（JSON）：\n" + JSON.stringify(F) + "\n" : "") + (csv ? `\n日線 OHLCV（成交量單位：張）：\n${csv}` : "");
+      text += `\n\n---\n以下是 TWstock 從臺灣證券交易所公開資料整理的數據（資料日期 ${d}，${A.DB.live ? "收盤資料" : "讀不到資料"}；未經你驗證）：\n` + (F ? "技術與基本面摘要（JSON）：\n" + JSON.stringify(F) + "\n" : "") + (csv ? `\n日線 OHLCV（成交量單位：張）：\n${csv}` : "");
     }
     ta.value = text;
   }

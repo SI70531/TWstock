@@ -181,7 +181,7 @@
     if (onStep) TECH.listeners.add(onStep);
     if (TECH.v && TECH.v.date >= A.DB.date) return Promise.resolve(TECH.v);
     if (TECH.busy) return TECH.busy;
-    if (!A.DB.live) return Promise.reject(new Error("目前是示意資料，算不出技術條件。"));
+    if (!A.DB.live) return Promise.reject(new Error("讀不到資料。"));
     TECH.busy = (async () => {
       const got = [], start = lastDay(), today = taipei().ymd;
       for (let back = 0; back < 130 && got.length < NEED; back++) {
@@ -191,7 +191,7 @@
         if (rec === undefined) {
           await A.wait(2200);                  /* TWSE blocks pages that ask too fast */
           let rows;
-          try { rows = await readDay(ds); } catch (e) { throw new Error(`證交所暫時拒絕讀取（已讀 ${got.length} 天）。過幾分鐘再按一次，會從這裡接著讀。`); }
+          try { rows = await readDay(ds); } catch (e) { throw new Error(`證交所讀不到（已讀 ${got.length} 天）。再按一次會從這裡接著讀。`); }
           rec = rows;
           if (rows || back > 3) await tx("readwrite", s => s.put(rows, ds)).catch(() => {});   /* null = holiday */
         }
@@ -230,7 +230,7 @@
   function resetDiv(code) {
     const el = divOut(); if (!el) return;
     DV.code = code; DV.list = []; DV.fill = new Map();
-    el.innerHTML = !A.DB.live || !listed(code) ? msg(A.DB.live ? "只提供上市股票。" : "示意資料模式下沒有股利資料。") : `<button type="button" class="btn" data-xdivload>讀取近 5 年除權息</button>`;
+    el.innerHTML = !A.DB.live || !listed(code) ? msg(A.DB.live ? "只提供上市股票。" : "讀不到資料。") : `<button type="button" class="btn" data-xdivload>讀取近 5 年除權息</button>`;
   }
   async function loadDivs() {
     const c = A.code(), el = divOut(), t = taipei().ymd;
@@ -239,7 +239,7 @@
       const all = await dividends(String(+t.slice(0, 4) - 5) + "0101", t);
       if (c !== A.code()) return;
       DV.code = c; DV.list = all.filter(r => r.code === c).sort((a, b) => (a.date < b.date ? -1 : 1)); paintDivList();
-    } catch (e) { if (c === A.code()) el.innerHTML = msg("股利資料暫時讀不到。") + `<button type="button" class="btn" data-xdivload>再試一次</button>`; }
+    } catch (e) { if (c === A.code()) el.innerHTML = msg("股利資料讀不到。") + `<button type="button" class="btn" data-xdivload>再試一次</button>`; }
   }
   async function runFill() {
     const c = DV.code; if (DV.busy) return;
@@ -253,7 +253,7 @@
       catch (e) { failed = true; break; }
     }
     DV.busy = false;
-    if (c === A.code() && c === DV.code) { paintDivList(); if (failed) say("日線暫時讀不到，過一會兒再按一次。"); }
+    if (c === A.code() && c === DV.code) { paintDivList(); if (failed) say("日線讀不到，再按一次。"); }
   }
   function buildStockCards() {
     const mg = stockBox(".smg"), fin = stockBox(".sfin"); if (!mg || !fin) return;
@@ -271,11 +271,11 @@
   const TP = { margin: null, tech: null, techMsg: "", techBusy: false };
   function paintTemp() {
     const el = $(".xtemp"); if (!el) return;
-    if (!A.DB.live) { el.innerHTML = msg(A.DB.list.length ? "示意資料模式下沒有籌碼資料。" : "載入中…"); return; }
+    if (!A.DB.live) { el.innerHTML = msg(A.DB.list.length ? "讀不到資料。" : "載入中…"); return; }
     const m = TP.margin, S = (m && m.sum) || {}, T = TP.tech;
     const cell = (name, value, sub, t) => `<div class="xcell"><span>${name}</span><b>${value}</b><i class="${t || ""}">${sub}</i></div>`;
     const cash = S.money, short = S.short;
-    let h = cell("融資餘額", cash ? A.fmt(cash.now / 1e5, 0) + " 億" : "—", cash ? `較前一日 ${A.signed((cash.now - cash.prev) / 1e5, 1)} 億` : (m === false ? "暫時讀不到" : "載入中…"), cash ? A.tone(cash.now - cash.prev) : "") +
+    let h = cell("融資餘額", cash ? A.fmt(cash.now / 1e5, 0) + " 億" : "—", cash ? `較前一日 ${A.signed((cash.now - cash.prev) / 1e5, 1)} 億` : (m === false ? "讀不到" : "載入中…"), cash ? A.tone(cash.now - cash.prev) : "") +
       cell("融券餘額", short ? A.fmt(short.now) + " 張" : "—", short ? `較前一日 ${A.signed(short.now - short.prev, 0)} 張` : "", short ? A.tone(short.now - short.prev) : "");
     if (T) {
       const all = [...T.map.values()], share = k => { const v = all.filter(x => x[k] != null); return v.length ? v.filter(x => x[k]).length / v.length * 100 : NaN; };
@@ -326,7 +326,7 @@
     if (b) b.addEventListener("click", async () => {
       SCT.busy = true; SCT.note = "讀取中…"; repaint();
       try { SCT.v = await tech((i, n) => { SCT.note = `讀取交易日 ${i}/${n}…`; repaint(); }); SCT.note = ""; }
-      catch (e) { SCT.note = e.message || "技術資料暫時讀不到。"; }
+      catch (e) { SCT.note = e.message || "技術資料讀不到。"; }
       SCT.busy = false; repaint();
     });
     return false;
@@ -344,7 +344,7 @@
     const q = s => $("#dpHold " + s), say = t => { q(".lcmsg").textContent = t; };
     const H = holdings(), cash = +A.store.get("twlab-cash", 0) || 0;
     if (!H.length) return say("先新增持股。");
-    if (!A.DB.live) return say("目前是示意資料，無法計算。");
+    if (!A.DB.live) return say("讀不到資料。");
     const codes = [...new Set(H.map(h => h.code).concat(["0050"]))], series = new Map();
     for (let i = 0; i < codes.length; i++) {
       say(`讀取日線 ${i + 1}/${codes.length}（${nameOf(codes[i])}）… 第一次會比較久，之後有快取。`);
@@ -352,7 +352,7 @@
     }
     const used = H.filter(h => (series.get(h.code) || []).length > 20), left = H.filter(h => !used.includes(h));
     const bench = series.get("0050") || [];
-    if (!used.length || bench.length < 20) return say("日線不足，暫時畫不出來。");
+    if (!used.length || bench.length < 20) return say("日線讀不到。");
     /* from the first day every used holding and 0050 have a price; a day without a trade keeps the last close */
     const start = used.map(h => series.get(h.code)[0][0]).concat([bench[0][0]]).sort().pop();
     const maps = used.map(h => new Map(series.get(h.code).map(c => [c[0], c[4]]))), last = used.map(() => NaN);
@@ -582,7 +582,7 @@
   async function order(side) {
     const el = simBox(), say = (t, warn) => { const m = $(".simmsg", el); m.textContent = t; m.classList.toggle("warn", !!warn); };
     const c = findStock($('[name="code"]', el).value), raw = $('[name="qty"]', el).value.trim(), n = Number(raw);
-    if (!A.DB.live) return say("目前是示意資料，不能下單。", true);
+    if (!A.DB.live) return say("讀不到資料。", true);
     if (!c) return say("找不到這檔股票。", true);
     if (!Number.isInteger(n) || n <= 0) return say("股數要是正整數。", true);
     await A.quoteNow(c);
@@ -653,7 +653,7 @@
   async function checkLog() {
     if (checking) return;
     const el = logBox(), say = t => { const m = $(".logmsg", el); if (m) m.textContent = t; };
-    if (!A.DB.live) return say("目前是示意資料，無法對照。");
+    if (!A.DB.live) return say("讀不到資料。");
     checking = true; $("[data-check]", el).disabled = true; say("讀取加權指數…");
     const now = taipei(), done = d => d < now.ymd || (d === now.ymd && now.mins >= 14 * 60);
     let failed = [];
