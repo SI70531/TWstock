@@ -313,6 +313,20 @@
     }, true);
   })();
 
+  /* cards that are built after the first paint (比較, 疊圖 ...) must open straight away when their sub-tab was the one a reload came back to */
+  (function () {
+    let on = false, touched = false; document.addEventListener("pointerdown", () => { touched = true; }, true);
+    const fix = () => {
+      const dl = $("#dpList"); if (!dl) return;
+      if (performance.now() < 9000 && !touched) { let w = ""; try { w = sessionStorage.getItem("twlst") || ""; } catch (e) {} const sel = $(".lsub [aria-selected=true]", dl); if (w && sel && sel.dataset.sub !== w && $(".lsub [data-sub=\"" + w + "\"]", dl)) { A.lstSub(w); return; } }
+      const b = $(".lsub [aria-selected=true]", dl); if (!b) return; const k = b.dataset.sub; let changed = false;
+      $$(":scope > .dcard[data-sub]", dl).forEach(c => { const want = c.dataset.sub !== k; if (c.hidden !== want) { c.hidden = want; if (!want) changed = true; } });
+      if (changed) document.dispatchEvent(new CustomEvent("twdash:lstsub", { detail: k }));
+    };
+    const start = () => { const dl = $("#dpList"); if (!dl || on) return; on = true; new MutationObserver(fix).observe(dl, { childList: true }); fix(); };
+    document.addEventListener("twdash:ready", start); setInterval(start, 700);
+  })();
+
   function boot() {
     if (A) return; A = window.TWDash && window.TWDash.api; if (!A) return;
     bindChart(); ensureChip(); ensureShare();
