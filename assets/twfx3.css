@@ -52,3 +52,5 @@
 .fxclr.has .fxclr-x{opacity:.8;transform:none;pointer-events:auto}
 .fxclr-x:hover{background:color-mix(in oklch,var(--color-ink) 22%,transparent);opacity:1}
 .fxclr-x svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}
+.cmadd{margin:8px 0}.cmadd .in{width:100%;box-sizing:border-box}.cmadd .in.bad{border-color:var(--color-up)}
+.cmpick .chip span{opacity:.6;margin-left:2px}

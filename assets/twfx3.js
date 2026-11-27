@@ -283,7 +283,7 @@
     if (A) return; A = window.TWDash && window.TWDash.api; if (!A) return;
     bindChart(); ensureChip(); ensureShare();
     document.addEventListener("twdash:chart", () => { ensureChip(); paintAlerts(); const cb = $("#dpStock .cbox"); if (cb) cb.classList.toggle("alerting", alertMode); });
-    setInterval(() => { ensureChip(); ensureShare(); checkAlerts(); $$('input[list="twstocks"]').forEach(sugBind); $$('.lform [name="code"], .lform [name="qty"]').forEach(clearBind); }, 600);
+    setInterval(() => { ensureChip(); ensureShare(); checkAlerts(); $$('input[list="twstocks"]').forEach(sugBind); $$('.lform [name="code"], .lform [name="qty"], .cmq').forEach(clearBind); }, 600);
     document.addEventListener("twdash:tab", () => { if (alertMode) setMode(false); });
   }
   document.addEventListener("twdash:ready", boot);

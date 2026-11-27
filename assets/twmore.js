@@ -12,10 +12,20 @@
   const CM = { sel: null, span: 60 };
   function cmBuild(dl) {
     const card = document.createElement("div"); card.className = "dcard cm"; card.dataset.sub = "cm"; card.hidden = true;
-    card.innerHTML = `<div class="aihead"><div><h3>走勢疊圖</h3></div><span class="sub cmn">自選股，起點＝0%</span></div>
+    card.innerHTML = `<div class="aihead"><div><h3>走勢疊圖</h3></div><span class="sub cmn">起點＝0%</span></div>
       <div class="chips cmspan">${[[20, "20 日"], [60, "60 日"], [120, "120 日"]].map(([n, t]) => `<button type="button" class="chip" data-span="${n}">${t}</button>`).join("")}</div>
-      <div class="chips cmpick"></div><div class="cmout"><p class="sub">載入中…</p></div>`;
+      <div class="chips cmpick"></div><div class="cmadd"><input class="in cmq" type="text" list="twstocks" autocomplete="off" placeholder="輸入代號或名稱，加入疊圖" aria-label="加入疊圖"></div><div class="cmout"><p class="sub">載入中…</p></div>`;
     dl.appendChild(card);
+    $(".cmq", card).addEventListener("change", e => {
+      const inp = e.target, v = inp.value.trim(); if (!v) return;
+      const by = A.DB.by, tok = v.split(/\s+/)[0].toUpperCase(), hit = by.get(tok) || A.DB.list.find(x => x.name === v || x.code === tok);
+      if (!hit) { inp.classList.add("bad"); inp.animate([{ transform: "translateX(0)" }, { transform: "translateX(-5px)" }, { transform: "translateX(5px)" }, { transform: "none" }], { duration: 260 }); setTimeout(() => inp.classList.remove("bad"), 600); return; }
+      inp.value = ""; inp.dispatchEvent(new Event("input", { bubbles: true }));
+      if (!CM.sel) CM.sel = [];
+      if (CM.sel.includes(hit.code)) return;
+      if (CM.sel.length >= 5) CM.sel.shift();
+      CM.sel.push(hit.code); A.store.set("twmore-cmsel", CM.sel); cmPaint(true);
+    });
     card.addEventListener("click", e => {
       const sp = e.target.closest("[data-span]"); if (sp) { CM.span = +sp.dataset.span; A.store.set("twmore-cmspan", CM.span); cmPaint(true); return; }
       const c = e.target.closest("[data-pick]"); if (!c) return;
@@ -27,12 +37,12 @@
   async function cmPaint(anim) {
     const card = $("#dpList .cm"); if (!card || card.hidden && !anim) return;
     const W = A.watch().slice(0, 12);
-    if (!CM.sel) CM.sel = (A.store.get("twmore-cmsel", null) || W.slice(0, 4)).filter(c => A.DB.by.get(c));
+    if (!CM.sel || (!CM.sel.length && A.store.get("twmore-cmsel", null) == null)) CM.sel = (A.store.get("twmore-cmsel", null) || W.slice(0, 4)).filter(c => A.DB.by.get(c));
     CM.span = A.store.get("twmore-cmspan", CM.span);
     $$("[data-span]", card).forEach(b => b.setAttribute("aria-pressed", String(+b.dataset.span === CM.span)));
-    $(".cmpick", card).innerHTML = W.map(c => { const i = CM.sel.indexOf(c); return `<button type="button" class="chip" data-pick="${A.esc(c)}" aria-pressed="${i >= 0}" ${i >= 0 ? `style="--cmc:${COL[i % COL.length]}"` : ""}>${A.esc((A.DB.by.get(c) || {}).name || c)}</button>`; }).join("") || `<p class="sub">自選股是空的，先在清單點 ★ 加入。</p>`;
+    $(".cmpick", card).innerHTML = CM.sel.map((c, i) => `<button type="button" class="chip" data-pick="${A.esc(c)}" aria-pressed="true" style="--cmc:${COL[i % COL.length]}" aria-label="移除 ${A.esc((A.DB.by.get(c) || {}).name || c)}">${A.esc((A.DB.by.get(c) || {}).name || c)} <span aria-hidden="true">×</span></button>`).join("");
     const out = $(".cmout", card);
-    if (!CM.sel.length) { out.innerHTML = `<p class="sub">上面點選 2–5 檔股票。</p>`; return; }
+    if (!CM.sel.length) { out.innerHTML = `<p class="sub">輸入代號或名稱，加入 2–5 檔。</p>`; return; }
     const sets = await Promise.all(CM.sel.map(async c => { try { const got = await A.loadHist(c), h = A.HIST.get(c); const cs = (Array.isArray(got) ? got : h && h.cs ? h.cs : []).slice(-CM.span); return { c, cs }; } catch (e) { return { c, cs: [] }; } }));
     const ok2 = sets.filter(s => s.cs.length > 5); if (!ok2.length) { out.innerHTML = `<p class="sub">沒有資料。</p>`; return; }
     const n = Math.max(...ok2.map(s => s.cs.length)), series = ok2.map((s, i) => ({ ...s, i, v: s.cs.map(r => (r[4] / s.cs[0][4] - 1) * 100) }));
