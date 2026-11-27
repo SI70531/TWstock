@@ -38,8 +38,8 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 /* digits roll when a number changes */
 .rd { display: inline-grid; height: 1.2em; overflow: hidden; vertical-align: bottom; line-height: 1.2em; }
 .rd i { font-style: normal; grid-area: 1 / 1; }
-.rd.u i:first-child { animation: rdOutUp .5s cubic-bezier(.2,.8,.3,1) forwards; } .rd.u i:last-child { animation: rdInUp .5s cubic-bezier(.2,.8,.3,1) forwards; }
-.rd.d i:first-child { animation: rdOutDn .5s cubic-bezier(.2,.8,.3,1) forwards; } .rd.d i:last-child { animation: rdInDn .5s cubic-bezier(.2,.8,.3,1) forwards; }
+.rd.o-up i:first-child { animation: rdOutUp .5s cubic-bezier(.2,.8,.3,1) forwards; } .rd.o-up i:last-child { animation: rdInUp .5s cubic-bezier(.2,.8,.3,1) forwards; }
+.rd.o-dn i:first-child { animation: rdOutDn .5s cubic-bezier(.2,.8,.3,1) forwards; } .rd.o-dn i:last-child { animation: rdInDn .5s cubic-bezier(.2,.8,.3,1) forwards; }
 @keyframes rdOutUp { to { transform: translateY(-100%); opacity: 0; } } @keyframes rdInUp { from { transform: translateY(100%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes rdOutDn { to { transform: translateY(100%); opacity: 0; } } @keyframes rdInDn { from { transform: translateY(-100%); opacity: 0; } to { transform: none; opacity: 1; } }
 
@@ -223,8 +223,8 @@ button:not(.pressing), .btn:not(.pressing), .chip:not(.pressing) { transition-ti
 .odo { display: inline-block; height: 1.15em; line-height: 1.15em; overflow: hidden; vertical-align: bottom; }
 .odo > span { display: flex; flex-direction: column; }
 .odo i { font-style: normal; height: 1.15em; line-height: 1.15em; }
-.odo.u > span { animation: odoUp .6s cubic-bezier(.2,.9,.3,1) forwards; }
-.odo.d > span { animation: odoDn .6s cubic-bezier(.2,.9,.3,1) forwards; }
+.odo.o-up > span { animation: odoUp .6s cubic-bezier(.2,.9,.3,1) forwards; }
+.odo.o-dn > span { animation: odoDn .6s cubic-bezier(.2,.9,.3,1) forwards; }
 @keyframes odoUp { from { transform: translateY(0); } to { transform: translateY(-50%); } }
 @keyframes odoDn { from { transform: translateY(-50%); } to { transform: translateY(0); } }
 
@@ -407,3 +407,6 @@ a, button, [role="button"], summary, label, input, select, .tp, .ixcard { touch-
 /* odometer digits sit exactly on the text's own line, so nothing hops when the roll ends and the plain text comes back */
 .odo { height: 1lh; line-height: inherit; vertical-align: top; }
 .odo i { height: 1lh; line-height: inherit; }
+/* final word on odometer digits: clip (not hidden) keeps the normal text baseline, so the digit sits exactly where plain text does and the line never grows */
+.odo { display: inline-block; height: 1lh; line-height: inherit; overflow: clip; vertical-align: baseline; }
+.odo i { display: block; height: 1lh; line-height: inherit; }

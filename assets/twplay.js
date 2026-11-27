@@ -130,7 +130,7 @@
       if (prev == null || prev.length !== txt.length) return;
       const up = parseFloat(txt.replace(/,/g, "")) >= parseFloat(prev.replace(/,/g, ""));
       el.dataset.rolling = "1";
-      el.innerHTML = [...txt].map((c, i) => c !== prev[i] && /\d/.test(c) ? `<span class="rd ${up ? "u" : "d"}"><i>${prev[i]}</i><i>${c}</i></span>` : c).join("");
+      el.innerHTML = [...txt].map((c, i) => c !== prev[i] && /\d/.test(c) ? `<span class="rd ${up ? "o-up" : "o-dn"}"><i>${prev[i]}</i><i>${c}</i></span>` : c).join("");
       setTimeout(() => { if (el.querySelector(".rd")) el.textContent = txt; delete el.dataset.rolling; }, 700);
     };
     new MutationObserver(ms => ms.forEach(m => { const el = m.target.nodeType === 3 ? m.target.parentElement : m.target; if (el && el.matches && el.matches(SEL)) roll(el); }))
