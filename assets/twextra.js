@@ -533,9 +533,10 @@
   }
 
   /* ================= 模擬交易 ================= */
-  const START = 1000000;
+  const START = 10000000;
   function account() {
     const a = A.store.get("twsim", null);
+    if (a && a.start === 1000000 && a.cash === 1000000 && Array.isArray(a.log) && !a.log.length && Array.isArray(a.pos) && !a.pos.length) { a.start = START; a.cash = START; A.store.set("twsim", a); }   /* an untouched account takes the new starting cash */
     return a && ok(a.cash) && Array.isArray(a.pos) && Array.isArray(a.log) ? a : { start: START, cash: START, pos: [], log: [], pick: "" };
   }
   const save = a => A.store.set("twsim", a);
