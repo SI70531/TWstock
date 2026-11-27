@@ -404,3 +404,6 @@ a, button, [role="button"], summary, label, input, select, .tp, .ixcard { touch-
   .app .topbar .statuschip { padding: 4px 8px; font-size: var(--text-2xs); gap: 4px; }
   .app .topbar .statuschip > i { width: 7px; height: 7px; }
 }
+/* odometer digits sit exactly on the text's own line, so nothing hops when the roll ends and the plain text comes back */
+.odo { height: 1lh; line-height: inherit; vertical-align: top; }
+.odo i { height: 1lh; line-height: inherit; }

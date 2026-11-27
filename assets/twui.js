@@ -189,7 +189,7 @@
     if (!old || old.length !== text.length) return;
     RUN.add(el);
     el.innerHTML = [...text].map((c, i) => (c !== old[i] && /\d/.test(c) ? `<span class="odo ${up ? "u" : "d"}"><span>${up ? `<i>${old[i]}</i><i>${c}</i>` : `<i>${c}</i><i>${old[i]}</i>`}</span></span>` : c)).join("");
-    setTimeout(() => { el.textContent = text; RUN.delete(el); }, 700);
+    setTimeout(() => { el.textContent = text; RUN.delete(el); }, 620);
   }
   function scanNumbers() {
     $$(".dash .big, .side .sb-ix b").forEach((el, i) => {
