@@ -575,6 +575,11 @@
     IDX.forEach(i => {
       const c = $(`.ixcard[data-k="${i.k}"]`); if (!c) return;
       const cd = CH[i.k + ":tick"];
+      /* no quote from the Worker: take the chart's last real bar, only if it is fresh (within 20 minutes of a session) or is the last session's close, shown with its date; otherwise "讀不到" */
+      if (!i.us && !i.rt && cd && cd.last > 0 && cd.at) {
+        const age = Date.now() - cd.at, live = age < 20 * 60000, tz = new Date(cd.at + 8 * 3600e3).toISOString();
+        if (live || age < 4 * 864e5) Object.assign(i, { z: cd.last, y: cd.prev, h: cd.high, l: cd.low, tm: live ? tz.slice(11, 19) : "", src: live ? (sessOpen(i.k) ? "盤中" : "收盤") : "收盤 " + tz.slice(5, 10).replace("-", "/") });
+      }
       /* the first time a card shows its number, its line must be ready too, so the count-up and the line draw start together and end together (give up waiting after 6 s) */
       if (ok(i.z) && !c.dataset.shown) { const sp = $(".spark path", c); if (!(sp && sp.getAttribute("d")) && Date.now() - T_START < 6000) { c.classList.add("ixwait"); return; } c.dataset.shown = "1"; }
       const d = ok(i.z) && ok(i.y) ? i.z - i.y : NaN, t = tone(d), big = $(".big", c);
