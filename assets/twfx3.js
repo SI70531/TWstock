@@ -353,7 +353,7 @@
   /* script errors go to the Worker (once per message per page load) */
   (function () {
     const sent = new Set(); let n = 0;
-    const send = (m, w) => { const k = m + w; if (sent.has(k) || n++ > 8 || !window.TWDash || !TWDash.api) return; sent.add(k); try { fetch(TWDash.api.worker + "/tw/err", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ m, w, ua: navigator.userAgent }), keepalive: true }).catch(() => {}); } catch (e) {} };
+    const send = (m, w) => { const k = m + w; if (sent.has(k) || n++ > 8 || !window.TWDash || !TWDash.api) return; sent.add(k); try { fetch(TWDash.api.worker + "/tw/err", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ m, w, ua: navigator.userAgent }) }).catch(() => {}); } catch (e) {} };
     addEventListener("error", e => send(e.message || "error", (e.filename || "").split("/").pop() + ":" + (e.lineno || 0)));
     addEventListener("unhandledrejection", e => send("promise: " + String((e.reason && e.reason.message) || e.reason), ""));
   })();
