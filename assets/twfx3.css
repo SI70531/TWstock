@@ -31,3 +31,7 @@
 .gpg{margin-bottom:4px;border-radius:12px}
 .gpbar{height:4px}
 .gpbar i{opacity:.78}
+/* limit up / down: just the colour, lighter, no label */
+.pxpill.lim::after,.shead[data-lim] .stitle::after{content:none!important;display:none!important}
+:root .pxpill.lim.up,:root .mtbl .pxpill.lim.up{background:color-mix(in oklab,var(--color-up) 80%,white)!important;border-color:transparent!important;color:#fff!important}
+:root .pxpill.lim.down,:root .mtbl .pxpill.lim.down{background:color-mix(in oklab,var(--color-down) 78%,white)!important;border-color:transparent!important;color:#fff!important}
