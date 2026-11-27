@@ -676,7 +676,7 @@
     if (!items.length) { hm.innerHTML = `<p class="sub hmwait">${HEAT.f === "up" ? "目前沒有上漲的" : "目前沒有下跌的"}${g ? "個股" : "類股"}。</p>`; return; }
     const tiles = items.map((it, i) => {
       const r = R[i] || [0, 0, 0, 0], a = clamp(Math.abs(it.pct || 0) / lim, 0.08, 1) * 0.9, sz = r[2] < 58 || r[3] < 30 ? " xs" : r[2] < 96 || r[3] < 48 ? " sm" : "";
-      return { it, cls: `hmt ${tone(it.pct)}${sz}`, st: `left:${(r[0] / W * 100).toFixed(3)}%;top:${(r[1] / H * 100).toFixed(3)}%;width:${(r[2] / W * 100).toFixed(3)}%;height:${(r[3] / H * 100).toFixed(3)}%;--a:${a.toFixed(3)}` };
+      return { it, cls: `hmt ${tone(it.pct)}${sz}${g && Math.abs(it.pct || 0) >= 9.4 ? " lim" : ""}`, st: `left:${(r[0] / W * 100).toFixed(3)}%;top:${(r[1] / H * 100).toFixed(3)}%;width:${(r[2] / W * 100).toFixed(3)}%;height:${(r[3] / H * 100).toFixed(3)}%;--a:${a.toFixed(3)}` };
     });
     /* tiles already on the map (a live update, a filter or a re-sort): move and recolour them in place so they glide to their new place;
        new ones fade in, gone ones fade out, and a tile whose change moved flashes and pulses */
@@ -1557,9 +1557,12 @@
     [0, Math.floor((N - 1) / 2), N - 1].forEach((i, k) => add("text", { x: X(i), y: H - 1, "text-anchor": k === 0 ? "start" : k === 2 ? "end" : "middle" }, "xlabel").textContent = shortDay(cs[i][0]));
     const clip = add("clipPath", { id: "kclip" }); add("rect", { x: PL, y: panes[0].y, width: W - PL - PR, height: panes[0].h }, "", clip);
     const tg = add("g", { "clip-path": "url(#kclip)" }, "tlines");
+    const band = add("rect", { x: 0, y: 8, width: 6, height: H - 22, rx: 3 }, "kband"); band.style.opacity = 0;
     const cross = add("line", { x1: 0, x2: 0, y1: 8, y2: H - 14 }, "cross"); cross.style.opacity = 0;
     const PP = panes[0], hline = add("line", { x1: PL, x2: W - PR, y1: 0, y2: 0 }, "cross hl"), dot = add("circle", { r: 3.5, cx: 0, cy: 0 }, "kdot");
     const ytag = add("g", {}, "ytag"), ytr = add("rect", { x: W - PR + 1, y: -9, width: PR - 2, height: 18, rx: 4 }, "", ytag), ytt = add("text", { x: W - PR + 6, y: 4 }, "", ytag);
+    const xtag = add("g", {}, "ytag xtag"), xtr = add("rect", { x: -34, y: H - 17, width: 68, height: 16, rx: 4 }, "", xtag), xtt = add("text", { x: 0, y: H - 5, "text-anchor": "middle" }, "", xtag);
+    const ring = add("circle", { r: 8, cx: 0, cy: 0 }, "kring");
     [hline, dot, ytag].forEach(e => { e.style.opacity = 0; });
     const at = i => {
       const j = off + i, c = cs[i], d = dig(c[4]), v = x => (x == null ? "—" : fmt(x, d));
@@ -1578,16 +1581,21 @@
         return { ai: off + ((sx - PL) / (W - PL - PR) * N - 0.5), price: PP.a - (PP.a - PP.b) * (sy - PP.y) / PP.h, inPrice: sy >= PP.y && sy <= PP.y + PP.h };
       },
       mark(i, e) {
+        const bw = Math.max(3, (W - PL - PR) / N * 0.9);
+        band.setAttribute("x", (X(i) - bw / 2).toFixed(1)); band.setAttribute("width", bw.toFixed(1)); band.style.opacity = 1;
+        { const tx = clamp(X(i), PL + 34, W - PR - 34); xtag.setAttribute("transform", `translate(${tx.toFixed(1)} 0)`); xtt.textContent = slash(cs[i][0]); xtag.style.opacity = 1; }
         cross.setAttribute("x1", X(i)); cross.setAttribute("x2", X(i)); cross.style.opacity = 1;
         dot.setAttribute("cx", X(i)); dot.setAttribute("cy", PP.Y(cs[i][4])); dot.setAttribute("class", "kdot " + (cs[i][4] >= cs[i][1] ? "up" : "down")); dot.style.opacity = 1;
+        ring.setAttribute("cx", X(i)); ring.setAttribute("cy", PP.Y(cs[i][4])); ring.setAttribute("class", "kring " + (cs[i][4] >= cs[i][1] ? "up" : "down")); ring.style.opacity = 1;
         const r = svg.getBoundingClientRect(), sy = e && r.height ? (e.clientY - r.top) / r.height * H : -1;
         if (sy >= PP.y && sy <= PP.y + PP.h) {
-          const v = PP.a - (PP.a - PP.b) * (sy - PP.y) / PP.h;
-          hline.setAttribute("y1", sy); hline.setAttribute("y2", sy); hline.style.opacity = 1;
-          ytag.setAttribute("transform", `translate(0 ${sy.toFixed(1)})`); ytt.textContent = fmt(v, dig(v)); ytag.style.opacity = 1;
+          /* magnet: near the bar's close, the line and its tag snap onto the close */
+          const cy = PP.Y(cs[i][4]), snap = Math.abs(sy - cy) < 9, ly = snap ? cy : sy, v = snap ? cs[i][4] : PP.a - (PP.a - PP.b) * (sy - PP.y) / PP.h;
+          hline.setAttribute("y1", ly); hline.setAttribute("y2", ly); hline.style.opacity = 1; hline.classList.toggle("snap", snap);
+          ytag.setAttribute("transform", `translate(0 ${ly.toFixed(1)})`); ytt.textContent = fmt(v, dig(v)); ytag.style.opacity = 1;
         } else { hline.style.opacity = 0; ytag.style.opacity = 0; }
       },
-      unmark() { [cross, hline, dot, ytag].forEach(x => { x.style.opacity = 0; }); } };
+      unmark() { [band, cross, hline, dot, ytag, xtag, ring].forEach(x => { x.style.opacity = 0; }); } };
   }
 
   /* the floating reading next to the pointer: date, OHLC, change against the day before, volume */
@@ -1736,7 +1744,7 @@
     if (!s) { $(".spx .big", box).textContent = "—"; $(".schg", box).textContent = DB.list.length ? "找不到這檔上市股票" : ""; $(".sohlc", box).innerHTML = ""; return; }
     if (s.rtWait) { $(".spx .big", box).textContent = "—"; $(".spx .big", box).className = "big"; $(".schg", box).textContent = "讀取即時報價…"; $(".schg", box).className = "schg"; $(".stime", box).textContent = ""; $(".sohlc", box).innerHTML = ""; return; }
     const d = dig(s.price), t = tone(s.chg), sh = $(".shead", box);
-    sh.dataset.tone = t || "flat"; sh.classList.toggle("live", !!s.rt);
+    sh.dataset.tone = t || "flat"; sh.dataset.lim = s.pct >= 9.4 ? "up" : s.pct <= -9.4 ? "down" : ""; sh.classList.toggle("live", !!s.rt);
     if (HEADLAST.code === CODE && ok(HEADLAST.px) && s.price !== HEADLAST.px) { const g = $(".sglow", sh); g.classList.remove("hit"); void g.offsetWidth; g.classList.add("hit"); }
     HEADLAST.code = CODE; HEADLAST.px = s.price;
     $(".spx .big", box).textContent = fmt(s.price, d); $(".spx .big", box).className = "big " + t;
@@ -2448,14 +2456,17 @@
       const row = (k, ic, a, b, c, cls) => `<button type="button" role="option" class="pal-it" data-k="${esc(k)}"><span class="pi-ic">${ic}</span><b>${a}</b><span class="pi-sub">${b}</span>${c ? `<em class="${cls || ""}">${c}</em>` : ""}</button>`;
       const stk = s => ({ k: "s:" + s.code, h: row("s:" + s.code, esc(s.code), esc(s.name), FLAGS.get(s.code) ? flagTag(s.code) : s.mkt === "otc" ? "上櫃" : s.mkt === "esb" ? "興櫃" : "上市", `${fmt(s.price, dig(s.price))}　${pct(s.pct)}`, tone(s.chg)) });
       let stocks;
-      if (!q) stocks = (store.get("twrecent", []) || []).map(c => DB.by.get(c)).filter(Boolean).slice(0, 6);
+      let wl = [];
+      if (!q) { stocks = (store.get("twrecent", []) || []).map(c => DB.by.get(c)).filter(Boolean).slice(0, 4); wl = WATCH.map(c => DB.by.get(c)).filter(s => s && !stocks.includes(s)).slice(0, 4); }
       else stocks = DB.list.filter(s => s.code.toLowerCase().startsWith(q) || s.name.toLowerCase().includes(q))
         .sort((a, b) => (b.code.toLowerCase() === q) - (a.code.toLowerCase() === q) || (b.code.toLowerCase().startsWith(q)) - (a.code.toLowerCase().startsWith(q)) || b.vol - a.vol).slice(0, 8);
       const pages = PAGES.filter(p => !q || p[1].toLowerCase().includes(q) || p[2].toLowerCase().includes(q)).map(p => ({ k: "p:" + p[0], h: row("p:" + p[0], "→", p[1], p[2]) }));
+      const QA = [["a:settings", "開啟設定", "⚙"], ["a:ud", "切換漲跌顏色（" + (window.TWSet && window.TWSet.get("ud") === "intl" ? "目前綠漲紅跌" : "目前紅漲綠跌") + "）", "◑"], ["a:top", "回到頂端", "↑"], ...[["rk", "股票・排行"], ["cp", "股票・比較"], ["sc", "股票・選股"], ["rv", "股票・營收"], ["cm", "股票・疊圖"], ["dv", "股票・除息"]].map(([k, l]) => ["l:" + k, l, "▤"])];
+      const quick = QA.filter(a => !q || a[1].toLowerCase().includes(q)).slice(0, q ? 6 : 5).map(a => ({ k: a[0], h: row(a[0], a[2], a[1], "") }));
       const acts = [["t:dark", "深色模式"], ["t:light", "淺色模式"], ["t:system", "外觀跟隨裝置"]].filter(a => !q || a[1].includes(q) || /dark|light|theme|深|淺|外觀/.test(q)).map(a => ({ k: a[0], h: row(a[0], "◐", a[1], T && T.mode === a[0].slice(2) ? "目前" : "") }));
       const sec = (t, arr) => (arr.length ? `<p class="pal-sec">${t}</p>` + arr.map(x => x.h).join("") : "");
-      items = [...stocks.map(stk), ...pages, ...(q ? acts : [])];
-      list.innerHTML = sec(q ? "股票" : "最近看過", stocks.map(stk)) + sec("頁面", pages) + (q ? sec("外觀", acts) : "") || `<p class="pal-empty">找不到「${esc(inp.value)}」。試試代號，例如 2330。</p>`;
+      items = [...stocks.map(stk), ...wl.map(stk), ...pages, ...quick, ...(q ? acts : [])];
+      list.innerHTML = sec(q ? "股票" : "最近看過", stocks.map(stk)) + sec("自選股", wl.map(stk)) + sec("頁面", pages) + sec("快速動作", quick) + (q ? sec("外觀", acts) : "") || `<p class="pal-empty">找不到「${esc(inp.value)}」。試試代號，例如 2330。</p>`;
       on = clamp(on, 0, Math.max(0, items.length - 1)); mark();
     };
     const mark = () => { $$(".pal-it", list).forEach((b, i) => { b.classList.toggle("on", i === on); b.setAttribute("aria-selected", String(i === on)); }); const b = $$(".pal-it", list)[on]; b && b.scrollIntoView({ block: "nearest" }); };
@@ -2464,6 +2475,10 @@
       if (k.startsWith("s:")) openStock(k.slice(2));
       else if (k.startsWith("p:")) open(k.slice(2), true);
       else if (k.startsWith("t:") && T) T.set(k.slice(2));
+      else if (k === "a:settings") document.dispatchEvent(new Event("twdash:settings"));
+      else if (k === "a:ud") { if (window.TWSet) window.TWSet.set("ud", window.TWSet.get("ud") === "intl" ? "tw" : "intl"); }
+      else if (k === "a:top") scrollTo({ top: 0, behavior: "smooth" });
+      else if (k.startsWith("l:")) { open("dpList", true); setTimeout(() => lstSub(k.slice(2), true), 60); }
     };
     inp.addEventListener("input", () => { on = 0; paint(); });
     inp.addEventListener("keydown", e => {
@@ -2524,7 +2539,7 @@
   });
   window.TWDash = { replay: () => open(cur, false),
     /* shared with the 研究室 tab (assets/twlab.js) */
-    api: { whyOf, paintHeat, gpPaint, instLoad, ftLoad, paintStreak, heatGroups, heatTip, heatFocus, segMark, DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
+    api: { rowStar: code => { const i = listIdx(), had = LISTS[i].includes(code); toggleWatch(code, i); return !had; }, goBackNow: () => { const b = $("#dpStock .sback"); if (b && !b.hidden) b.click(); return !!(b && !b.hidden); }, whyOf, paintHeat, gpPaint, instLoad, ftLoad, paintStreak, heatGroups, heatTip, heatFocus, segMark, DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
       refresh: () => Promise.all([rtPoll(), pmLoad(), pmLoad(true), clLoad()]).then(() => open(cur, true)),
       rtPoll, quoteNow,
       store, worker: WORKER, openTab: p => open(p, true), lstSub: k => lstSub(k, true), tabNow: () => cur, ixk: () => IXV.k, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };

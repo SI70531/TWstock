@@ -179,6 +179,8 @@
     /* the aurora leans red or green with the TAIEX */
     const ix = A.IDX[0], p = Number.isFinite(ix.z) && Number.isFinite(ix.y) ? (ix.z / ix.y - 1) * 100 : 0;
     root.dataset.mood = p > 0.3 ? "up" : p < -0.3 ? "down" : "flat";
+    /* how hard the market moves sets how strongly (and how fast) the backdrop breathes */
+    root.style.setProperty("--mood", Math.max(0, Math.min(1, Math.abs(p) / 2.5)).toFixed(3));
   }
 
   /* ---------- numbers: count from the old value to the new one, then flash in the market colour ---------- */
@@ -217,7 +219,8 @@
       /* the same stock or index moving: count from the value that was on screen (37,000 → 36,800); another stock or index (or a first value): count up from 0 */
       const from = prev.who !== who || !Number.isFinite(prev.v) ? 0 : prev.v;
       if (from === v) return;
-      countTo(el, from, v, text);
+      /* the same quote ticking by a little: odometer; a big jump, another stock or a first value: count */
+      if (prev.who === who && prev.text && prev.text.length === text.length && Math.abs(v - from) / Math.max(1, Math.abs(from)) < 0.05) roll(el, prev.text, text, v > from); else countTo(el, from, v, text);
     });
     $$(".dash .pxpill").forEach(el => {
       const tr = el.closest("[data-code]"), k = "px:" + (tr ? tr.dataset.code : ""), v = num(el.textContent), old = LAST.get(k);
@@ -234,7 +237,10 @@
     $$(".app p, .app .mempty, .app .sub, .app .big, .app td, .side .sb-empty").forEach(el => {
       if (el.children.length > 1) return;
       const t = el.textContent.trim(), loading = LOADING.test(t) || (el.classList.contains("big") && t === "—" && A && !A.DB.list.length);
+      const was = el.classList.contains("skel");
       el.classList.toggle("skel", loading);
+      /* data arrived: the real content melts in where the bars were */
+      if (was && !loading && el.isConnected) el.animate([{ opacity: 0, filter: "blur(6px)", transform: "translateY(6px)" }, { opacity: 1, filter: "none", transform: "none" }], { duration: 520, easing: "cubic-bezier(.16,1,.3,1)" });
       if (loading && (el.tagName === "P" || el.classList.contains("mempty"))) el.classList.add("block"); else el.classList.remove("block");
     });
   }
