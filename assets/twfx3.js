@@ -207,15 +207,31 @@
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
   splash();
 
-  /* a panel that is rewritten by a refresh must not fold shut what the reader opened: keep every open <details> (by its heading) across an innerHTML rewrite */
+  /* a panel that is rewritten by a refresh must not undo what the reader is doing in it:
+     - open <details> stay open (matched by their heading)
+     - the same content written again while the reader is pressing or typing inside is left alone
+     - a box being typed in keeps its focus, caret and text, and scrolled lists keep their place */
   (function () {
     const d = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML"); if (!d || !d.set) return;
     const key = x => { const s = x.querySelector(":scope > summary"); return s ? s.textContent.trim() : ""; };
+    const last = new WeakMap(); let pressed = null;
+    document.addEventListener("pointerdown", e => { pressed = e.target; }, true);
+    const clear = () => setTimeout(() => { pressed = null; }, 80); document.addEventListener("pointerup", clear, true); document.addEventListener("pointercancel", clear, true);
+    const path = (root, el) => { const p = []; while (el && el !== root) { const par = el.parentElement; if (!par) return null; p.unshift(Array.prototype.indexOf.call(par.children, el)); el = par; } return el === root ? p : null; };
+    const walk = (root, p) => { let el = root; for (const i of p) { el = el && el.children[i]; } return el; };
     Object.defineProperty(Element.prototype, "innerHTML", { configurable: true, enumerable: d.enumerable, get: d.get, set(v) {
-      let open = null;
+      const ae = document.activeElement, inside = x => x && x !== this && this.contains && this.contains(x);
+      const busy = inside(pressed) || (inside(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName));
+      if (busy && last.get(this) === v && this.isConnected) return;
+      last.set(this, v);
+      let open = null, foc = null, scr = null;
       try { const o = this.querySelectorAll ? this.querySelectorAll("details[open]") : []; if (o.length) { open = {}; o.forEach(x => { const k = key(x); open[k] = (open[k] || 0) + 1; }); } } catch (e) {}
+      if (inside(ae) && /^(INPUT|TEXTAREA)$/.test(ae.tagName)) { const p = path(this, ae); if (p) foc = { p, v: ae.value, s: ae.selectionStart, e: ae.selectionEnd, n: ae.name, c: ae.className }; }
+      try { if (this.isConnected && this.getElementsByTagName("*").length < 2500) { const sc = []; this.querySelectorAll("*").forEach(x => { if (x.scrollTop > 0 || x.scrollLeft > 0) { const p = path(this, x); if (p) sc.push([p, x.scrollTop, x.scrollLeft, x.className]); } }); if (sc.length) scr = sc; } } catch (e) {}
       d.set.call(this, v);
       if (open) try { const seen = {}; this.querySelectorAll("details").forEach(x => { const k = key(x); seen[k] = (seen[k] || 0) + 1; if (open[k] >= seen[k]) x.setAttribute("open", ""); }); } catch (e) {}
+      if (foc) try { const n = walk(this, foc.p); if (n && /^(INPUT|TEXTAREA)$/.test(n.tagName) && n.name === foc.n && n.className === foc.c) { if (!n.value) n.value = foc.v; n.focus({ preventScroll: true }); try { n.setSelectionRange(foc.s, foc.e); } catch (e) {} } } catch (e) {}
+      if (scr) try { scr.forEach(([p, t, l, c]) => { const n = walk(this, p); if (n && n.className === c) { n.scrollTop = t; n.scrollLeft = l; } }); } catch (e) {}
     } });
   })();
 

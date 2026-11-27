@@ -137,7 +137,7 @@
     if (cb.dataset.h !== chipHtml) { cb.dataset.h = chipHtml; cb.innerHTML = chipHtml; }
     $(".cpadd", card).hidden = codes.length >= 4;
     await Promise.all([A.loadFund(), A.loadChip()].map(p => p.catch(() => {})));
-    await Promise.all(codes.map(c => CP.hist.has(c) ? 0 : A.loadHist(c).then(cs => CP.hist.set(c, cs)).catch(() => CP.hist.set(c, null))));
+    await Promise.all(codes.map(c => CP.hist.has(c) ? 0 : A.loadHist(c, more => { CP.hist.set(c, more); cpPaint(false); }).then(cs => { if (!CP.hist.has(c) || (cs && cs.length > (CP.hist.get(c) || []).length)) CP.hist.set(c, cs); }).catch(() => CP.hist.set(c, null))));
     if (card.hidden || codes.join() !== cpCodes().join()) return;
     const F = A.FUND.map || new Map(), C = (A.CHIP && A.CHIP.map) || new Map(), ind = {};
     A.heatGroups().forEach(g => g.list.forEach(s => { ind[s.code] = g.name; }));

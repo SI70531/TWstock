@@ -134,7 +134,7 @@
     if (!got.length) throw new Error("no list");
     got.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.list.length - a.list.length));
     const best = got[0], names = new Map(best.list.map(s => [s.code, s]));
-    got.slice(1).forEach(g => g.list.forEach(s => { if (!names.has(s.code)) names.set(s.code, Object.assign(s, { price: NaN, chg: 0, pct: 0, vol: 0, stale: true })); }));
+    got.slice(1).forEach(g => g.list.forEach(s => { if (!names.has(s.code)) names.set(s.code, Object.assign(s, { price: NaN, chg: 0, pct: NaN, vol: 0, stale: true })); }));
     (await otc).forEach(s => { if (!names.has(s.code)) names.set(s.code, s); });
     setList([...names.values()].filter(s => s.code && s.name), true, best.date);
   }

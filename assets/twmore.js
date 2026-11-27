@@ -224,29 +224,36 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
   }
   /* ================= the same data on every device: holdings, cash, trades, alerts, watchlists (no login; stored in the Worker) ================= */
   function syncInit() {
-    const KEYS = ["twlab-hold", "twlab-cash", "twlab-trades", "twlab-events", "twlab-pref", "tw-palerts", "tw-fee-disc", "twtrade-watch", "twtrade-wl"], WATCHK = new Set(["twtrade-watch", "twtrade-wl"]);
-    const raw = A.store.set.bind(A.store), TK = "tw-sync-t", T = () => A.store.get(TK, {}) || {};
+    /* every key of the owner's own data (watchlists, holdings, trades, alerts, simulated account, compare and screener picks, settings) — not the caches */
+    const SKIP = /^(twh:|twinst-|twdash-m-|twlog-|twstock-device|tw-sync|twmain-calc|twlab-backup-at|tw\.sbhide|twtrade-wl-seed)/, WATCHK = new Set(["twtrade-watch", "twtrade-wl"]);
+    const mine = k => /^tw/.test(k) && !SKIP.test(k), TK = "tw-sync-t", SK = "tw-sync-seen";
+    const rd = k => { try { return JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch (e) { return {}; } }, wr = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
     const url = A.worker + "/tw/sync"; let pushT = 0, busy = false;
     const post = body => fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json());
-    A.store.set = (k, v) => { raw(k, v); if (KEYS.includes(k)) { const t = T(); t[k] = Date.now(); raw(TK, t); clearTimeout(pushT); pushT = setTimeout(sync, 1500); } };
+    const raw = A.store.set.bind(A.store);
+    A.store.set = (k, v) => { raw(k, v); if (mine(k)) { clearTimeout(pushT); pushT = setTimeout(sync, 1500); } };
     async function sync() {
       if (busy) { clearTimeout(pushT); pushT = setTimeout(sync, 1500); return; } busy = true;
       try {
-        const t = T(), push = {}, r0 = await post({ set: {} }), rem = (r0 && r0.data) || {}, applied = [];
-        KEYS.forEach(k => {
-          const r = rem[k], lt = t[k] || 0, lv = localStorage.getItem(k);
-          if (r && r.t > lt) { raw(k, r.v); t[k] = r.t; applied.push(k); }
-          else if (lv != null && (!r || lt > r.t)) { const tt = lt || Date.now(); t[k] = tt; push[k] = { v: JSON.parse(lv), t: tt }; }
+        const first = localStorage.getItem(SK) == null, t = rd(TK), seen = rd(SK), push = {}, applied = [];
+        /* a key whose text changed since the last sync was edited here (whatever wrote it) */
+        Object.keys(localStorage).filter(mine).forEach(k => { const v = localStorage.getItem(k); if (v != null && v.length < 60000 && seen[k] !== v) { if (!first) t[k] = Date.now(); seen[k] = v; } });
+        const r0 = await post({ set: {} }), rem = (r0 && r0.data) || {};
+        new Set([...Object.keys(rem), ...Object.keys(t)]).forEach(k => {
+          if (!mine(k)) return; const r = rem[k], lt = t[k] || 0, lv = localStorage.getItem(k);
+          if (r && r.t > lt) { const txt = JSON.stringify(r.v); try { localStorage.setItem(k, txt); } catch (e) {} t[k] = r.t; seen[k] = txt; applied.push(k); }
+          else if (lv != null && lv.length < 60000 && (!r || lt > r.t)) { let v; try { v = JSON.parse(lv); } catch (e) { v = lv; } push[k] = { v, t: lt || Date.now() }; }
         });
-        raw(TK, t);
+        wr(TK, t); wr(SK, seen);
         if (Object.keys(push).length) await post({ set: push });
         if (applied.length) {
-          if (applied.some(k => WATCHK.has(k))) { const last = +sessionStorage.getItem("tw-sync-rl") || 0; if (Date.now() - last > 60000) { sessionStorage.setItem("tw-sync-rl", String(Date.now())); location.reload(); return; } }
+          if (applied.some(k => WATCHK.has(k) || k === "twmain-set")) { const last = +sessionStorage.getItem("tw-sync-rl") || 0; if (Date.now() - last > 60000) { sessionStorage.setItem("tw-sync-rl", String(Date.now())); location.reload(); return; } }
           document.dispatchEvent(new Event("twlab:hold")); document.dispatchEvent(new Event("tw:synced"));
         }
       } catch (e) {} finally { busy = false; }
     }
-    sync(); setInterval(sync, 45000); document.addEventListener("visibilitychange", () => { if (!document.hidden) sync(); });
+    sync(); setInterval(() => { if (!document.hidden) sync(); }, 45000); document.addEventListener("visibilitychange", () => { if (!document.hidden) sync(); });
+    addEventListener("pagehide", () => { clearTimeout(pushT); });
   }
   /* ================= sidebar extras: price alerts, holdings and P&L, market calendar, recently viewed ================= */
   function sidePlus() {
