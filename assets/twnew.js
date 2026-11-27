@@ -58,7 +58,7 @@
   async function mgLoad() {
     if (MG.loading) return; MG.loading = true;
     try { MG.data = await A.J(`${A.worker}/tw/margintop`); mgPaint(true); }
-    catch (e) { MG.data = null; { const el = $(".mgout"); if (el) el.innerHTML = `<p class="sub">融資融券排行讀不到資料。</p>`; } }
+    catch (e) { MG.data = null; { const el = $(".mgout"); if (el) el.innerHTML = `<p class="sub">融資融券排行讀不到資料（${A.esc(A.whyOf(e))}）。</p>`; } }
     finally { MG.loading = false; }
   }
   function mgPaint(animate) {
@@ -102,7 +102,7 @@
   async function rotLoad() {
     if (ROT.loading) return; ROT.loading = true;
     try { ROT.data = await A.J(`${A.worker}/tw/sectorhist`); rotPaint(true); }
-    catch (e) { ROT.data = null; { const el = $(".rotout"); if (el) el.innerHTML = `<p class="sub">產業輪動讀不到資料。</p>`; } }
+    catch (e) { ROT.data = null; { const el = $(".rotout"); if (el) el.innerHTML = `<p class="sub">產業輪動讀不到資料（${A.esc(A.whyOf(e))}）。</p>`; } }
     finally { ROT.loading = false; }
   }
   function rotPaint(animate) {
@@ -140,7 +140,7 @@
   async function rvLoad() {
     if (RV.loading) return; RV.loading = true;
     try { const j = await A.J(`${A.worker}/tw/review`); RV.rows = Array.isArray(j.rows) ? j.rows : []; rvPaint(true); }
-    catch (e) { RV.rows = null; { const el = $(".rvwout"); if (el) el.innerHTML = `<p class="sub">每日對帳讀不到資料。</p>`; } }
+    catch (e) { RV.rows = null; { const el = $(".rvwout"); if (el) el.innerHTML = `<p class="sub">每日對帳讀不到資料（${A.esc(A.whyOf(e))}）。</p>`; } }
     finally { RV.loading = false; }
   }
   const mark = h => (h == null ? "—" : h ? "✓" : "✗");

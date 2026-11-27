@@ -65,7 +65,7 @@
   async function ccLoad(ep) {
     const S = CS[ep]; if (!S || S.busy) return; S.busy = true;
     try { S.data = await A.J(`${A.worker}/tw/${ep}`); ccPaint(ep, true); }
-    catch (e) { S.data = null; $(".ccout", S.card).innerHTML = `<p class="sub">讀不到資料。</p>`; }
+    catch (e) { S.data = null; $(".ccout", S.card).innerHTML = `<p class="sub">讀不到資料（${A.esc(A.whyOf(e))}）。</p>`; }
     S.busy = false;
   }
   function ccPaint(ep, animate) {

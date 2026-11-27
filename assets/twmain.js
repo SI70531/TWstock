@@ -46,6 +46,7 @@
     get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
   };
+  const whyOf = e => (e && /^HTTP (\d+)/.test(e.message || "") ? "Worker 或來源回應錯誤，" + e.message : e && e.message && !/Failed to fetch|Load failed|NetworkError/i.test(e.message) ? e.message : "網路連不上 Worker 或來源");
   const J = url => fetch(url, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); });
   /* "115/11/03" (ROC year), "2026/11/03" and "1151103" all become "20261103" */
   const ymd = v => { const m = String(v).match(/(\d{2,4})\D?(\d{2})\D?(\d{2})/); if (!m) return ""; let y = +m[1]; if (y < 1911) y += 1911; return y + m[2] + m[3]; };
@@ -366,6 +367,10 @@
       const j = await J(`${WORKER}/tw/rt?c=${codes.join(",")}${wantIdx ? "&idx=1" : ""}`);
       let any = false;
       (j.q || []).forEach(x => { if (rtApply(x)) any = true; });
+      IDX.forEach(i => { if (!i.us) i.why = ""; });
+      if (wantIdx) { const got = new Set((j.idx || []).filter(x => x.z > 0).map(x => x.c)); ["t00", "o00"].forEach(k => { const it = IDX.find(i => i.k === k); if (it && !got.has(k)) it.why = marketOpen() ? "證交所即時報價沒有回傳這個指數" : "非盤中，證交所沒有即時報價"; }); }
+      if (j.exf && !(j.exf.z > 0)) IDX[3].why = j.exf.why || "Worker 沒有電子期報價"; else if (!j.exf && wantIdx) IDX[3].why = "Worker 沒有回傳電子期（可能還是舊版）";
+      if (j.fut && !(j.fut.z > 0)) IDX[1].why = j.fut.why || "Worker 沒有台指期報價"; else if (!j.fut && wantIdx) IDX[1].why = "Worker 沒有回傳台指期（可能還是舊版）";
       (j.idx || []).forEach(x => {
         const it = IDX.find(i => i.k === x.c); if (!it || !(x.z > 0)) return;
         any = true; Object.assign(it, { z: x.z, y: x.y, h: x.h, l: x.l, tm: x.tm, src: marketOpen() ? "盤中" : "收盤", rt: true });
@@ -373,10 +378,10 @@
       if (j.exf && j.exf.z > 0) { any = true; Object.assign(IDX[3], { z: j.exf.z, y: j.exf.y, h: j.exf.h, l: j.exf.l, v: j.exf.v, tm: j.exf.tm, src: j.exf.src === "night" ? "夜盤" : j.exf.src === "rt" ? "盤中" : (j.exf.sess || "") + "收盤", rt: true, label: "" }); }
       if (j.fut && j.fut.z > 0) { any = true; Object.assign(IDX[1], { z: j.fut.z, y: j.fut.y, h: j.fut.h, l: j.fut.l, tm: j.fut.tm, src: j.fut.src === "night" ? "夜盤" : j.fut.src === "rt" ? "盤中" : (j.fut.sess || "") + "收盤", rt: true, label: j.fut.n }); }
       DB.rtSrc = j.src || "mis";
-      rtFails = 0;
+      rtFails = 0; DB.rtErr = "";
       if (any) { DB.rt = true; DB.rtAt = new Date().toLocaleTimeString("zh-TW", { hour12: false }); paintLive(); }
       else if (DB.rt == null) DB.rt = false;
-    } catch (e) { DB.rt = false; rtFailAt = Date.now(); if (++rtFails >= 2) rtDrop(); }
+    } catch (e) { DB.rt = false; DB.rtErr = whyOf(e); rtFailAt = Date.now(); if (++rtFails >= 2) rtDrop(); }
     rtBusy = false; note();
   }
   document.addEventListener("twset:change", e => { if (e.detail.k === "poll") { clearTimeout(rtTimer); rtLoop(); } });
@@ -588,7 +593,7 @@
       const bt = ok(i.z) ? fmt(i.z, 2) : "—";
       if (big.dataset.txt !== bt) { const was = big.dataset.z ? +big.dataset.z : NaN; big.dataset.txt = bt; big.textContent = bt; if (ok(was) && ok(i.z) && was !== i.z) { big.classList.remove("fl-up", "fl-down"); void big.offsetWidth; big.classList.add(i.z > was ? "fl-up" : "fl-down"); } }
       big.dataset.z = ok(i.z) ? i.z : ""; big.className = "big " + t + (big.classList.contains("fl-up") ? " fl-up" : big.classList.contains("fl-down") ? " fl-down" : "");
-      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (DB.failed || (Date.now() - T_START > 30000 && DB.list.length) ? "讀不到資料" : "讀取中，請稍後…"), cg = $(".ixchg", c); c.classList.toggle("ixwait", !ok(d));
+      const ct = ok(d) ? `${arrow(d)} ${fmt(Math.abs(d), 2)} (${pct(d / i.y * 100)})` : (DB.failed || (Date.now() - T_START > 30000 && DB.list.length) ? "讀不到資料" + (DB.failed ? "（證交所連不上）" : i.us ? (i.why ? "（" + i.why + "）" : "") : DB.rtErr ? "（" + DB.rtErr + "）" : i.why ? "（" + i.why + "）" : "") : "讀取中，請稍後…"), cg = $(".ixchg", c); c.classList.toggle("ixwait", !ok(d));
       if (cg.textContent !== ct) cg.textContent = ct;
       cg.className = "sub ixchg " + t;
       const ht = i.h > 0 && i.l > 0 ? `高 ${fmt(i.h, 2)}　低 ${fmt(i.l, 2)}` : "", hl = $(".ixhl", c); if (hl.textContent !== ht) hl.textContent = ht;
@@ -1022,8 +1027,9 @@
   let LST = "ls";
   function lstSub(k, animate) {
     const dl = $("#dpList"), bar = $(".lsub", dl); if (!bar) return;
-    if (!["ls", "rk", "cp", "sc", "rv"].includes(k)) k = "ls";
-    const order = ["ls", "rk", "cp", "sc", "rv"], prev = LST; LST = k;
+    const order = ["ls", "rk", "cp", "sc", "rv", "cm", "dv"];
+    if (!order.includes(k)) k = "ls";
+    const prev = LST; LST = k;
     try { if (animate) sessionStorage.setItem("twlst", k); } catch (e) {}
     const bs = $$("[data-sub]", bar), b = bs.find(x => x.dataset.sub === k) || bs[0];
     bs.forEach(x => x.setAttribute("aria-selected", String(x === b)));
@@ -1181,7 +1187,7 @@
   }
   async function instLoad() {
     const el = $(".instout"); if (!el) return;
-    try { INST.data = await J(`${WORKER}/tw/instrank`); } catch (e) { el.innerHTML = `<p class="sub">法人買賣超讀不到資料。</p>`; return; }
+    try { INST.data = await J(`${WORKER}/tw/instrank`); } catch (e) { el.innerHTML = `<p class="sub">法人買賣超讀不到資料（${esc(whyOf(e))}）。</p>`; return; }
     instPaint(true);
   }
   function instPaint(animate) {
@@ -1212,7 +1218,7 @@
       const dg = r => (/殖利率/.test(r.name) ? 3 : r.last >= 1000 ? 0 : 2);
       el.innerHTML = `<div class="wdgrid">${rows.filter(r => !/^(S&P 500|Nasdaq|道瓊|費城半導體|加權指數)$/.test(r.name) && !/^\^(GSPC|IXIC|DJI|SOX|TWII)$/.test(r.symbol || "")).map(r => `<div class="wdcell"><span>${esc(r.name)}</span><b>${fmt(r.last, dg(r))}</b><i class="${/VIX/.test(r.name) ? tone(-r.changePct) : tone(r.changePct)}">${r.changePct == null ? "—" : pct(r.changePct)}</i></div>`).join("")}</div>`;
       const t = rows.map(r => r.asOfTaipei).filter(Boolean).sort().pop(); $("#dpOverview .wdn").textContent = t ? t.slice(5).replace("-", "/") + " 更新" : "";
-    } catch (e) { IDX.filter(i => i.us).forEach(i => Object.assign(i, { z: NaN, y: NaN, h: NaN, l: NaN, src: "", rt: false, hist: null })); try { paintIdx(); } catch (er) {} el.innerHTML = `<p class="sub">讀不到資料。</p>`; }
+    } catch (e) { const why = e === 0 ? "Worker 沒有回傳美股資料" : whyOf(e); IDX.filter(i => i.us).forEach(i => Object.assign(i, { why, z: NaN, y: NaN, h: NaN, l: NaN, src: "", rt: false, hist: null })); try { paintIdx(); } catch (er) {} el.innerHTML = `<p class="sub">讀不到資料（${why}）。</p>`; }
   }
   async function ftLoad() {
     const el = $(".ftout"); if (!el) return;
@@ -1226,7 +1232,7 @@
         spark = `<div class="ftspark"><span>外資淨部位 近 ${h.length} 天</span><svg viewBox="0 0 120 38" preserveAspectRatio="none"><line x1="0" x2="120" y1="${Y(0)}" y2="${Y(0)}"/><polyline points="${v.map((y, i) => `${(i / (v.length - 1) * 120).toFixed(1)},${Y(y)}`).join(" ")}"/></svg></div>`;
       }
       el.innerHTML = who.map(([k, l]) => { const x = j[k]; if (!x || x.net == null) return ""; return `<div class="ftrow"><span>${l}</span><span class="ftbar"><i class="${tone(x.net)}" style="width:${Math.max(3, Math.abs(x.net) / mx * 100).toFixed(0)}%"></i></span><b class="${tone(x.net)}">${x.net > 0 ? "+" : ""}${x.net.toLocaleString("zh-TW")}</b><em>多 ${(x.long || 0).toLocaleString("zh-TW")}／空 ${(x.short || 0).toLocaleString("zh-TW")}</em></div>`; }).join("") + spark + `<p class="sub ftfoot">${esc(String(j.date).slice(5).replace("-", "/"))} 收盤後，單位：口。淨口數為正代表偏多、為負代表偏空。</p>`;
-    } catch (e) { el.innerHTML = `<p class="sub">期貨籌碼讀不到資料。</p>`; }
+    } catch (e) { el.innerHTML = `<p class="sub">期貨籌碼讀不到資料（${esc(whyOf(e))}）。</p>`; }
   }
   let wdAt = Date.now();   /* US session: every 10 s; otherwise every 5 minutes */
   setInterval(() => { if (document.hidden || cur !== "dpOverview") return; const gap = window.TWSet && window.TWSet.usOpen() ? 10000 : 300000; if (Date.now() - wdAt >= gap - 500) { wdAt = Date.now(); wdLoad(); } }, 5000);
@@ -2518,7 +2524,7 @@
   });
   window.TWDash = { replay: () => open(cur, false),
     /* shared with the 研究室 tab (assets/twlab.js) */
-    api: { paintHeat, gpPaint, instLoad, ftLoad, paintStreak, heatGroups, heatTip, heatFocus, segMark, DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
+    api: { whyOf, paintHeat, gpPaint, instLoad, ftLoad, paintStreak, heatGroups, heatTip, heatFocus, segMark, DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
       refresh: () => Promise.all([rtPoll(), pmLoad(), pmLoad(true), clLoad()]).then(() => open(cur, true)),
       rtPoll, quoteNow,
       store, worker: WORKER, openTab: p => open(p, true), lstSub: k => lstSub(k, true), tabNow: () => cur, ixk: () => IXV.k, openStock: code => openStock(code), toast: (code, lv) => { const x = DB.by.get(code); if (x) toast(x, lv); }, code: () => CODE, watch: () => WATCH.slice(), J, num, esc, fmt, signed, pct, tone, dig, wait, rise } };

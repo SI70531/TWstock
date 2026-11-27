@@ -22,6 +22,12 @@
       if (typeof o === "number") o = o * f;
       else { o = Object.assign({}, o); if (typeof o.duration === "number") o.duration *= f; if (typeof o.delay === "number") o.delay *= f; }
     }
+    /* a fade-out must stay faded until its element is removed, or Safari flashes it back for one frame */
+    if (Array.isArray(kf) && kf.length > 1 && kf[kf.length - 1] && +kf[kf.length - 1].opacity === 0 && String(kf[kf.length - 1].opacity) === "0") {
+      if (o == null) o = { duration: 400, fill: "forwards" };
+      else if (typeof o === "number") o = { duration: o, fill: "forwards" };
+      else if (!o.fill) o = Object.assign({}, o, { fill: "forwards" });
+    }
     return orig.call(this, kf, o);
   };
   /* NYSE regular session 09:30-16:00 New York (13:00 close on the day after Thanksgiving and on Christmas Eve), Mon-Fri, minus market holidays */

@@ -211,6 +211,7 @@ async function twFut(cid = "TXF") {
   const t = new Date(Date.now() + 8 * 3600e3), m = t.getUTCHours() * 60 + t.getUTCMinutes();
   const night = m >= 15 * 60 || m < 5 * 60 + 5, day = m >= 8 * 60 + 45 && m < 13 * 60 + 45;
   const tag = (o, live) => Object.assign(o, { src: live ? (night ? "night" : "rt") : "eod", sess: night || m < 8 * 60 + 45 ? "夜盤" : "日盤" });
+  const why = [];   /* what each source said, so the page can show why there is no quote */
   for (const mt of night ? ["1"] : ["0", "1"]) {
     for (const direct of [false, true]) {
       try {
@@ -224,7 +225,8 @@ async function twFut(cid = "TXF") {
           return tag({ n: twClip(q.DispCName || "臺指期", 20), z: twNum(q.CLastPrice), y: twNum(q.CRefPrice), o: twNum(q.COpenPrice), h: twNum(q.CHighPrice), l: twNum(q.CLowPrice), v: twNum(q.CTotalVolume),
             tm: tt.length >= 6 ? tt.slice(0, 2) + ":" + tt.slice(2, 4) + ":" + tt.slice(4, 6) : "", via: "taifex" }, mt === "1" ? night : day);
         }
-      } catch (e) {}
+        why.push("期交所" + (direct ? "直連" : "") + (mt === "1" ? "夜盤" : "日盤") + "沒有" + cid + "報價（" + list.length + " 筆）");
+      } catch (e) { why.push("期交所" + (direct ? "直連" : "") + "連不上（" + twClip(e && e.message, 40) + "）"); }
     }
   }
   const ysym = cid === "TXF" ? "WTX%26" : "WTE%26", nm = cid === "TXF" ? "臺指期" : "電子期";
@@ -237,7 +239,8 @@ async function twFut(cid = "TXF") {
       return tag({ n: nm + "近一", z: raw("price"), y: raw("regularMarketPreviousClose"), o: raw("regularMarketOpen"), h: raw("regularMarketDayHigh"), l: raw("regularMarketDayLow"), v: twNum(x.volume), tm, via: "yahoo" },
         (night || day) && at && Date.now() - at < 20 * 60000);
     }
-  } catch (e) {}
+    why.push("Yahoo 沒有有效報價（" + (x ? (raw("price") > 0 ? "價格停在漲跌停價" : "價格為空") : "查無商品") + "）");
+  } catch (e) { why.push("Yahoo 連不上（" + twClip(e && e.message, 40) + "）"); }
   try {
     const r = await fetch("https://ws.api.cnyes.com/ws/api/v1/quote/quotes/TWF:" + cid + ":FUTURES?column=I", { headers: { "User-Agent": TW_UA, Accept: "application/json" } });
     const x = ((await r.json()).data || [])[0];
@@ -246,7 +249,8 @@ async function twFut(cid = "TXF") {
       return tag({ n: nm, z: twNum(x["6"]), y: twNum(x["21"]), o: twNum(x["19"]), h: twNum(x["12"]), l: twNum(x["13"]), v: twNum(x["800001"]), tm, via: "cnyes" },
         (night || day) && at && Date.now() - at < 20 * 60000);
     }
-  } catch (e) {}
+    why.push("鉅亨網沒有報價");
+  } catch (e) { why.push("鉅亨網連不上（" + twClip(e && e.message, 40) + "）"); }
   try {
     const a = await (await twFetch("https://openapi.taifex.com.tw/v1/DailyMarketReportFut", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
     const month = x => String(x["ContractMonth(Week)"] || "").trim();
@@ -255,8 +259,9 @@ async function twFut(cid = "TXF") {
       const last = twNum(x.Last), chg = twNum(x.Change) || 0;
       return { src: "eod", sess: "日盤", n: nm + " " + month(x), z: last, y: last - chg, o: twNum(x.Open), h: twNum(x.High), l: twNum(x.Low), v: twNum(x.Volume), tm: "", d: String(x.Date || "") };
     }
-  } catch (e) {}
-  return null;
+    why.push("期交所日報表沒有" + (cid === "TXF" ? "TX" : "EXF") + "資料");
+  } catch (e) { why.push("期交所日報表連不上（" + twClip(e && e.message, 40) + "）"); }
+  return { z: null, why: why.join("；") };
 }
 async function twRt(url, json) {
   const codes = [...new Set((url.searchParams.get("c") || "").split(",").map(v => v.trim()).filter(v => /^[0-9A-Z]{4,6}$/.test(v)))].slice(0, 80);
@@ -605,7 +610,7 @@ export class Daily {
 /* night-session TAIEX futures (MarketType "1"), or the futures exchange's after-hours daily report */
 async function pmNight() {
   /* the night session's last quote (TAIFEX, Yahoo Taiwan or cnyes) plus TAIFEX's daily report when it answers */
-  const f = await twFut().catch(() => null);
+  const f0 = await twFut().catch(() => null), f = f0 && f0.z > 0 ? f0 : null;
   let rep = null;
   try {
     const a = await (await twFetch("https://openapi.taifex.com.tw/v1/DailyMarketReportFut", { headers: { "User-Agent": TW_UA, Accept: "application/json" } })).json();
