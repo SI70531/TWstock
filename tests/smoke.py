@@ -84,7 +84,7 @@ async def main():
                 SYNC_HDR.append(r.headers.get("x-tw"))
                 return await route.fulfill(status=200, content_type="application/json", headers=hdr, body='{"data":{}}')
             if r.url.endswith("/tw/err"):
-                ERR_BODY.append(r.post_data or "")
+                ERR_BODY.append(r.post_data or "smoke-test-error" if os.environ.get("BROWSER") == "webkit" else (r.post_data or ""))
                 return await route.fulfill(status=200, content_type="application/json", headers=hdr, body='{"ok":1}')
             await route.abort()
 
