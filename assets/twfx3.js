@@ -279,11 +279,20 @@
     let last = inp.value; setInterval(() => { if (inp.value !== last) { last = inp.value; sync(); } }, 300); sync();
   }
 
+  /* the sliding highlight of the sub-tabs follows every change in the width of the tabs themselves: late-added tabs, fonts arriving, a reload */
+  function hlBind(bar) {
+    if (bar._fxh) return; bar._fxh = 1;
+    const place = () => { const b = $("[aria-selected=true]", bar), hl = $(":scope > i", bar); if (!b || !hl || !b.offsetWidth) return; const w = b.offsetWidth + "px", t = `translateX(${b.offsetLeft}px)`; if (hl.style.width === w && hl.style.transform === t) return; hl.style.transition = "none"; hl.style.width = w; hl.style.transform = t; void hl.offsetWidth; hl.style.transition = ""; };
+    if (window.ResizeObserver) { const ro = new ResizeObserver(place), watch = () => { ro.observe(bar); $$("[data-sub]", bar).forEach(x => ro.observe(x)); }; watch(); new MutationObserver(watch).observe(bar, { childList: true }); }
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(place);
+    addEventListener("load", place); setTimeout(place, 400); setTimeout(place, 1500);
+  }
+
   function boot() {
     if (A) return; A = window.TWDash && window.TWDash.api; if (!A) return;
     bindChart(); ensureChip(); ensureShare();
     document.addEventListener("twdash:chart", () => { ensureChip(); paintAlerts(); const cb = $("#dpStock .cbox"); if (cb) cb.classList.toggle("alerting", alertMode); });
-    setInterval(() => { ensureChip(); ensureShare(); checkAlerts(); $$('input[list="twstocks"]').forEach(sugBind); $$('.lform [name="code"], .lform [name="qty"], .cmq').forEach(clearBind); }, 600);
+    setInterval(() => { ensureChip(); ensureShare(); checkAlerts(); $$('input[list="twstocks"]').forEach(sugBind); $$('.anasub').forEach(hlBind); $$('.lform [name="code"], .lform [name="qty"], .cmq').forEach(clearBind); }, 600);
     document.addEventListener("twdash:tab", () => { if (alertMode) setMode(false); });
   }
   document.addEventListener("twdash:ready", boot);
