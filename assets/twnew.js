@@ -151,9 +151,9 @@
     const o = rate(R, x => x.open && x.open.hit), c = rate(R, x => x.close && x.close.hit);
     const last10 = R.slice(0, 10), o10 = rate(last10, x => x.open && x.open.hit), c10 = rate(last10, x => x.close && x.close.hit);
     let streak = 0; for (const x of R) { const hs = [x.open && x.open.hit, x.close && x.close.hit].filter(v => v != null); if (hs.length && hs.every(Boolean)) streak++; else break; }
-    const tile = (t, r, r10) => `<div class="rvt"><span>${t}</span><b>${r.p == null ? "—" : r.p.toFixed(0) + "%"}</b><i style="--w:${(r.p || 0).toFixed(0)}%"></i><em>${r.h}/${r.n}${r10.n ? "・近 10 次 " + r10.p.toFixed(0) + "%" : ""}</em></div>`;
+    const tile = (t, r, r10) => `<div class="rvt"><span>${t}</span><b>${r.p == null ? "—" : r.p.toFixed(0) + "%"}</b><i style="--w:${(r.p || 0).toFixed(0)}%"></i></div>`;
     const conf = ["高", "中", "低"].map(k => { const sub = R.filter(x => x.conf === k), r = rate(sub, x => x.open && x.open.hit); return r.n ? `<span class="rvc"><b>信心${k}</b>${r.p.toFixed(0)}%<em>${r.h}/${r.n}</em></span>` : ""; }).join("");
-    el.innerHTML = `<div class="rvtiles">${tile("開盤方向命中", o, o10)}${tile("收盤紅黑命中", c, c10)}<div class="rvt"><span>連續全中</span><b>${streak}</b><em>天（開盤與收盤都對）</em></div></div>
+    el.innerHTML = `<div class="rvtiles">${tile("開盤方向命中", o, o10)}${tile("收盤紅黑命中", c, c10)}<div class="rvt"><span>連續全中</span><b>${streak} 天</b></div></div>
       ${conf ? `<div class="rvconf"><span class="sub">開盤命中率</span>${conf}</div>` : ""}
       <div class="mwrap"><table class="mtbl rvtbl"><thead><tr><th class="l">日期</th><th>開盤預測</th><th>實際跳空</th><th></th><th>收盤預測</th><th>實際漲跌</th><th></th></tr></thead><tbody>${R.slice(0, 30).map(x => {
         const op = x.open, cl = x.close;
