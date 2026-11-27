@@ -37,4 +37,15 @@ await t("page errors are logged and counted", async () => {
   const log = (await (await call("/tw/err")).json()).log; eq([log.length, log[0].n], [1, 2]);
 });
 await t("close summary route answers", async () => { const r = await call("/tw/close"); if (r.status >= 500) throw new Error("status " + r.status); });
+await t("every data route says plainly why when its source is down (no fake data, no crash)", async () => {
+  const real = globalThis.fetch; globalThis.fetch = async () => { throw new Error("network down"); };
+  try {
+    for (const p of ["/tw/world", "/tw/instrank", "/tw/daytrade", "/tw/lending", "/tw/qfii", "/tw/futchip", "/tw/holders?c=2330", "/tw/sectorhist", "/tw/margintop", "/tw/hist?c=2330", "/tw/chart?k=t00&r=tick"]) {
+      const r = await call(p), j = await r.json();
+      if (r.status < 400 || !j.error || !j.error.message) throw new Error(p + " -> " + r.status + " " + JSON.stringify(j).slice(0, 80));
+    }
+    const rt = await (await call("/tw/rt?c=2330")).json();
+    if (rt.q.length || !rt.err) throw new Error("rt invented quotes or hid the reason");
+  } finally { globalThis.fetch = real; }
+});
 console.log(fail ? `${fail} failed` : "all passed"); process.exit(fail ? 1 : 0);

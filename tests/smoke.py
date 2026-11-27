@@ -52,6 +52,51 @@ def check(ok, what):
         FAIL.append(what)
 
 
+async def two_devices(p, kw):
+    """two browsers share one (fake) Worker store: what one saves, the other gets"""
+    store = {}
+    hdr = {"access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*"}
+
+    async def worker(route):
+        r = route.request
+        if r.method == "OPTIONS":
+            return await route.fulfill(status=204, headers=hdr)
+        if r.url.endswith("/tw/sync"):
+            body = json.loads(r.post_data or "{}")
+            for k, x in (body.get("set") or {}).items():
+                if k not in store or x["t"] > store[k]["t"]:
+                    store[k] = x
+            return await route.fulfill(status=200, content_type="application/json", headers=hdr, body=json.dumps({"data": store}))
+        await route.abort()
+
+    pages = []
+    for i in range(2):
+        ctx = await (await p.chromium.launch(**kw)).new_context(viewport={"width": 1280, "height": 900})
+        pg = await ctx.new_page()
+        await pg.route("**/STOCK_DAY_ALL*", lambda r: r.fulfill(status=200, content_type="application/json", headers=hdr, body=json.dumps(ROWS)))
+        for pat in ["**/rwd/**", "**/MI_INDEX", "**/*raw.githubusercontent.com/**", "**/fonts.googleapis.com/**", "**/fonts.gstatic.com/**"]:
+            await pg.route(pat, lambda r: r.abort())
+        await pg.route("**/*workers.dev/**", worker)
+        await pg.add_init_script('localStorage.setItem("twtrade-wl-seed","1")')
+        await pg.goto(f"http://127.0.0.1:{PORT}/index.html")
+        await pg.wait_for_timeout(2500)
+        pages.append(pg)
+    a, b = pages
+    await a.evaluate('window.TWDash.api.store.set("twtrade-watch", ["2330","0050"])')
+    await a.wait_for_timeout(3500)
+    check("twtrade-watch" in store and store["twtrade-watch"]["v"] == ["2330", "0050"], "device A's watchlist reached the shared store")
+    await b.reload()
+    await b.wait_for_timeout(4500)
+    got = await b.evaluate('JSON.parse(localStorage.getItem("twtrade-watch")||"[]")')
+    check(got == ["2330", "0050"], f"device B received it ({got})")
+    await b.evaluate('window.TWDash.api.store.set("twtrade-watch", ["2454"])')
+    await b.wait_for_timeout(3500)
+    await a.reload()
+    await a.wait_for_timeout(4500)
+    got = await a.evaluate('JSON.parse(localStorage.getItem("twtrade-watch")||"[]")')
+    check(got == ["2454"], f"the later edit wins on the other device ({got})")
+
+
 async def main():
     check_build()
     serve()
@@ -212,6 +257,8 @@ async def main():
             check(ok_img, "share image renders")
 
         errs[:] = [e for e in errs if "access control checks" not in e]
+        if os.environ.get("BROWSER", "chromium") == "chromium":
+            await two_devices(p, kw)
         check(not errs, "no script errors " + (json.dumps(errs, ensure_ascii=False) if errs else ""))
         await b.close()
     sys.exit(1 if FAIL else 0)
