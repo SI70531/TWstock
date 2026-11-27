@@ -20,11 +20,12 @@
       const dy = Math.max(rects[0].top - me.top, Math.min(rects[rects.length - 1].bottom - me.bottom, e.clientY - startY));
       item.style.transform = `translateY(${dy}px) scale(1.02)`;
       const mid = me.top + dy + h / 2;
-      to = from; rects.forEach((r, i) => { if (i < from && mid < r.top + r.height / 2) to = Math.min(to, i); if (i > from && mid > r.top + r.height / 2) to = Math.max(to, i); });
+      to = from; rects.forEach((r, i) => { if (i < from && mid <= r.top + r.height / 2 + 1) to = Math.min(to, i); if (i > from && mid >= r.top + r.height / 2 - 1) to = Math.max(to, i); });
       items.forEach((el, i) => { if (el === item) return; const sh = (from < to && i > from && i <= to) ? -(h + gap) : (from > to && i < from && i >= to) ? (h + gap) : 0; el.style.transform = sh ? `translateY(${sh}px)` : ""; });
     };
     const up = () => {
       if (dead) return; dead = true;
+      const noClick = ev => { ev.stopPropagation(); ev.preventDefault(); }; document.addEventListener("click", noClick, true); setTimeout(() => document.removeEventListener("click", noClick, true), 450);   /* letting go is not a tap on the row */
       handle.removeEventListener("pointermove", move); handle.removeEventListener("pointerup", up); handle.removeEventListener("pointercancel", up);
       const slot = (to > from ? rects[to].bottom - me.bottom : to < from ? rects[to].top - me.top : 0);
       item.style.transition = "transform .3s cubic-bezier(.34,1.4,.5,1)"; item.style.transform = `translateY(${slot}px)`; buzz(6);
