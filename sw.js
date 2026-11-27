@@ -8,7 +8,7 @@ self.addEventListener("fetch", e => {
   if (req.method !== "GET" || url.origin !== location.origin) return;
   e.respondWith((async () => {
     try {
-      const res = await fetch(req);
+      const res = await fetch(req, req.mode === "navigate" ? undefined : { cache: "no-cache" });   /* always ask the server (cheap 304 when unchanged), so a new version is never held back by the browser cache */
       if (res && res.ok) { const c = await caches.open(CACHE); c.put(req, res.clone()); }
       return res;
     } catch (err) {

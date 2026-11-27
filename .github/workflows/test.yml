@@ -1,0 +1,18 @@
+# Walks the site with mocked market data on every change to the page.
+name: Smoke test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["index.html", "assets/**", "sw.js", "tests/**", ".github/workflows/test.yml"]
+  pull_request:
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install playwright && python -m playwright install --with-deps chromium
+      - run: python tests/smoke.py
