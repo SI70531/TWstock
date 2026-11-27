@@ -207,6 +207,18 @@
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(() => {}));
   splash();
 
+  /* a panel that is rewritten by a refresh must not fold shut what the reader opened: keep every open <details> (by its heading) across an innerHTML rewrite */
+  (function () {
+    const d = Object.getOwnPropertyDescriptor(Element.prototype, "innerHTML"); if (!d || !d.set) return;
+    const key = x => { const s = x.querySelector(":scope > summary"); return s ? s.textContent.trim() : ""; };
+    Object.defineProperty(Element.prototype, "innerHTML", { configurable: true, enumerable: d.enumerable, get: d.get, set(v) {
+      let open = null;
+      try { const o = this.querySelectorAll ? this.querySelectorAll("details[open]") : []; if (o.length) { open = {}; o.forEach(x => { const k = key(x); open[k] = (open[k] || 0) + 1; }); } } catch (e) {}
+      d.set.call(this, v);
+      if (open) try { const seen = {}; this.querySelectorAll("details").forEach(x => { const k = key(x); seen[k] = (seen[k] || 0) + 1; if (open[k] >= seen[k]) x.setAttribute("open", ""); }); } catch (e) {}
+    } });
+  })();
+
   function boot() {
     if (A) return; A = window.TWDash && window.TWDash.api; if (!A) return;
     bindChart(); ensureChip(); ensureShare();
