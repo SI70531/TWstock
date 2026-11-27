@@ -107,7 +107,8 @@
 
   /* ================= 股票 → 比較 ================= */
   const CK = "twmain-cmp", COLORS = ["#d98a1a", "#3a7bd5", "#c63a3a", "#2f9b6a"];
-  const CP = { codes: null, hist: new Map(), q: "" };
+  const spanGet = () => { if (!CP.span) CP.span = (A.store.get("twnew2-cpspan", 60) | 0) || 60; return CP.span; };
+  const CP = { codes: null, hist: new Map(), q: "", span: 0 };
   function cpCodes() {
     if (CP.codes) return CP.codes;
     const s = A.store.get(CK, null);
@@ -117,7 +118,7 @@
   }
   function buildCompare(dl) {
     const card = document.createElement("div"); card.className = "dcard cpc"; card.dataset.sub = "cp"; card.hidden = true;
-    card.innerHTML = `<div class="cpbar"><div class="cpchips"></div><div class="cpadd"><input class="in cpq" type="text" inputmode="search" autocomplete="off" placeholder="代號或名稱" aria-label="加入比較"><div class="cpsug" hidden></div></div></div><div class="cpchart"></div><div class="cptbl"></div>`;
+    card.innerHTML = `<div class="cpbar"><div class="cpchips"></div><div class="cpadd"><input class="in cpq" type="text" inputmode="search" autocomplete="off" placeholder="代號或名稱" aria-label="加入比較"><div class="cpsug" hidden></div></div></div><div class="chips cpspan">${[[20, "20 日"], [60, "60 日"], [120, "120 日"]].map(([n, t]) => `<button type="button" class="chip" data-cpspan="${n}" aria-pressed="${n === spanGet()}">${t}</button>`).join("")}</div><div class="cpchart"></div><div class="cptbl"></div>`;
     const rk = $(".rk", dl); (rk || dl.lastElementChild).after(card);
     const q = $(".cpq", card), sug = $(".cpsug", card);
     q.addEventListener("input", () => {
@@ -128,6 +129,7 @@
     });
     q.addEventListener("keydown", e => { if (e.key === "Enter") { const f = $("[data-add]", sug); if (f) { e.preventDefault(); f.click(); } } });
     card.addEventListener("click", e => {
+      const sp = e.target.closest("[data-cpspan]"); if (sp) { CP.span = +sp.dataset.cpspan; A.store.set("twnew2-cpspan", CP.span); $$("[data-cpspan]", card).forEach(b => b.setAttribute("aria-pressed", String(b === sp))); cpPaint(true); return; }
       const a = e.target.closest("[data-add]"); if (a) { if (cpCodes().length < 4) { CP.codes.push(a.dataset.add); A.store.set(CK, CP.codes); } q.value = ""; sug.hidden = true; cpPaint(true); return; }
       const x = e.target.closest("[data-rm]"); if (x) { CP.codes = cpCodes().filter(c => c !== x.dataset.rm); A.store.set(CK, CP.codes); cpPaint(true); return; }
       const o = e.target.closest("[data-open]"); if (o) A.openStock(o.dataset.open);
@@ -165,12 +167,12 @@
     cpChart(card, M, animate);
   }
   function cpChart(card, M, animate) {
-    const S = M.filter(m => m.cs && m.cs.length > 5).map(m => { const cs = m.cs.slice(-61), b = cs[0][4]; return { c: m.c, i: M.indexOf(m), v: cs.map(x => x[4] / b * 100) }; });
+    const S = M.filter(m => m.cs && m.cs.length > 5).map(m => { const cs = m.cs.slice(-(spanGet() + 1)), b = cs[0][4]; return { c: m.c, i: M.indexOf(m), v: cs.map(x => x[4] / b * 100) }; });
     const host = $(".cpchart", card);
     if (!S.length) { host.innerHTML = ""; host.dataset.h = ""; return; }
     const W = 640, H = 220, pad = 8, n = Math.max(...S.map(s => s.v.length)), all = S.flatMap(s => s.v), lo = Math.min(...all, 100), hi = Math.max(...all, 100), sp = hi - lo || 1;
     const X = (i, len) => (pad + i / Math.max(1, len - 1) * (W - 2 * pad)).toFixed(1), Y = v => (H - pad - (v - lo) / sp * (H - 2 * pad)).toFixed(1);
-    const html = `<svg class="cpsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="近 60 日相對走勢"><line x1="0" x2="${W}" y1="${Y(100)}" y2="${Y(100)}" class="cpz"/>${S.map(s => `<polyline class="cpl" style="--c:${COLORS[s.i]}" points="${s.v.map((v, i) => X(i, s.v.length) + "," + Y(v)).join(" ")}"/>`).join("")}</svg>
+    const html = `<svg class="cpsvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="近 ${spanGet()} 日相對走勢"><line x1="0" x2="${W}" y1="${Y(100)}" y2="${Y(100)}" class="cpz"/>${S.map(s => `<polyline class="cpl" style="--c:${COLORS[s.i]}" points="${s.v.map((v, i) => X(i, s.v.length) + "," + Y(v)).join(" ")}"/>`).join("")}</svg>
       <div class="cpend">${S.map(s => { const e = s.v[s.v.length - 1] - 100; return `<span style="--c:${COLORS[s.i]}"><i></i>${esc(nm(s.c))} <b class="${tone(e)}">${sg(e, 1)}%</b></span>`; }).join("")}</div>`;
     if (host.dataset.h === html) return; host.dataset.h = html; host.innerHTML = html;
     if (animate) { const sv = $("svg", host); sv.animate([{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0)" }], { duration: 900, easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" }); A.rise($$(".cpend span", host), 70); }

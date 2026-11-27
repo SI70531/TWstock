@@ -96,9 +96,9 @@ const openJ = async p => { try { const a = await A.J(`${A.worker}/tw/open?p=${en
 
   /* put the two cards and their buttons into 股票 */
   function mountList() {
-    const dl = $("#dpList"), bar = dl && $(".lsub", dl); if (!dl || !bar || $(".cm", dl)) return !!$(".cm", dl);
-    [["cm", "疊圖"], ["dv", "除息"]].forEach(([k, l]) => { const b = document.createElement("button"); b.type = "button"; b.setAttribute("role", "tab"); b.dataset.sub = k; b.setAttribute("aria-selected", "false"); b.textContent = l; bar.appendChild(b); });
-    cmBuild(dl); dvBuild(dl);
+    const dl = $("#dpList"), bar = dl && $(".lsub", dl); if (!dl || !bar || $(".dv", dl)) return !!$(".dv", dl);
+    [["dv", "除息"]].forEach(([k, l]) => { const b = document.createElement("button"); b.type = "button"; b.setAttribute("role", "tab"); b.dataset.sub = k; b.setAttribute("aria-selected", "false"); b.textContent = l; bar.appendChild(b); });
+    dvBuild(dl);
     bar.addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (!b) return; if (b.dataset.sub === "cm") setTimeout(() => cmPaint(true), 30); if (b.dataset.sub === "dv") setTimeout(dvPaint, 30); });
     return true;
   }

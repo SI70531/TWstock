@@ -1025,7 +1025,7 @@
   let LST = "ls";
   function lstSub(k, animate) {
     const dl = $("#dpList"), bar = $(".lsub", dl); if (!bar) return;
-    const order = ["ls", "rk", "cp", "sc", "rv", "cm", "dv"];
+    const order = ["ls", "rk", "cp", "sc", "rv", "dv"];
     if (!order.includes(k)) k = "ls";
     const prev = LST; LST = k;
     try { if (animate) sessionStorage.setItem("twlst", k); } catch (e) {}
