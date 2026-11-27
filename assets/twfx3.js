@@ -270,7 +270,7 @@
   /* ================= a × inside the order boxes ================= */
   function clearBind(inp) {
     if (inp._fxc) return; inp._fxc = 1;
-    const w = document.createElement("span"); w.className = "fxclr"; inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
+    const cs = getComputedStyle(inp), pf = getComputedStyle(inp.parentNode).display.includes("flex"), w = document.createElement("span"); w.className = "fxclr"; if (pf) { w.style.flex = cs.flex; w.style.minWidth = "0"; } inp.parentNode.insertBefore(w, inp); w.appendChild(inp);
     const b = document.createElement("button"); b.type = "button"; b.className = "fxclr-x"; b.setAttribute("aria-label", "清除"); b.tabIndex = -1; b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>'; w.appendChild(b);
     const sync = () => w.classList.toggle("has", inp.value !== "");
     inp.addEventListener("input", sync); inp.addEventListener("change", sync);
@@ -317,7 +317,7 @@
     if (A) return; A = window.TWDash && window.TWDash.api; if (!A) return;
     bindChart(); ensureChip(); ensureShare();
     document.addEventListener("twdash:chart", () => { ensureChip(); paintAlerts(); const cb = $("#dpStock .cbox"); if (cb) cb.classList.toggle("alerting", alertMode); });
-    setInterval(() => { ensureChip(); ensureShare(); checkAlerts(); $$('input[list="twstocks"]').forEach(sugBind); $$('.anasub').forEach(hlBind); $$('.lform [name="code"], .lform [name="qty"], .cmq').forEach(clearBind); }, 600);
+    setInterval(() => { ensureChip(); ensureShare(); checkAlerts(); $$('input[list="twstocks"]').forEach(sugBind); $$('.anasub').forEach(hlBind); $$('.lform [name="code"], .lform [name="qty"], .cmq, .cpq, .msearch, .ssearch, .pal-in input').forEach(clearBind); }, 600);
     document.addEventListener("twdash:tab", () => { if (alertMode) setMode(false); });
   }
   document.addEventListener("twdash:ready", boot);

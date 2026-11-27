@@ -418,7 +418,6 @@
         <div class="dcard ft"><div class="bd-h"><h3>期貨籌碼</h3><span class="sub ftn">台指期 未平倉淨口數</span></div><div class="ftout"><p class="sub">載入中…</p></div></div>
       </div>
       <div class="board">
-        <div class="dcard bd-dist"><div class="bd-h"><h3>漲跌分布</h3><span class="sub bd-n"></span></div><div class="bd-bars"></div></div>
         <div class="dcard bd-up"><div class="bd-h"><h3>漲幅排行</h3></div><div class="bd-list"></div></div>
         <div class="dcard bd-down"><div class="bd-h"><h3>跌幅排行</h3></div><div class="bd-list"></div></div>
       </div>
@@ -496,7 +495,7 @@
     lstSub((() => { try { return sessionStorage.getItem("twlst") || (window.TWSet && window.TWSet.get("lst")) || "ls"; } catch (e) { return "ls"; } })(), false);
     $(".wkgo", wkc).addEventListener("click", e => wkRun(e.currentTarget));
     pmLoad(); pmLoad(true); clLoad(); wkLoad(); wdLoad(); ftLoad();
-    const dd = $(".bd-dist", box); dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; });
+    const dd = $(".bd-dist", box); if (dd) { dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; }); }
     const hm = $(".hm", box); hm && hm.addEventListener("pointermove", e => { if (!$(".hmcard", hm)) heatTip(e); heatFocus(e); }); hm && hm.addEventListener("pointerleave", e => { const t = $(".hmtip", hm); if (t) t.hidden = true; heatFocus(e); }); setTimeout(alertSync, 2500); loadCharts(true);
     box.addEventListener("keydown", e => { const xc = e.target.closest && e.target.closest(".ixcard"); if (xc && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); ixOpen(xc.dataset.k); } });
   }
@@ -2012,15 +2011,15 @@
   let PMN = null, boardSig = "";
   function paintBoard() {
     const box = $("#dpOverview .board"); if (!box) return;
-    if (!DB.list.length) { if (DB.failed) { const b = $(".bd-bars", box); if (b && !b.dataset.f) { b.dataset.f = "1"; b.innerHTML = `<p class="sub">讀不到資料。</p>`; $(".bd-n", box).textContent = ""; } } return; }
+    if (!DB.list.length) { if (DB.failed) {  } return; }
     const live = DB.list.filter(s => ok(s.price) && s.price > 0 && ok(s.pct)), liq = live.filter(s => s.vol >= 500 && s.mkt !== "esb");
     const sig = live.length + ":" + live.reduce((a, s) => a + s.pct, 0).toFixed(1) + ":" + (PMN ? PMN.at : 0) + ":" + WATCH.join();
     const first = !boardSig; if (sig === boardSig) return; boardSig = sig;
     /* distribution: ≤-9, -9..-6, -6..-3, -3..0, 0, 0..3, 3..6, 6..9, ≥9 */
     const B = DIST;
     const cnt = B.map(b => live.filter(s => b[1](s.pct)).length), mx = Math.max(1, ...cnt);
-    $(".bd-n", box).textContent = `${fmt(live.length)} 檔`;
-    $(".bd-bars", box).innerHTML = B.map((b, i) => `<button type="button" class="bd-col" data-dist="${i}" aria-label="漲跌幅 ${b[0]}：${cnt[i]} 檔，點一下在股票清單列出"><span class="bd-c">${fmt(cnt[i])}</span><i class="bd-b ${b[2]}" style="--h:${(cnt[i] / mx * 100).toFixed(1)}%"></i><span class="bd-l">${b[0]}</span></button>`).join("");
+    if ($(".bd-bars", box)) { $(".bd-n", box).textContent = `${fmt(live.length)} 檔`;
+    $(".bd-bars", box).innerHTML = B.map((b, i) => `<button type="button" class="bd-col" data-dist="${i}" aria-label="漲跌幅 ${b[0]}：${cnt[i]} 檔，點一下在股票清單列出"><span class="bd-c">${fmt(cnt[i])}</span><i class="bd-b ${b[2]}" style="--h:${(cnt[i] / mx * 100).toFixed(1)}%"></i><span class="bd-l">${b[0]}</span></button>`).join(""); }
     const row = (s, v, t) => `<button type="button" class="bd-row" data-code="${esc(s.code)}"><span class="bd-nm"><b>${esc(s.name)}</b><i>${esc(s.code)}</i></span><span class="bd-px">${fmt(s.price, dig(s.price))}</span><span class="bd-v ${t}">${v}</span></button>`;
     const up = liq.slice().sort((a, b) => b.pct - a.pct).slice(0, 15), dn = liq.slice().sort((a, b) => a.pct - b.pct).slice(0, 15), vol = live.slice().sort((a, b) => b.vol - a.vol).slice(0, 8), vmx = vol.length ? vol[0].vol : 1;
     $(".bd-up .bd-list").innerHTML = up.map(s => row(s, pct(s.pct), "up")).join("");
@@ -2476,7 +2475,7 @@
 
   /* ---------- the command palette (Ctrl+K): any stock, any tab, light / dark ---------- */
   let pal = null;
-  const PAGES = [["dpOverview", "總覽", "大盤、國際行情、漲跌分布"], ["dpChip", "籌碼", "籌碼溫度、法人、融資融券、注意股"], ["dpInd", "產業", "類股熱力圖、產業輪動、族群"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"], ["dpCal", "市場日曆", "除權息、股東會、結算日"]];
+  const PAGES = [["dpOverview", "總覽", "大盤、國際行情、漲跌幅排行"], ["dpChip", "籌碼", "籌碼溫度、法人、融資融券、注意股"], ["dpInd", "產業", "類股熱力圖、產業輪動、族群"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"], ["dpCal", "市場日曆", "除權息、股東會、結算日"]];
   function palOpen() {
     if (pal) { $("input", pal).focus(); return; }
     pal = document.createElement("div"); pal.className = "pal"; pal.setAttribute("role", "dialog"); pal.setAttribute("aria-modal", "true"); pal.setAttribute("aria-label", "搜尋");

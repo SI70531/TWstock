@@ -113,7 +113,7 @@
   }))).observe(document.body, { childList: true });
 
   /* ---------- 總覽 layout: reorder and hide whole blocks ---------- */
-  const OV = [["ixgrid", "四大指數與國際指數"], ["mstrip", "市場概況"], ["board3", "國際行情・期貨籌碼"], ["board", "漲跌分布・排行"]];
+  const OV = [["ixgrid", "四大指數與國際指數"], ["mstrip", "市場概況"], ["board3", "國際行情・期貨籌碼"], ["board", "漲跌幅排行"]];
   const OK = "twmain-ovl";
   const ovSet = () => { const o = A.store.get(OK, null) || {}; return { order: Array.isArray(o.order) ? o.order : [], hide: Array.isArray(o.hide) ? o.hide : [] }; };
   function ovApply() {

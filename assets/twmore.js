@@ -18,7 +18,7 @@
     dl.appendChild(card);
     $(".cmq", card).addEventListener("change", e => {
       const inp = e.target, v = inp.value.trim(); if (!v) return;
-      const by = A.DB.by, tok = v.split(/\s+/)[0].toUpperCase(), hit = by.get(tok) || A.DB.list.find(x => x.name === v || x.code === tok);
+      const by = A.DB.by, tok = v.split(/\s+/)[0].toUpperCase(), hit = by.get(tok) || A.DB.list.find(x => x.name === v || x.code === tok) || A.DB.list.find(x => x.code.toUpperCase().startsWith(tok) || x.name.includes(v)) || (/^\d{4,6}[A-Z]?$/.test(tok) ? { code: tok } : null);
       if (!hit) { inp.classList.add("bad"); inp.animate([{ transform: "translateX(0)" }, { transform: "translateX(-5px)" }, { transform: "translateX(5px)" }, { transform: "none" }], { duration: 260 }); setTimeout(() => inp.classList.remove("bad"), 600); return; }
       inp.value = ""; inp.dispatchEvent(new Event("input", { bubbles: true }));
       if (!CM.sel) CM.sel = [];
@@ -26,6 +26,7 @@
       if (CM.sel.length >= 5) CM.sel.shift();
       CM.sel.push(hit.code); A.store.set("twmore-cmsel", CM.sel); cmPaint(true);
     });
+    $(".cmq", card).addEventListener("keydown", e => { if (e.key === "Enter" && !e.defaultPrevented) { e.preventDefault(); e.target.dispatchEvent(new Event("change", { bubbles: true })); } });
     card.addEventListener("click", e => {
       const sp = e.target.closest("[data-span]"); if (sp) { CM.span = +sp.dataset.span; A.store.set("twmore-cmspan", CM.span); cmPaint(true); return; }
       const c = e.target.closest("[data-pick]"); if (!c) return;
