@@ -2096,11 +2096,18 @@
     });
     if (!paintSparks.busy && $(".ixcard.ixwait:not([data-shown])")) { paintSparks.busy = true; try { paintIdx(); } finally { paintSparks.busy = false; } }   /* a card was waiting for its line: show number and line together now */
   }
+  /* the detail panel sits right under the row of the card that was opened */
+  function ixPlace(panel, k) {
+    const grid = $("#dpOverview .ixgrid"), cards = $$(".ixcard", grid), i = cards.findIndex(c => c.dataset.k === k); if (i < 0) return;
+    const cols = Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(" ").length), last = Math.min(cards.length - 1, (Math.floor(i / cols) + 1) * cols - 1);
+    panel.style.gridColumn = "1 / -1"; panel.style.marginTop = "0"; cards[last].after(panel);
+  }
+  addEventListener("resize", () => { const p = $("#dpOverview .ixdetail"); if (p && !p.hidden && IXV.k) ixPlace(p, IXV.k); });
   function ixOpen(k) {
     const panel = $("#dpOverview .ixdetail");
     $$(".ixcard").forEach(c => c.setAttribute("aria-expanded", "false"));
     if (IXV.k === k && !panel.hidden) { panel.hidden = true; IXV.k = null; return; }
-    IXV.k = k; IXV.r = (IDX.find(i => i.k === k) || {}).us ? "3mo" : "tick"; panel.hidden = false;
+    IXV.k = k; IXV.r = (IDX.find(i => i.k === k) || {}).us ? "3mo" : "tick"; ixPlace(panel, k); panel.hidden = false;
     $(`.ixcard[data-k="${k}"]`).setAttribute("aria-expanded", "true");
     ixPaint(true);
     panel.scrollIntoView({ block: "nearest", behavior: "smooth" });
