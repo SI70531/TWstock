@@ -408,9 +408,9 @@
       <div class="ixgrid">${IDX.map(i => `<div class="dcard ixcard" data-k="${i.k}" role="button" tabindex="0" aria-expanded="false"><h3><span class="ixn">${i.name}<em class="ixen">${i.en}</em></span><span class="ixsrc"></span></h3>
         <div class="big">—</div><div class="sub ixchg">載入中…</div><div class="sub ixhl"></div><svg class="spark" viewBox="0 0 76 28" preserveAspectRatio="none" aria-hidden="true"><line class="spbase" x1="0" x2="76"/><path/></svg></div>`).join("")}</div>
       <div class="dcard ixdetail" hidden></div>
-      <div class="dcard pm"><div class="aihead"><div><h3>AI 盤前分析</h3></div>
+      <div class="dcard pm"><div class="aihead"><div><h3>盤前分析</h3></div>
         <button type="button" class="btn pmgo">分析</button></div><div class="pmout"><p class="sub">載入中…</p></div><p class="sub pmalert" hidden></p></div>
-      <div class="dcard pm md"><div class="aihead"><div><h3>AI 盤中分析</h3></div>
+      <div class="dcard pm md"><div class="aihead"><div><h3>盤中分析</h3></div>
         <button type="button" class="btn mdgo">分析</button><span class="sub mdclosed" hidden>非開盤時間，盤中無法分析</span></div><div class="mdout"><p class="sub">載入中…</p></div></div>
       <div class="dcard mstrip"></div>
       <div class="board3">
@@ -428,8 +428,8 @@
           <div class="bd-list"><p class="sub">載入中…</p></div></div>
         <div class="dcard bd-flag"><div class="bd-h"><h3>注意股・處置股</h3><span class="sub bd-n"></span></div><div class="bd-list"><p class="sub">載入中…</p></div><p class="sub fl-foot">證交所公告的上市股票；處置股交易受限制（分盤撮合，可能要預收款券）。</p></div>
       </div>
-      <div class="dcard cl"><div class="aihead"><div><h3>AI 收盤摘要</h3></div></div><div class="clout"><p class="sub">載入中…</p></div></div>
-      <div class="dcard wk"><div class="aihead"><div><h3>AI 週回顧</h3></div><button type="button" class="btn wkgo" hidden>產生</button></div><div class="wkout"><p class="sub">載入中…</p></div></div>
+      <div class="dcard cl"><div class="aihead"><div><h3>收盤摘要</h3></div></div><div class="clout"><p class="sub">載入中…</p></div></div>
+      <div class="dcard wk"><div class="aihead"><div><h3>週回顧</h3></div><button type="button" class="btn wkgo" hidden>產生</button></div><div class="wkout"><p class="sub">載入中…</p></div></div>
       <div class="dcard inst"><div class="aihead"><div><h3>法人買賣超排行</h3></div><span class="sub instday"></span></div>
         <div class="hmseg instseg" role="group" aria-label="法人">${[["a", "三大法人"], ["f", "外資"], ["t", "投信"], ["d", "自營商"]].map(([k, l]) => `<button type="button" data-g="${k}" aria-pressed="${k === "a"}">${l}</button>`).join("")}<i></i></div>
         <div class="instout"><p class="sub">載入中…</p></div></div>
@@ -940,7 +940,7 @@
     });
   }
 
-  /* ---------------- AI 收盤摘要 (written by the Worker at 15:30 on trading days, or on request) ---------------- */
+  /* ---------------- 收盤摘要 (written by the Worker at 15:30 on trading days, or on request) ---------------- */
   function clPaint(j, animate) {
     const el = $("#dpPre .clout"); if (!el) return;
     const n = j && j.note;
@@ -971,7 +971,7 @@
     try {
       const r = await fetch(WORKER + "/tw/close/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const j = await r.json().catch(() => null);
-      if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
+      if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "暫時沒有回應，過幾分鐘再試"));
       clPaint({ note: j }, true);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent && j.sent !== "off" ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
@@ -985,7 +985,7 @@
     b.disabled = false; b.textContent = "產生";
   }
 
-  /* ---------------- AI 週回顧 (written by the Worker on Saturday 09:00, or on request when the last one is old) ---------------- */
+  /* ---------------- 週回顧 (written by the Worker on Saturday 09:00, or on request when the last one is old) ---------------- */
   function wkPaint(j, animate) {
     const el = $("#dpPre .wkout"), go = $("#dpPre .wkgo"); if (!el) return;
     const n = j && j.note;
@@ -1013,7 +1013,7 @@
     try {
       const r = await fetch(WORKER + "/tw/week/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
       const j = await r.json().catch(() => null);
-      if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
+      if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "暫時沒有回應，過幾分鐘再試"));
       wkPaint({ note: j }, true);
     } catch (e) {
       await new Promise(r => setTimeout(r, 4000));
@@ -1411,7 +1411,7 @@
     } catch (e) { put("spe", miss("讀不到資料。")); }
   }
 
-  /* ---------------- 問 AI (one question about the stock that is open) ---------------- */
+  /* ---------------- 提問 (one question about the stock that is open) ---------------- */
   const ASK = { code: "" };
   async function askRun(q) {
     const box = $("#dpStock"), out = $(".askout", box), inp = $(".askin", box), go = $(".askform .aigo", box), code = CODE, s = DB.by.get(code), cs = barsOf(code);
@@ -1427,10 +1427,10 @@
       await Promise.all([loadFund(), loadChip()]);
       const r = await fetch(WORKER + "/tw/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ d: DEVICE, code, name: s.name, q, facts: facts(cs) }) });
       const j = await r.json().catch(() => null);
-      if (!r.ok || !j || !j.a) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
+      if (!r.ok || !j || !j.a) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "暫時沒有回應，過幾分鐘再試"));
       $(".aska", item).innerHTML = `<p>${esc(j.a)}</p>${j.news && j.news.length ? `<details class="pmmore"><summary>參考的新聞</summary><div class="newslist">${newsHTML(j.news, null)}</div></details>` : ""}`;
     } catch (e) {
-      $(".aska", item).innerHTML = `<p class="sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連不到 AI 服務，請稍後再試。"}</p>`;
+      $(".aska", item).innerHTML = `<p class="sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "連不到分析服務，請稍後再試。"}</p>`;
     }
     go.disabled = false;
   }
@@ -1694,16 +1694,16 @@
         <div class="cfoot"><p class="sub clegend">紅漲綠跌；均線：<i class="lg ma5"></i>MA5 <i class="lg ma20"></i>MA20 <i class="lg ma60"></i>MA60</p><p class="sub chint"><span class="czoom"></span>拖曳平移・滾輪縮放・雙擊還原</p></div>
       </div>
       <div class="dcard sai">
-        <div class="aihead"><div><h3>AI 分析團隊</h3></div>
+        <div class="aihead"><div><h3>分析團隊</h3></div>
           <button type="button" class="aigo">開始分析</button></div>
         <p class="sub aimsg"></p><div class="aiout"></div>
         
-        <details class="slab"><summary>研究工具（自動交給 AI）</summary><div id="dpLab" class="on"></div></details>
+        <details class="slab"><summary>研究工具（自動送出）</summary><div id="dpLab" class="on"></div></details>
       </div>
       <div class="dcard sask">
-        <div class="aihead"><div><h3>問 AI</h3></div></div>
+        <div class="aihead"><div><h3>提問</h3></div></div>
         <div class="askchips">${["最近為什麼漲／跌？", "現在適合進場嗎？", "法人在買還是在賣？", "最大的風險是什麼？"].map(q => `<button type="button" class="chip" data-q="${q}">${q}</button>`).join("")}</div>
-        <form class="askform"><input class="askin" type="text" maxlength="200" placeholder="問這檔股票任何問題" autocomplete="off" aria-label="問 AI"><button type="submit" class="aigo">問</button></form>
+        <form class="askform"><input class="askin" type="text" maxlength="200" placeholder="問這檔股票任何問題" autocomplete="off" aria-label="提問"><button type="submit" class="aigo">問</button></form>
         <div class="askout"></div>
       </div>
       <div class="dcard sx smg"><div class="aihead"><div><h3>融資融券</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
@@ -2222,7 +2222,7 @@
       const r = await fetch(WORKER + "/tw/" + path + "/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
       const j = await r.json().catch(() => null);
       if (mid && j && j.error && j.error.status === "MARKET_CLOSED") { MD_HOLIDAY = true; b.disabled = false; b.textContent = "分析"; mdGate(); return; }
-      if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "AI 暫時沒有回應，過幾分鐘再試"));
+      if (!r.ok || !j || !j.analysis) throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : "暫時沒有回應，過幾分鐘再試"));
       pmPaint({ note: j }, true, mid);
       const tg = j.sent === "sent" ? "已傳到 Telegram。" : j.sent && j.sent !== "off" ? "Telegram 沒有送出：" + j.sent : "";
       if (tg) el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub ${j.sent === "sent" ? "" : "warn"}">${esc(tg)}</p>`);
@@ -2236,7 +2236,7 @@
         }
         $$(".runmsg", el).forEach(x => x.remove());
       }
-      el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "沒有等到新的分析，可能是 AI 額度用完或忙碌，過幾分鐘再按一次。"}</p>`);
+      el.insertAdjacentHTML("afterbegin", `<p class="runmsg sub warn">${/[一-鿿]/.test(e.message || "") ? esc(e.message) : "沒有等到新的分析，可能是額度用完或忙碌，過幾分鐘再按一次。"}</p>`);
     }
     b.disabled = false; b.textContent = "分析";
   }
@@ -2254,9 +2254,9 @@
     if (code === "AI_DAILY") {
       const p = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "America/Los_Angeles", hourCycle: "h23", hour: "2-digit", minute: "2-digit", second: "2-digit" }).formatToParts(new Date()).map(x => [x.type, x.value]));
       const t = Date.now() + (86400 - (+p.hour * 3600 + +p.minute * 60 + +p.second)) * 1000, tw = ms => new Date(ms + 8 * 3600e3).toISOString();
-      return `AI 今天的額度用完了，${tw(t).slice(0, 10) === tw(Date.now()).slice(0, 10) ? "今天" : "明天"} ${tw(t).slice(11, 16)} 重置`;
+      return `今天的額度用完了，${tw(t).slice(0, 10) === tw(Date.now()).slice(0, 10) ? "今天" : "明天"} ${tw(t).slice(11, 16)} 重置`;
     }
-    if (code === "RESOURCE_EXHAUSTED") return "AI 分析次數到上限了，晚一點再試";
+    if (code === "RESOURCE_EXHAUSTED") return "分析次數到上限了，晚一點再試";
     return null;
   }
   const stanceTone = s => (/多/.test(s || "") ? "up" : /空/.test(s || "") ? "down" : "");
@@ -2301,14 +2301,14 @@
       const j = await r.json().catch(() => null);
       if (!r.ok || !j || !j.analysis) {
         const st = r.status;
-        throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : st >= 500 ? "Google 的 AI 現在太忙，過幾分鐘再按一次" : "AI 暫時沒有回應，過幾分鐘再試"));
+        throw new Error(aiLimitMsg(j) || (j && j.error && /[一-鿿]/.test(j.error.message || "") ? j.error.message : st >= 500 ? "Google 的服務現在太忙，過幾分鐘再按一次" : "暫時沒有回應，過幾分鐘再試"));
       }
       AI.set(code, { at: j.at || Date.now(), data: j });
       document.dispatchEvent(new CustomEvent("twdash:ai", { detail: { code, name: s.name, at: j.at || Date.now(), price: F.close, barDate: F.date, analysis: j.analysis } }));
       if (code === CODE) { paintAI(); rise(Array.from($(".aiout", box).children), 90); }
     } catch (e) {
       /* a failed 重新分析 keeps the analysis already on screen */
-      if (code === CODE) { paintAI(); msg.textContent = e && e.message && /[一-鿿]/.test(e.message) ? e.message : "連不到 AI 服務，請稍後再試。"; }
+      if (code === CODE) { paintAI(); msg.textContent = e && e.message && /[一-鿿]/.test(e.message) ? e.message : "連不到分析服務，請稍後再試。"; }
     }
   }
 
@@ -2477,7 +2477,7 @@
 
   /* ---------- the command palette (Ctrl+K): any stock, any tab, light / dark ---------- */
   let pal = null;
-  const PAGES = [["dpOverview", "總覽", "大盤、國際行情、漲跌分布"], ["dpChip", "籌碼", "籌碼溫度、法人、融資融券、注意股"], ["dpInd", "產業", "類股熱力圖、產業輪動、族群"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "AI 收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"], ["dpCal", "市場日曆", "除權息、股東會、結算日"]];
+  const PAGES = [["dpOverview", "總覽", "大盤、國際行情、漲跌分布"], ["dpChip", "籌碼", "籌碼溫度、法人、融資融券、注意股"], ["dpInd", "產業", "類股熱力圖、產業輪動、族群"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"], ["dpCal", "市場日曆", "除權息、股東會、結算日"]];
   function palOpen() {
     if (pal) { $("input", pal).focus(); return; }
     pal = document.createElement("div"); pal.className = "pal"; pal.setAttribute("role", "dialog"); pal.setAttribute("aria-modal", "true"); pal.setAttribute("aria-label", "搜尋");

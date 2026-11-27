@@ -456,9 +456,9 @@ async function twAnalyze(env, who, ip, bodyText, json, fail) {
     twCached("world", 600000, () => twHeadlines("台股 OR 美股 OR 聯準會 OR 關稅 OR 匯率 when:3d", 10)).catch(() => []),
   ]);
   const g = await geminiJson(env, twPrompt(code, name, facts, news, ann, world), 0.4, 0);
-  if (g.error) return fail(g.error.status === 429 ? 429 : 502, g.error.daily ? "AI_DAILY" : "AI_FAILED", g.error.daily ? "AI 今天的額度用完了" : aiWhy(g.error.status), g.error.status === 429 && !g.error.daily ? { "Retry-After": "60" } : undefined);
+  if (g.error) return fail(g.error.status === 429 ? 429 : 502, g.error.daily ? "AI_DAILY" : "AI_FAILED", g.error.daily ? "今天的額度用完了" : aiWhy(g.error.status), g.error.status === 429 && !g.error.daily ? { "Retry-After": "60" } : undefined);
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
-  if (!a || !Array.isArray(a.team) || !a.summary) return fail(502, "AI_FAILED", "AI 的回答不完整，再按一次");
+  if (!a || !Array.isArray(a.team) || !a.summary) return fail(502, "AI_FAILED", "分析結果不完整，再按一次");
   const out = { at: Date.now(), analysis: a, news: news.map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })), ann: ann.map(x => ({ d: x.d, t: x.t })), world: world.map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
   await guard(env, "dev:" + who, "aiput", { code, data: out }).catch(() => {});
   return json(out);
@@ -466,10 +466,10 @@ async function twAnalyze(env, who, ip, bodyText, json, fail) {
 
 /* what went wrong with the AI, in plain words for the page */
 function aiWhy(st) {
-  if (st === 429) return "AI 這一分鐘太忙，一分鐘後再按一次";   /* the daily cap has its own message (AI_DAILY) */
-  if ([500, 502, 503, 504].includes(st)) return "Google 的 AI 現在太忙，過幾分鐘再按一次";
-  if (st === 400 || st === 401 || st === 403) return "AI 金鑰設定有問題，請檢查 Cloudflare 上的 GEMINI_KEY";
-  return "AI 暫時沒有回應，過幾分鐘再試";
+  if (st === 429) return "這一分鐘太忙，一分鐘後再按一次";   /* the daily cap has its own message (AI_DAILY) */
+  if ([500, 502, 503, 504].includes(st)) return "Google 的服務現在太忙，過幾分鐘再按一次";
+  if (st === 400 || st === 401 || st === 403) return "金鑰設定有問題，請檢查 Cloudflare 上的 GEMINI_KEY";
+  return "暫時沒有回應，過幾分鐘再試";
 }
 function callGemini(env, target, body) {
   return fetch(target, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": env.GEMINI_KEY }, body });
@@ -787,10 +787,10 @@ async function premarket(env, notify, isMid) {
     await new Promise(r => setTimeout(r, (notify ? 20000 : 4000) * k));
     g = await geminiJson(env, prompt, 0.3, k);
   }
-  if (g.error) return { error: g.error.daily ? "AI 今天的額度用完了" : aiWhy(g.error.status), daily: !!g.error.daily };
+  if (g.error) return { error: g.error.daily ? "今天的額度用完了" : aiWhy(g.error.status), daily: !!g.error.daily };
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = g.text.match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
   if (!a) { const t = String(g.text || "").replace(/^```(?:json)?|```$/g, "").trim(), i = t.indexOf("{"), j = t.lastIndexOf("}"); try { a = JSON.parse(t.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e) { a = null; } }
-  if (!a || !a.call) return { error: "AI 的回答不完整，再按一次" };
+  if (!a || !a.call) return { error: "分析結果不完整，再按一次" };
   if (Array.isArray(a.picks)) {
     const ord = { 推薦: 0, 追蹤: 1, 持股: 2, 自選: 3 }, tagOf = c => (cands.find(x => x.code === c) || {}).tag;
     a.picks = a.picks.filter(x => x && cands.some(c => c.code === String(x.code))).map(x => Object.assign(x, { tag: tagOf(String(x.code)) || x.tag }))
@@ -824,7 +824,7 @@ async function pmTelegram(env, a, day, isMid) {
     ...f.map(x => `${x.effect === "利多" ? "🔺" : x.effect === "利空" ? "🔻" : "▪️"} ${esc(x.name)}：${esc(x.note)}`), "",
     `<b>${isMid ? "今晚與開盤後盯" : "開盤後盯"}</b> ${esc((a.watch || []).slice(0, 3).join("；"))}`,
     ...(Array.isArray(a.picks) && a.picks.length ? ["", "<b>推薦下單</b>", ...a.picks.map(x => `${/賣|減/.test(x.action) ? "🔻" : /觀望|續抱/.test(x.action) ? "▪️" : "🔺"} <b>${esc(x.name)}（${esc(x.code)}）${esc(x.action)}</b>　${esc(x.how || "")}\n　停損 ${esc(x.stop || "—")}｜目標 ${esc((x.targets || []).join("、") || "—")}｜${esc(x.rr || "")}`)] : []),
-    `<a href="https://si70531.github.io/TWstock/">完整分析</a>｜AI 研究參考，不保證漲跌`,
+    `<a href="https://si70531.github.io/TWstock/">完整分析</a>｜研究參考，不保證漲跌`,
   ].join("\n").slice(0, 4000);
   try { const r = await fetch(api("sendMessage"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }) }); return r.ok ? "sent" : "telegram " + r.status; }
   catch (e) { return "telegram failed"; }
@@ -895,7 +895,7 @@ async function watchTick(env, now) {
     ev.forEach(e => msgs.push(`${e.impact === "利多" ? "🟥" : e.impact === "利空" ? "🟩" : "⚠️"} <b>${hesc(e.title)}</b>\n${hesc(e.why)}${e.link ? `\n<a href="${hesc(e.link)}">來源</a>` : ""}`));
   }
   await pmStore(env, "state", { set: S });
-  if (msgs.length) await tgSend(env, `<b>${ses.s === "day" ? "台股盤中" : "夜盤"}警示</b>\n\n` + msgs.join("\n\n") + "\n\n<i>AI 與自動監控，研究參考</i>");
+  if (msgs.length) await tgSend(env, `<b>${ses.s === "day" ? "台股盤中" : "夜盤"}警示</b>\n\n` + msgs.join("\n\n") + "\n\n<i>自動監控，研究參考</i>");
 }
 async function watchNews(env, codes, S) {
   const seen = new Set(S.seen || []), fresh = [], cut = Date.now() - 90 * 60000;
@@ -1384,9 +1384,9 @@ async function twAsk(env, ip, bodyText, json, fail) {
     news.length ? news.map(x => "- " + day(x.at) + " " + x.t + (x.src ? "（" + x.src + "）" : "")).join("\n") : "(none found)",
   ].join("\n");
   const g = await geminiJson(env, prompt, 0.3, 0);
-  if (g.error) return fail(g.error.status === 429 ? 429 : 502, g.error.daily ? "AI_DAILY" : "AI_FAILED", g.error.daily ? "AI 今天的額度用完了" : aiWhy(g.error.status), g.error.status === 429 && !g.error.daily ? { "Retry-After": "60" } : undefined);
+  if (g.error) return fail(g.error.status === 429 ? 429 : 502, g.error.daily ? "AI_DAILY" : "AI_FAILED", g.error.daily ? "今天的額度用完了" : aiWhy(g.error.status), g.error.status === 429 && !g.error.daily ? { "Retry-After": "60" } : undefined);
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const m = String(g.text || "").match(/\{[\s\S]*\}/); try { a = m ? JSON.parse(m[0]) : null; } catch (e2) { a = null; } }
-  if (!a || !a.a) return fail(502, "AI_FAILED", "AI 的回答不完整，再問一次");
+  if (!a || !a.a) return fail(502, "AI_FAILED", "分析結果不完整，再問一次");
   return json({ at: Date.now(), q, a: String(a.a), news: news.slice(0, 4).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) });
 }
 
@@ -1431,9 +1431,9 @@ async function weekNote(env, notify, manual) {
     await new Promise(r => setTimeout(r, (manual ? 4000 : 20000) * k));
     g = await geminiJson(env, prompt, 0.3, k);
   }
-  if (g.error) return { error: g.error.daily ? "AI 今天的額度用完了" : aiWhy(g.error.status), daily: !!g.error.daily };
+  if (g.error) return { error: g.error.daily ? "今天的額度用完了" : aiWhy(g.error.status), daily: !!g.error.daily };
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const t2 = String(g.text || ""), i = t2.indexOf("{"), j = t2.lastIndexOf("}"); try { a = JSON.parse(t2.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e2) { a = null; } }
-  if (!a || !a.headline) return { error: "AI 的回答不完整，再按一次" };
+  if (!a || !a.headline) return { error: "分析結果不完整，再按一次" };
   const note = { at: Date.now(), day: ok[ok.length - 1].day, from: ok[0].day, analysis: a, data: { week: D.week, days: D.days, sectors: D.sectors }, news: news.slice(0, 10).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
   const saved = await pmStore(env, "wput", { note }).catch(e => ({ error: String(e && e.message || e) }));
   if (!saved || !saved.ok) note.saveError = (saved && saved.error) || "not saved";
@@ -1447,7 +1447,7 @@ async function weekNote(env, notify, manual) {
       ...(L(a.lag).length ? ["<b>弱勢</b> " + L(a.lag).map(hesc).join("；")] : []),
       ...(a.flows ? ["<b>法人</b> " + hesc(a.flows)] : []),
       ...(L(a.next).length ? ["", "<b>下週要盯</b> " + L(a.next).map(hesc).join("；")] : []),
-      `<a href="https://si70531.github.io/TWstock/">完整內容</a>｜AI 研究參考，不保證漲跌`,
+      `<a href="https://si70531.github.io/TWstock/">完整內容</a>｜研究參考，不保證漲跌`,
     ].join("\n");
     note.sent = (await tgOn(env, "notes")) ? await tgSend(env, text) : "off";
   }
@@ -1497,9 +1497,9 @@ async function closeNote(env, notify, manual) {
     await new Promise(r => setTimeout(r, (manual ? 4000 : 20000) * k));
     g = await geminiJson(env, prompt, 0.3, k);
   }
-  if (g.error) return { error: g.error.daily ? "AI 今天的額度用完了" : aiWhy(g.error.status), daily: !!g.error.daily };
+  if (g.error) return { error: g.error.daily ? "今天的額度用完了" : aiWhy(g.error.status), daily: !!g.error.daily };
   let a = null; try { a = JSON.parse(g.text); } catch (e) { const t2 = String(g.text || ""), i = t2.indexOf("{"), j = t2.lastIndexOf("}"); try { a = JSON.parse(t2.slice(i, j + 1).replace(/,\s*([\]}])/g, "$1")); } catch (e2) { a = null; } }
-  if (!a || !a.headline) return { error: "AI 的回答不完整，再按一次" };
+  if (!a || !a.headline) return { error: "分析結果不完整，再按一次" };
   const note = { at: Date.now(), day, analysis: a, data: { taiex: rep.taiex, turnoverYi: rep.turnoverYi, breadth: rep.breadth, sectors: rep.sectors, institutions: inst || [], mine: D.mine }, news: news.slice(0, 10).map(x => ({ t: x.t, src: x.src, u: x.u, at: x.at })) };
   const saved = await pmStore(env, "cput", { note }).catch(e => ({ error: String(e && e.message || e) }));
   if (!saved || !saved.ok) note.saveError = (saved && saved.error) || "not saved";
@@ -1523,7 +1523,7 @@ async function closeNote(env, notify, manual) {
       ...(Array.isArray(a.mine) && a.mine.length ? ["", "<b>你的股票</b>", ...a.mine.slice(0, 20).map(x => `${hesc(x.name || x.code)} ${hesc(x.pct || "")}　${hesc(x.note || "")}`)] : []),
       ...(newly.length ? ["", "<b>⚠️ 新列入</b>", ...newly.map(x => `${hesc(nm(x.c))}（${x.c}）${x.f}${x.f === "處置股" ? "：交易受限制（分盤撮合、可能要預收款券）" : "：成交量或漲跌異常"}`)] : []),
       ...(L(a.next).length ? ["", "<b>下個交易日盯</b> " + L(a.next).map(hesc).join("；")] : []),
-      `<a href="https://si70531.github.io/TWstock/">完整內容</a>｜AI 研究參考，不保證漲跌`,
+      `<a href="https://si70531.github.io/TWstock/">完整內容</a>｜研究參考，不保證漲跌`,
     ].join("\n");
     note.sent = (await tgOn(env, "notes")) ? await tgSend(env, text) : "off";
   }

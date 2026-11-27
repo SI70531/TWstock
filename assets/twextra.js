@@ -384,7 +384,7 @@
   /* ---- backup and restore: the user's own records and choices, not the cached market data ---- */
   const KEEP = /^(twstock-(device|theme)$|twtrade-|twlab-|twmain-|tw-palerts$|tw-fee-disc$|tw-recent$|twsim$|twlog-|twalert-opt$)/;
   const ownKeys = () => { const out = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (KEEP.test(k)) out.push(k); } return out; };
-  const TG = [["stock", "自選與持股 ±5%、漲跌停"], ["index", "大盤與台指期夜盤大漲跌"], ["news", "AI 篩選的重大新聞與公告"], ["bell", "開盤與收盤通知"], ["notes", "盤前、盤中、收盤摘要與週回顧"]];
+  const TG = [["stock", "自選與持股 ±5%、漲跌停"], ["index", "大盤與台指期夜盤大漲跌"], ["news", "篩選的重大新聞與公告"], ["bell", "開盤與收盤通知"], ["notes", "盤前、盤中、收盤摘要與週回顧"]];
   let pendingRestore = null, tgState = null;
   function backup() {
     const data = {}; ownKeys().forEach(k => { data[k] = localStorage.getItem(k); });
@@ -693,10 +693,10 @@
   const mark = v => (v == null ? "—" : v ? "✓ 命中" : "✗ 沒中");
   function buildLog() {
     logBox().innerHTML = `
-      <div class="xsec"><div class="aihead"><div><h3>AI 判斷命中率</h3></div><button type="button" class="aigo" data-check>更新對照結果</button></div>
+      <div class="xsec"><div class="aihead"><div><h3>判斷命中率</h3></div><button type="button" class="aigo" data-check>更新對照結果</button></div>
         <p class="sub">紀錄只存在這個瀏覽器，從開始使用這項功能起累積。個股分析要在本站看過才會記下。</p><p class="sub logmsg" role="status"></p></div>
-      <div class="xsec"><h4>AI 個股分析命中率</h4><div class="logsum"></div></div><div class="xsec"><h4>盤前預測命中率</h4><div class="logpmsum"></div></div>
-      <div class="xsec"><h4>AI 個股分析紀錄</h4><div class="logai"></div></div>
+      <div class="xsec"><h4>個股分析命中率</h4><div class="logsum"></div></div><div class="xsec"><h4>盤前預測命中率</h4><div class="logpmsum"></div></div>
+      <div class="xsec"><h4>個股分析紀錄</h4><div class="logai"></div></div>
       <div class="xsec"><h4>盤前預測紀錄</h4><div class="logpm"></div></div>`;
     logBox().addEventListener("click", e => {
       if (e.target.closest("[data-check]")) return checkLog();
@@ -717,7 +717,7 @@
       msg("只算偏多與偏空的判斷。偏多後上漲、偏空後下跌算命中；括號是筆數，少於 20 筆看不出什麼。報酬從分析當時的價格算，未含股利。");
     const pct = key => { const a = P.filter(x => typeof x[key] === "boolean"), h = a.filter(x => x[key]).length; return a.length ? `${A.fmt(h / a.length * 100, 0)}%（${h}/${a.length}）` : "還沒有可對照的紀錄"; };
     $(".logpmsum", el).innerHTML = row("09:00 開盤方向", pct("openOk")) + row("13:30 收盤紅黑", pct("closeOk")) + msg("開高：跳空超過 +20 點；開低：低於 −20 點；平盤：±60 點內（和開盤通知相同）。收盤平盤指漲跌 0.2% 以內。");
-    $(".logai", el).innerHTML = L.length ? table(["分析時間", "股票", "判斷", "當時價格", "5 日", "10 日", "20 日", ""], L.map(x => `<tr><td class="l">${twTime(x.at)}</td><td><button type="button" class="chip" data-open="${A.esc(x.code)}">${A.esc(x.name)} ${A.esc(x.code)}</button></td><td title="${A.esc(x.headline)}">${A.esc(x.stance || "—")}${x.action ? "・" + A.esc(x.action) : ""}</td><td>${A.fmt(x.price, A.dig(x.price))}</td>${HORIZON.map(h => { const r = x.res && x.res[h]; return !r ? "<td>—</td>" : r.skip ? "<td>價格不連續</td>" : `<td class="${A.tone(r.ret)}">${A.pct(r.ret)}</td>`; }).join("")}<td><button type="button" class="lx" data-logdrop="${A.esc(x.code + ":" + x.at)}" aria-label="刪除這筆紀錄">×</button></td></tr>`)) : msg("還沒有紀錄。到「個股分析」跑一次 AI 分析就會出現在這裡。");
+    $(".logai", el).innerHTML = L.length ? table(["分析時間", "股票", "判斷", "當時價格", "5 日", "10 日", "20 日", ""], L.map(x => `<tr><td class="l">${twTime(x.at)}</td><td><button type="button" class="chip" data-open="${A.esc(x.code)}">${A.esc(x.name)} ${A.esc(x.code)}</button></td><td title="${A.esc(x.headline)}">${A.esc(x.stance || "—")}${x.action ? "・" + A.esc(x.action) : ""}</td><td>${A.fmt(x.price, A.dig(x.price))}</td>${HORIZON.map(h => { const r = x.res && x.res[h]; return !r ? "<td>—</td>" : r.skip ? "<td>價格不連續</td>" : `<td class="${A.tone(r.ret)}">${A.pct(r.ret)}</td>`; }).join("")}<td><button type="button" class="lx" data-logdrop="${A.esc(x.code + ":" + x.at)}" aria-label="刪除這筆紀錄">×</button></td></tr>`)) : msg("還沒有紀錄。到「個股分析」跑一次 分析就會出現在這裡。");
     $(".logpm", el).innerHTML = P.length ? table(["日期", "開盤預測", "實際跳空", "開盤結果", "收盤預測", "實際漲跌", "收盤結果"], P.slice(0, 60).map(x => `<tr><td class="l">${A.esc(x.day)}</td><td>${A.esc(x.call)}</td><td>${ok(x.openGap) ? A.signed(x.openGap, 0) + " 點" : "—"}</td><td>${mark(x.openOk)}</td><td>${A.esc(x.close || "—")}</td><td>${ok(x.chg) ? A.signed(x.chg, 0) + " 點" : "—"}</td><td>${mark(x.closeOk)}</td></tr>`)) : msg("還沒有紀錄。開過「盤前分析」頁後會記下。");
   }
 
