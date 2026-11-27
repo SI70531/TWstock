@@ -14,6 +14,12 @@ class Quiet(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+def check_build():
+    import subprocess
+    r = subprocess.run([sys.executable, os.path.join(ROOT, "tools", "build.py"), "--check"], capture_output=True, text=True)
+    check(r.returncode == 0, "bundles and version stamp are up to date " + r.stdout.strip())
+
+
 def serve():
     srv = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), functools.partial(Quiet, directory=ROOT))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
@@ -47,6 +53,7 @@ def check(ok, what):
 
 
 async def main():
+    check_build()
     serve()
     async with async_playwright() as p:
         kw = {"args": ["--no-sandbox"]}
