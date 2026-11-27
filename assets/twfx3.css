@@ -35,3 +35,13 @@
 .pxpill.lim::after,.shead[data-lim] .stitle::after{content:none!important;display:none!important}
 :root .pxpill.lim.up,:root .mtbl .pxpill.lim.up{background:color-mix(in oklab,var(--color-up) 80%,white)!important;border-color:transparent!important;color:#fff!important}
 :root .pxpill.lim.down,:root .mtbl .pxpill.lim.down{background:color-mix(in oklab,var(--color-down) 78%,white)!important;border-color:transparent!important;color:#fff!important}
+/* stock picker */
+.fxsug{position:fixed;z-index:9400;max-height:min(340px,60vh);overflow:auto;padding:6px;border-radius:16px;background:var(--bg-1,#fff);border:1px solid var(--glass-line,rgba(0,0,0,.08));box-shadow:0 18px 50px rgba(20,24,40,.22);backdrop-filter:blur(14px);display:none}
+.fxsug.shown{display:block}
+.fxs-row{display:grid;grid-template-columns:1fr auto auto 4.6em;align-items:baseline;gap:10px;width:100%;padding:9px 12px;border:0;border-radius:11px;background:none;color:var(--color-ink);font:inherit;text-align:left;cursor:pointer;transition:background .15s}
+.fxs-row b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fxs-row i{font-style:normal;font-size:.82em;color:var(--color-muted)}
+.fxs-row span,.fxs-row em{font-style:normal;font-variant-numeric:tabular-nums;text-align:right}
+.fxs-row em{font-size:.86em}
+.fxs-row:hover,.fxs-row.on{background:color-mix(in oklch,var(--color-accent,#d98a1a) 16%,transparent)}
+.fxs-row .up{color:var(--color-up)}.fxs-row .down{color:var(--color-down)}

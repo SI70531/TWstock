@@ -219,11 +219,59 @@
     } });
   })();
 
+  /* ================= stock picker: replaces the browser's own list on every code box ================= */
+  const SUG = { el: null, inp: null, rows: [], i: -1 };
+  function sugRows(q) {
+    q = q.trim().toLowerCase(); const by = A.DB.by, out = [];
+    if (!q) { A.watch().forEach(c => by.has(c) && out.push(by.get(c))); return out.slice(0, 8); }
+    const code = q.split(/\s+/)[0];
+    for (const s of A.DB.list) { if (s.code.toLowerCase() === code || s.code.toLowerCase().startsWith(code) || s.name.toLowerCase().includes(q)) { out.push(s); if (out.length >= 40) break; } }
+    out.sort((a, b) => (a.code.toLowerCase() === code ? -1 : b.code.toLowerCase() === code ? 1 : 0) || (a.code.length - b.code.length) || (a.code < b.code ? -1 : 1));
+    return out.slice(0, 8);
+  }
+  function sugPaint() {
+    const el = SUG.el, inp = SUG.inp; if (!el || !inp) return;
+    SUG.rows = sugRows(inp.value);
+    if (!SUG.rows.length) { sugClose(); return; }
+    const r = inp.getBoundingClientRect(), below = innerHeight - r.bottom > 280;
+    el.style.cssText = `left:${r.left}px;width:${r.width}px;${below ? `top:${r.bottom + 6}px` : `bottom:${innerHeight - r.top + 6}px`}`;
+    el.innerHTML = SUG.rows.map((s, k) => `<button type="button" class="fxs-row${k === SUG.i ? " on" : ""}" data-k="${k}"><b>${A.esc(s.name)}</b><i>${A.esc(s.code)}</i><span class="${A.tone(s.chg)}">${Number.isFinite(s.price) ? A.fmt(s.price, A.dig(s.price)) : "讀不到"}</span><em class="${A.tone(s.chg)}">${Number.isFinite(s.pct) ? A.pct(s.pct) : ""}</em></button>`).join("");
+  }
+  function sugOpen(inp) {
+    if (!SUG.el) { SUG.el = document.createElement("div"); SUG.el.className = "fxsug"; SUG.el.setAttribute("role", "listbox"); document.body.appendChild(SUG.el);
+      SUG.el.addEventListener("mousedown", e => { e.preventDefault(); const b = e.target.closest(".fxs-row"); if (b) sugPick(+b.dataset.k); }); }
+    const was = SUG.el.classList.contains("shown"); SUG.inp = inp; SUG.i = -1; SUG.el.classList.add("shown"); sugPaint();
+    if (!was && SUG.rows.length) SUG.el.animate([{ opacity: 0, transform: "translateY(-6px) scale(.98)" }, { opacity: 1, transform: "none" }], { duration: 220, easing: "cubic-bezier(.16,1,.3,1)" });
+  }
+  function sugClose() {
+    const el = SUG.el; if (!el || !el.classList.contains("shown")) return; el.classList.remove("shown");
+    const c = el.cloneNode(true); c.classList.add("shown", "out"); document.body.appendChild(c);
+    c.animate([{ opacity: 1 }, { opacity: 0, transform: "translateY(-4px)" }], { duration: 140, fill: "forwards" }).onfinish = () => c.remove(); el.innerHTML = "";
+  }
+  function sugPick(k) {
+    const s = SUG.rows[k], inp = SUG.inp; if (!s || !inp) return;
+    inp.value = s.code + " " + s.name; sugClose(); SUG.skip = true; inp.dispatchEvent(new Event("input", { bubbles: true })); inp.dispatchEvent(new Event("change", { bubbles: true })); SUG.skip = false;
+  }
+  function sugBind(inp) {
+    if (inp._fxs) return; inp._fxs = 1; inp.removeAttribute("list"); inp.setAttribute("autocomplete", "off"); inp.removeAttribute("title");
+    inp.addEventListener("focus", () => { inp.select(); sugOpen(inp); });
+    inp.addEventListener("input", () => { if (!SUG.skip && document.activeElement === inp) sugOpen(inp); });
+    inp.addEventListener("blur", () => setTimeout(() => { if (SUG.inp === inp && document.activeElement !== inp) sugClose(); }, 120));
+    inp.addEventListener("keydown", e => {
+      if (!SUG.el || !SUG.el.classList.contains("shown")) return;
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); const n = SUG.rows.length; SUG.i = (SUG.i + (e.key === "ArrowDown" ? 1 : -1) + n) % n; $$(".fxs-row", SUG.el).forEach((b, k) => b.classList.toggle("on", k === SUG.i)); }
+      else if (e.key === "Enter" && SUG.i >= 0) { e.preventDefault(); sugPick(SUG.i); }
+      else if (e.key === "Escape") { e.stopPropagation(); sugClose(); }
+    });
+  }
+  addEventListener("scroll", () => { if (SUG.el && SUG.el.classList.contains("shown")) sugClose(); }, true);
+  addEventListener("resize", () => { if (SUG.el && SUG.el.classList.contains("shown")) sugPaint(); });
+
   function boot() {
     if (A) return; A = window.TWDash && window.TWDash.api; if (!A) return;
     bindChart(); ensureChip(); ensureShare();
     document.addEventListener("twdash:chart", () => { ensureChip(); paintAlerts(); const cb = $("#dpStock .cbox"); if (cb) cb.classList.toggle("alerting", alertMode); });
-    setInterval(() => { ensureChip(); ensureShare(); checkAlerts(); }, 1200);
+    setInterval(() => { ensureChip(); ensureShare(); checkAlerts(); $$('input[list="twstocks"]').forEach(sugBind); }, 600);
     document.addEventListener("twdash:tab", () => { if (alertMode) setMode(false); });
   }
   document.addEventListener("twdash:ready", boot);
