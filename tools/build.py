@@ -1,9 +1,10 @@
 """Builds the two files the page loads, from the sources in assets/:
    assets/app.css  <- the 12 style sheets, in page order
+   (both are shrunk with esbuild: whitespace and syntax only, names are kept)
    assets/app.js   <- the 14 scripts, in page order; each runs inside its own try/catch, so one failing
                       script is reported (and goes to the Worker's error log) but does not stop the others.
 Run `python3 tools/build.py` after changing any source file (tests/smoke.py fails if the build is stale)."""
-import hashlib, os, re, sys
+import hashlib, os, re, subprocess, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 A = os.path.join(ROOT, "assets")
 CSS = "tokens base twconsole twui twpulse twplay twextra twnew twfx twfx2 twfx3 twds".split()
@@ -15,12 +16,21 @@ def rd(p):
         return f.read().rstrip() + "\n"
 
 
+def minify(code, kind):
+    """whitespace and syntax shrinking only (no renaming), so an error still points at readable code; esbuild is pinned so the output is the same everywhere"""
+    r = subprocess.run(["npx", "--yes", "esbuild@0.25.5", "--minify-whitespace", "--minify-syntax", "--loader=" + kind, "--legal-comments=none"],
+                       input=code, capture_output=True, text=True)
+    if r.returncode != 0:
+        sys.exit("esbuild failed: " + r.stderr[-500:])
+    return r.stdout
+
+
 def build():
     css = "".join(f"/* ===== {n}.css ===== */\n{rd(n + '.css')}" for n in CSS)
     js = "".join(
         f"/* ===== {n}.js ===== */\ntry {{\n{rd(n + '.js')}}} catch (e) {{ setTimeout(() => {{ throw e; }}, 0); }}\n"
         for n in JS)
-    return {"app.css": css, "app.js": js}
+    return {"app.css": minify(css, "css"), "app.js": minify(js, "js")}
 
 
 def stamp(out):

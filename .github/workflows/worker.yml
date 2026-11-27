@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["tools/twstock-worker.js", "tools/wrangler.toml", ".github/workflows/worker.yml"]
+    paths: ["tools/twstock-worker.js", "tools/worker/**", "tools/wrangler.toml", ".github/workflows/worker.yml"]
 jobs:
   deploy:
     continue-on-error: true
@@ -20,6 +20,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - name: Worker tests
+        run: node tests/worker.test.mjs
       - name: Skip when Cloudflare is not set up yet
         if: env.HAS_TOKEN != 'true'
         run: echo "Add the CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID repository secrets to deploy the Worker."

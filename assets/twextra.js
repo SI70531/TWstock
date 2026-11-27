@@ -458,7 +458,7 @@
     const TABS = [["look", "顯示", grp(["theme", "ud", "speed"])], ["def", "預設", grp(["home", "lst", "cmine", "cmode"])],
       ["feed", "行情與通知", grp(["poll"]) + `<div class="setsec"><b>Telegram 通知</b>${TG.map(([k, t]) => `<label class="lcheck"><input type="checkbox" data-tg="${k}" ${opt[k] === false ? "" : "checked"}><span>${t}</span></label>`).join("")}<p class="sub settg" role="status"></p></div>`],
       ["help", "說明", `<div class="setsec"><a class="btn thhelp" href="help.html">開啟說明頁</a></div>`],
-      ["data", "資料", `<div class="setsec"><b>備份與清除</b><div class="xrow"><button type="button" class="aigo" data-backup>下載備份</button><label class="btn xfile">選擇備份檔還原<input type="file" accept=".json,application/json" hidden></label><button type="button" class="btn" data-restore hidden>確認還原</button><button type="button" class="btn" data-wipe>清除本機資料</button></div><p class="sub setlast"></p><p class="sub setmsg" role="status"></p></div>`]];
+      ["data", "資料", `<div class="setsec"><b>備份與清除</b><div class="xrow"><button type="button" class="aigo" data-backup>下載備份</button><label class="btn xfile">選擇備份檔還原<input type="file" accept=".json,application/json" hidden></label><button type="button" class="btn" data-restore hidden>確認還原</button><button type="button" class="btn" data-syncundo>還原同步前的資料</button><button type="button" class="btn" data-wipe>清除本機資料</button></div><p class="sub setlast"></p><p class="sub setmsg" role="status"></p></div>`]];
     el.innerHTML = `<div class="kbcard setcard"><h3>設定</h3><div class="settabs" role="tablist">${TABS.map(([k, t], i) => `<button type="button" class="chip" role="tab" data-tab="${k}" aria-pressed="${i === 0}">${t}</button>`).join("")}</div>${TABS.map(([k, , h], i) => `<div class="setpane" data-pane="${k}"${i ? " hidden" : ""}>${h}</div>`).join("")}</div>`;
     const shut = () => { document.removeEventListener("keydown", esc); el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 180, fill: "forwards" }).onfinish = () => el.remove(); };
     const esc = e => { if (e.key === "Escape") shut(); };
@@ -479,6 +479,7 @@
         return;
       }
       if (e.target.closest("[data-backup]")) return backup();
+      if (e.target.closest("[data-syncundo]")) { const say = t => { const m = $(".setmsg"); if (m) m.textContent = t; }; say("還原中…"); fetch(A.worker + "/tw/sync", { method: "POST", headers: { "Content-Type": "application/json", "X-TW": "1" }, body: JSON.stringify({ undo: 1 }) }).then(r => r.json()).then(j => { const d = (j && j.data) || {}; Object.keys(d).forEach(k => { try { localStorage.setItem(k, JSON.stringify(d[k].v)); } catch (x) {} }); try { localStorage.removeItem("tw-sync-seen"); } catch (x) {} say("已還原，重新載入中…"); setTimeout(() => location.reload(), 700); }).catch(() => say("讀不到，還原失敗。")); return; }
       if (e.target.closest("[data-restore]")) return restore();
       const w = e.target.closest("[data-wipe]");
       if (w) {
@@ -522,6 +523,7 @@
       const v = e.target.closest("[data-xview]"); if (v) return showHoldView(v.dataset.xview);
       const c = e.target.closest("[data-xcurve]"); if (c) { c.disabled = true; holdCurve().finally(() => { c.disabled = false; }); return; }
       if (e.target.closest("[data-backup]")) return backup();
+      if (e.target.closest("[data-syncundo]")) { const say = t => { const m = $(".setmsg"); if (m) m.textContent = t; }; say("還原中…"); fetch(A.worker + "/tw/sync", { method: "POST", headers: { "Content-Type": "application/json", "X-TW": "1" }, body: JSON.stringify({ undo: 1 }) }).then(r => r.json()).then(j => { const d = (j && j.data) || {}; Object.keys(d).forEach(k => { try { localStorage.setItem(k, JSON.stringify(d[k].v)); } catch (x) {} }); try { localStorage.removeItem("tw-sync-seen"); } catch (x) {} say("已還原，重新載入中…"); setTimeout(() => location.reload(), 700); }).catch(() => say("讀不到，還原失敗。")); return; }
       if (e.target.closest("[data-restore]")) return restore();
     });
     el.addEventListener("input", e => { if (/^z(code|in|stop|cap|risk)$/.test(e.target.name)) sizePosition(); });

@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["index.html", "assets/**", "sw.js", "tests/**", ".github/workflows/test.yml"]
+    paths: ["index.html", "assets/**", "sw.js", "tests/**", "tools/**", ".github/workflows/test.yml"]
   pull_request:
 jobs:
   smoke:
@@ -22,3 +22,17 @@ jobs:
           python-version: "3.12"
       - run: pip install playwright && python -m playwright install --with-deps ${{ matrix.browser }}
       - run: python tests/smoke.py
+
+  worker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - run: node tests/worker.test.mjs
+      - name: No undefined names in the Worker modules
+        run: |
+          npm i --no-save eslint@9 globals
+          printf 'import globals from "globals";\nexport default [{ files: ["**/*.js"], languageOptions: { ecmaVersion: 2024, sourceType: "module", globals: { ...globals.serviceworker } }, rules: { "no-undef": "error" } }];\n' > eslint.config.mjs
+          npx eslint tools/twstock-worker.js tools/worker/*.js
