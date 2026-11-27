@@ -293,8 +293,8 @@
     const ACT = "button, a[href], summary, [role=tab], [role=button], tr[data-code], .chip, .ixcard, .wcard, .hmt, .sb-row, .instrow, label";
     const SKIP = ".dgrip, .cbox, .kchart, .hm .hmcard, input, select, textarea, [data-noclick]";
     const sig = el => el ? el.tagName + "|" + Array.from(el.attributes).filter(a => /^data-/.test(a.name)).map(a => a.name + "=" + a.value).join(",") + "|" + (el.textContent || "").trim().slice(0, 24) : "";
-    let dn = null, ck = { at: 0, t: null };
-    document.addEventListener("click", e => { ck = { at: performance.now(), t: e.target }; }, true);
+    let dn = null, cks = [];
+    document.addEventListener("click", e => { cks.push({ at: performance.now(), t: e.target }); if (cks.length > 12) cks.shift(); }, true);
     document.addEventListener("pointerdown", e => {
       dn = null; if (e.button > 0 || !e.isTrusted || !e.target.closest) return;
       const el = e.target.closest(ACT); if (!el || el.disabled || el.closest(SKIP)) return;
@@ -307,7 +307,7 @@
       setTimeout(() => {
         const under = document.elementFromPoint(x, y), tg = under && under.closest && under.closest(ACT); if (!tg || tg.disabled) return;
         const same = tg === d.el || (!d.el.isConnected && sig(tg) === d.sig); if (!same) return;
-        const got = ck.at > d.t - 80 && ck.t && (d.el.contains(ck.t) || tg.contains(ck.t) || (ck.t.closest && sig(ck.t.closest(ACT)) === d.sig));
+        const got = cks.some(ck => ck.at > d.t - 80 && ck.t && (d.el.contains(ck.t) || tg.contains(ck.t) || (ck.t.closest && sig(ck.t.closest(ACT)) === d.sig)));
         if (!got) tg.click();
       }, 60);
     }, true);
