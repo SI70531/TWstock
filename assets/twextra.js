@@ -169,7 +169,7 @@
       let gold = false; for (let i = n - 1; i >= Math.max(1, n - 3); i--) if (I.K[i] > I.D[i] && I.K[i - 1] <= I.D[i - 1]) gold = true;
       const v20 = n > 20 ? mean(cs.slice(-21, -1).map(c => c[5])) : NaN;
       out.set(code, { above20: z > mean(cl.slice(-20)), above60: n >= 60 ? z > mean(cl.slice(-60)) : null, gold: gold && I.K[n - 1] > I.D[n - 1],
-        volx: v20 > 0 ? cs[n - 1][5] / v20 : NaN, high60: n >= 60 ? z >= Math.max(...cl.slice(-60)) : null });
+        volx: v20 > 0 ? cs[n - 1][5] / v20 : NaN, high60: n >= 60 ? z >= Math.max(...cl.slice(-60)) : null, low60: n >= 60 ? z <= Math.min(...cl.slice(-60)) : null });
     });
     return { date: last, days: days.length, map: out };
   }
@@ -747,6 +747,7 @@
   function init() {
     if (A) return;
     A = window.TWDash && window.TWDash.api; if (!A) return;
+    A.tech = tech;
     document.body.insertAdjacentHTML("beforeend", `<datalist id="twstocks"></datalist>`);
     buildStockCards(); buildTemp(); bindHold(); mountLog();
     if (A.DB.list.length) onList();

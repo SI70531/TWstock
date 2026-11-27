@@ -23,6 +23,9 @@
      GET  /tw/margin?c=2330          margin / short balances of one stock, the last ~8 trading days (TWSE MI_MARGN)
      GET  /tw/holders?c=2330         shareholding distribution of one stock (TDCC weekly open data)
      GET  /tw/pe?c=2330&m=24         daily P/E, yield, P/B of one stock over the last m months (TWSE BWIBBU)
+     GET  /tw/daytrade               day-trading volume per stock, latest day (TWSE TWTB4U)
+     GET  /tw/lending                securities-lending short balance per stock and its change (TWSE TWT93U)
+     GET  /tw/qfii                   foreign holding ratio per stock and its change over ~5 trading days (TWSE MI_QFIIS)
      GET  /health                    does GEMINI_KEY work
    Secrets: GEMINI_KEY, TG_TOKEN (Telegram bot). Deployed by .github/workflows/worker.yml with tools/wrangler.toml.
    Google does not offer Gemini in Hong Kong, so the Gemini call goes through the GeminiRelay Durable Object in North America. */
@@ -84,6 +87,9 @@ export default {
     if (url.pathname === "/tw/margin" && req.method === "GET") return twMargin(url, json, fail);
     if (url.pathname === "/tw/sectorhist" && req.method === "GET") return twSectorHist(json, fail);
     if (url.pathname === "/tw/margintop" && req.method === "GET") return twMarginTop(json, fail);
+    if (url.pathname === "/tw/daytrade" && req.method === "GET") return twDayTrade(json, fail);
+    if (url.pathname === "/tw/lending" && req.method === "GET") return twLending(json, fail);
+    if (url.pathname === "/tw/qfii" && req.method === "GET") return twQfii(json, fail);
     if (url.pathname === "/tw/review" && req.method === "GET") return json({ rows: await reviewRows(env) }, 200, { "Cache-Control": "no-store" });
     if (url.pathname === "/tw/holders" && req.method === "GET") return twHolders(url, json, fail);
     if (url.pathname === "/tw/pe" && req.method === "GET") return twPe(url, json, fail);
@@ -1531,4 +1537,51 @@ async function twOpen(url, json, fail) {
     });
     return json(v, 200, { "Cache-Control": "public, max-age=1800" });
   } catch (e) { return fail(502, "upstream", "open data unavailable"); }
+}
+
+/* ---- three more TWSE day reports: day trading, securities lending, foreign holding. Each tries the last trading days until one has data. ---- */
+async function twRwdTable(path, ds, need) {
+  return twCached("rwd:" + path + ds, 12 * 3600e3, async () => {
+    const j = await (await twFetch(`https://www.twse.com.tw/rwd/zh/${path}${path.includes("?") ? "&" : "?"}date=${ds}&response=json`, { headers: { "User-Agent": TW_UA } })).json();
+    const t = Array.isArray(j.tables) ? j.tables.find(x => x && Array.isArray(x.fields) && Array.isArray(x.data) && x.data.length > 50 && need(x.fields)) : (Array.isArray(j.fields) && Array.isArray(j.data) && need(j.fields) ? j : null);
+    return j.stat === "OK" && t ? { fields: t.fields, data: t.data } : null;
+  });
+}
+async function twFirstDay(path, need, skip) {
+  let n = 0;
+  for (const ds of taipeiDays(14)) {
+    let t = null; try { t = await twRwdTable(path, ds, need); } catch (e) { twCache.delete("rwd:" + path + ds); }
+    if (!t) { twCache.delete("rwd:" + path + ds); continue; }
+    if (n++ >= (skip || 0)) return { ds, t };
+  }
+  return null;
+}
+const twDay8 = ds => ds.slice(0, 4) + "-" + ds.slice(4, 6) + "-" + ds.slice(6);
+async function twDayTrade(json, fail) {
+  const r = await twFirstDay("dayTrading/TWTB4U", f => f.includes("證券代號") && f.some(x => x.includes("當日沖銷交易成交股數")));
+  if (!r) return fail(502, "NO_DATA", "當沖資料暫時讀不到");
+  const f = r.t.fields, iC = f.indexOf("證券代號"), iS = f.findIndex(x => x.includes("當日沖銷交易成交股數")), iB = f.findIndex(x => x.includes("買進成交金額")), iL = f.findIndex(x => x.includes("賣出成交金額"));
+  const rows = r.t.data.map(x => [String(x[iC]).trim(), Math.round((twNum(x[iS]) || 0) / 1000), Math.round((twNum(x[iB]) || 0) / 1e4), Math.round((twNum(x[iL]) || 0) / 1e4)]).filter(x => /^[0-9A-Z]{4,6}$/.test(x[0]) && x[1] > 0)
+    .sort((a, b) => b[1] - a[1]).slice(0, 300);                    /* code, lots day-traded, bought (NT$ 10k), sold (NT$ 10k) */
+  return json({ day: twDay8(r.ds), rows }, 200, { "Cache-Control": "public, max-age=600" });
+}
+async function twLending(json, fail) {
+  const r = await twFirstDay("marginTrading/TWT93U", f => f.length >= 12 && f.includes("前日餘額") && f.includes("當日餘額"));
+  if (!r) return fail(502, "NO_DATA", "借券資料暫時讀不到");
+  const f = r.t.fields, iC = 0, iP = f.lastIndexOf("前日餘額"), iN = f.lastIndexOf("當日餘額"), iS = f.lastIndexOf("當日賣出");
+  const rows = r.t.data.map(x => { const p = twNum(x[iP]) || 0, n = twNum(x[iN]) || 0; return [String(x[iC]).trim(), Math.round(n / 1000), Math.round((n - p) / 1000), Math.round((twNum(x[iS]) || 0) / 1000)]; })
+    .filter(x => /^[0-9A-Z]{4,6}$/.test(x[0]));                    /* code, balance (lots), change (lots), sold today (lots) */
+  const big = rows.filter(x => x[1] >= 500), top = (a, k, d, n) => a.slice().sort((p, q) => (q[k] - p[k]) * d).slice(0, n);
+  return json({ day: twDay8(r.ds), up: top(big, 2, 1, 15), down: top(big, 2, -1, 15), bal: top(rows, 1, 1, 15) }, 200, { "Cache-Control": "public, max-age=600" });
+}
+async function twQfii(json, fail) {
+  const need = f => f.includes("證券代號") && f.some(x => x.includes("全體外資及陸資持股比率"));
+  const a = await twFirstDay("fund/MI_QFIIS?selectType=ALLBUT0999", need, 0);
+  if (!a) return fail(502, "NO_DATA", "外資持股資料暫時讀不到");
+  const b = await twFirstDay("fund/MI_QFIIS?selectType=ALLBUT0999", need, 5).catch(() => null);
+  const grab = t => { const f = t.fields, iC = f.indexOf("證券代號"), iR = f.findIndex(x => x.includes("全體外資及陸資持股比率")), iH = f.findIndex(x => x.includes("全體外資及陸資持有股數")), m = {}; t.data.forEach(x => { const c = String(x[iC]).trim(); if (/^[0-9A-Z]{4,6}$/.test(c)) m[c] = [twNum(x[iR]), Math.round((twNum(x[iH]) || 0) / 1000)]; }); return m; };
+  const now = grab(a.t), old = b ? grab(b.t) : {};
+  const rows = Object.entries(now).filter(([, v]) => v[0] != null).map(([c, v]) => [c, v[0], old[c] && old[c][0] != null ? Math.round((v[0] - old[c][0]) * 100) / 100 : null, v[1]]);   /* code, ratio %, change vs ~5 days ago (pts), lots held */
+  const withChg = rows.filter(x => x[2] != null && x[3] >= 1000);
+  return json({ day: twDay8(a.ds), since: b ? twDay8(b.ds) : null, top: rows.slice().sort((p, q) => q[1] - p[1]).slice(0, 15), up: withChg.slice().sort((p, q) => q[2] - p[2]).slice(0, 15), down: withChg.slice().sort((p, q) => p[2] - q[2]).slice(0, 15) }, 200, { "Cache-Control": "public, max-age=600" });
 }

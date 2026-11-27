@@ -146,3 +146,55 @@
 /* index cards: the source / time label drops to its own line instead of being cut off */
 .ixcard h3 { flex-wrap: wrap; row-gap: 2px; }
 .ixcard h3 .ixsrc { margin-left: auto; max-width: 100%; }
+
+/* ---- twnew2: 籌碼 rankings, 排行 lists, 比較, 產業估值, 產業配置 ---- */
+.mgbar i.flat { background: var(--color-accent); }
+.rr b.flat { color: var(--color-ink); }
+.ccout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
+.ccx.wide .ccout { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 14px; }
+@media (max-width: 720px) { .ccx.wide .ccout { grid-template-columns: minmax(0, 1fr); } }
+.ccx .aihead + .hmseg { align-self: flex-start; }
+.rkx { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.rkx h3 { margin: 0; }
+.rkx .xl { display: grid; gap: 2px; }
+.rkgrid > .rkx .xprog { margin-top: 6px; }
+.ivout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 24px; }
+@media (max-width: 720px) { .ivout { grid-template-columns: minmax(0, 1fr); } }
+.ivrow { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 64px; gap: 12px; align-items: center; padding: 6px 4px; }
+.ivrow .nm { display: flex; flex-direction: column; min-width: 0; } .ivrow .nm em { font-style: normal; font-size: var(--text-xs); color: var(--color-muted); }
+.ivrow .rr { text-align: right; font-variant-numeric: tabular-nums; }
+/* 比較 */
+.cpc { display: flex; flex-direction: column; gap: 14px; }
+.cpbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between; }
+.cpchips { display: flex; flex-wrap: wrap; gap: 8px; }
+.cpchip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border-radius: 999px; border: 1px solid var(--glass-line-2); background: var(--glass-2); }
+.cpchip > i, .cptb th > i, .cpend i { width: 9px; height: 9px; border-radius: 50%; background: var(--c); display: inline-block; margin-right: 6px; }
+.cpchip > button:first-of-type { background: none; border: 0; color: inherit; font: inherit; cursor: pointer; padding: 0; }
+.cpchip em { font-style: normal; color: var(--color-muted); font-size: var(--text-xs); }
+.cpadd { position: relative; } .cpq { width: 160px; }
+.cpsug { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 200px; display: grid; padding: 6px; border-radius: 14px; background: var(--glass-2, #fff); border: 1px solid var(--glass-line-2); backdrop-filter: blur(12px); box-shadow: var(--glass-shadow); }
+.cpsug button { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border: 0; background: none; color: inherit; font: inherit; border-radius: 10px; cursor: pointer; text-align: left; }
+.cpsug button:hover { background: var(--glass-line); } .cpsug em { font-style: normal; color: var(--color-muted); }
+.cpchart { display: flex; flex-direction: column; gap: 8px; }
+.cpchart svg { width: 100%; height: 220px; }
+.cpz { stroke: currentColor; opacity: .25; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.cpl { fill: none; stroke: var(--c); stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.cpend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: var(--text-sm); }
+.cptbl { overflow-x: auto; }
+.cptb { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.cptb th, .cptb td { padding: 9px 10px; text-align: right; border-bottom: 1px solid var(--glass-line); white-space: nowrap; }
+.cptb thead th { font-weight: 700; } .cptb th:first-child, .cptb tbody th { text-align: left; font-weight: 500; color: var(--color-muted); }
+.cptb td.best { font-weight: 800; background: color-mix(in oklch, var(--color-accent) 16%, transparent); border-radius: 8px; }
+/* 產業配置 */
+.alc { grid-column: 1 / -1; }
+.alwrap { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 24px; align-items: center; }
+@media (max-width: 560px) { .alwrap { grid-template-columns: minmax(0, 1fr); justify-items: center; } .allist { width: 100%; } }
+.alpie { position: relative; width: 180px; height: 180px; }
+.alpie svg { width: 100%; height: 100%; } .albg { fill: none; stroke: var(--glass-line); stroke-width: 18; } .alseg { fill: none; stroke-width: 18; }
+.alc2 { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.alc2 b { font-size: var(--text-lg, 1.2rem); font-variant-numeric: tabular-nums; } .alc2 span { font-size: var(--text-xs); color: var(--color-muted); }
+.allist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 24px; }
+@media (max-width: 720px) { .allist { grid-template-columns: minmax(0, 1fr); } }
+.alrow { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.alrow i { width: 12px; height: 12px; border-radius: 4px; } .alrow b { font-variant-numeric: tabular-nums; }
+.allist { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }

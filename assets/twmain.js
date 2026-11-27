@@ -499,7 +499,7 @@
     $(".anasub", pre).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) anaSub(b.dataset.sub, true); });
     anaSub(anaDefault(), false); mdGate();
     const instc = $(".inst", box), mktc = $(".mkt", box), dl = $("#dpList");
-    dl.insertAdjacentHTML("afterbegin", `<div class="anasub lsub" role="tablist" aria-label="股票">${[["ls", "清單"], ["rk", "排行"], ["sc", "選股"], ["rv", "營收"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
+    dl.insertAdjacentHTML("afterbegin", `<div class="anasub lsub" role="tablist" aria-label="股票">${[["ls", "清單"], ["rk", "排行"], ["cp", "比較"], ["sc", "選股"], ["rv", "營收"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
     mktc.dataset.sub = "ls"; dl.appendChild(mktc); instInit(instc); lstBuild(dl);
     $(".lsub", dl).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) lstSub(b.dataset.sub, true); });
     lstSub((() => { try { return sessionStorage.getItem("twlst") || (window.TWSet && window.TWSet.get("lst")) || "ls"; } catch (e) { return "ls"; } })(), false);
@@ -1033,8 +1033,8 @@
   let LST = "ls";
   function lstSub(k, animate) {
     const dl = $("#dpList"), bar = $(".lsub", dl); if (!bar) return;
-    if (!["ls", "rk", "sc", "rv"].includes(k)) k = "ls";
-    const order = ["ls", "rk", "sc", "rv"], prev = LST; LST = k;
+    if (!["ls", "rk", "cp", "sc", "rv"].includes(k)) k = "ls";
+    const order = ["ls", "rk", "cp", "sc", "rv"], prev = LST; LST = k;
     try { if (animate) sessionStorage.setItem("twlst", k); } catch (e) {}
     const bs = $$("[data-sub]", bar), b = bs.find(x => x.dataset.sub === k) || bs[0];
     bs.forEach(x => x.setAttribute("aria-selected", String(x === b)));
@@ -1046,6 +1046,7 @@
       if (on && animate) c.animate([{ opacity: 0, transform: `translateX(${dir * 40}px)` }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.16,1,.3,1)" });
     });
     if (k === "sc") scGo(); else if (k === "rv") rvGo();
+    document.dispatchEvent(new CustomEvent("twdash:lstsub", { detail: k }));
   }
   const stockish = s => /^\d{4}$/.test(s.code) && s.mkt !== "esb";
   const rowBtn = (s, right, sub) => `<button type="button" class="instrow" data-code="${esc(s.code)}"><span class="nm"><b>${esc(s.name)}</b><em>${esc(s.code)}${sub ? "・" + sub : ""}</em></span><span class="rr">${right}</span></button>`;
@@ -1062,13 +1063,24 @@
       <div class="dcard gp" data-sub="gp"><div class="aihead"><div><h3>族群／概念股</h3></div><span class="sub">自訂參考分類・今日平均漲跌</span></div><div class="gpout"></div></div>`);
     const sc = $(".sc", dl), st = store.get("twmain-sc", {});
     $$("select", sc).forEach(sel => { if (st[sel.dataset.f] != null && [...sel.options].some(o => o.value === st[sel.dataset.f])) sel.value = st[sel.dataset.f]; });
-    sc.addEventListener("change", e => { const o = {}; $$("select", sc).forEach(x => (o[x.dataset.f] = x.value)); store.set("twmain-sc", o); scPaint(true); });
+    sc.addEventListener("change", e => { const o = {}; $$("select", sc).forEach(x => (o[x.dataset.f] = x.value)); store.set("twmain-sc", o); if (e.target.tagName === "SELECT") $$("[data-bi]", sc).forEach(x => x.setAttribute("aria-pressed", "false")); scPaint(true); });
     /* saved conditions: one tap brings a whole set of filters back (kept in this browser, up to 8) */
     const PK = "twmain-sc-presets", defOf = f => f.o[0][0];
     const presets = () => store.get(PK, []) || [];
     const preName = v => { const parts = SC_F.filter(f => f.k !== "sort" && v[f.k] != null && v[f.k] !== defOf(f)).map(f => { const o = f.o.find(x => x[0] === v[f.k]); return o ? (f.k === "ind" ? o[1] : f.l + " " + o[1]) : ""; }).filter(Boolean); return parts.length ? parts.slice(0, 3).join("＋") : "全部股票"; };
     const prePaint = () => { $(".scpl", sc).innerHTML = presets().map((p, i) => `<span class="scp"><button type="button" class="chip" data-pi="${i}">${esc(p.n)}</button><button type="button" class="scx" data-px="${i}" aria-label="刪除這組條件">×</button></span>`).join(""); };
     prePaint();
+    /* built-in strategies: one tap sets the whole form (everything else back to 不限) */
+    const BI = [["高殖利率", { yld: "5", pe: "20", sort: "yld" }], ["營收創高", { yoy: "30", vol: "1000", sort: "yoy" }], ["法人買超＋站上月線", { chip: "a", ma: "above20", vol: "1000", sort: "vol" }],
+      ["強勢突破", { sig: "high60", volx: "1.5", sort: "pct" }], ["低本益比價值", { pe: "10", yld: "3", sort: "pe" }], ["量增上攻", { pct: "3", volx: "2", vol: "1000", sort: "pct" }]];
+    $(".scpre", sc).insertAdjacentHTML("beforebegin", `<div class="scpre scbi">${BI.map(([n], i) => `<button type="button" class="chip" data-bi="${i}">${n}</button>`).join("")}</div>`);
+    sc.addEventListener("click", e => {
+      const bi = e.target.closest("[data-bi]"); if (!bi) return;
+      const v = BI[+bi.dataset.bi][1];
+      $$("select", sc).forEach(sel => { const f = SC_F.find(x => x.k === sel.dataset.f), want = v[sel.dataset.f] != null ? v[sel.dataset.f] : f.o[0][0]; if ([...sel.options].some(o => o.value === want)) sel.value = want; });
+      $$("[data-bi]", sc).forEach(x => x.setAttribute("aria-pressed", String(x === bi)));
+      sc.dispatchEvent(new Event("change"));
+    });
     sc.addEventListener("click", e => {
       const sv = e.target.closest(".scsave");
       if (sv) { const v = {}; $$("select", sc).forEach(x => (v[x.dataset.f] = x.value)); const L = presets().filter(p => JSON.stringify(p.v) !== JSON.stringify(v)); L.unshift({ n: preName(v), v }); store.set(PK, L.slice(0, 8)); prePaint(); const nb = $(".scp", sc); if (nb) nb.animate([{ opacity: 0, transform: "scale(.7)" }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.2,.9,.3,1.2)" }); return; }
