@@ -332,7 +332,7 @@
         const same = tg === d.el || (!d.el.isConnected && sig(tg) === d.sig); if (!same) return;
         const got = cks.some(ck => ck.at > d.t - 80 && ck.t && (d.el.contains(ck.t) || tg.contains(ck.t) || (ck.t.closest && sig(ck.t.closest(ACT)) === d.sig)));
         if (!got) tg.click();
-      }, 60);
+      }, 160);
     }, true);
   })();
 
