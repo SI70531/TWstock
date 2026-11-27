@@ -703,7 +703,7 @@
     }
     hm.dataset.level = level;
     const keepTip = $(".hmtip", hm);
-    hm.innerHTML = tiles.map(({ it, cls, st }) => `<button type="button" class="${cls}" data-k="${esc(it.key)}" data-p="${(it.pct || 0).toFixed(2)}"${g ? ` data-code="${esc(it.key)}"` : ""} style="${st}" title="${esc(it.name)} ${pct(it.pct)}"><b>${esc(it.name)}</b><span>${pct(it.pct)}</span><i>${esc(it.sub)}</i></button>`).join("");
+    hm.innerHTML = tiles.map(({ it, cls, st }) => `<button type="button" class="${cls}" data-k="${esc(it.key)}" data-p="${(it.pct || 0).toFixed(2)}"${g ? ` data-code="${esc(it.key)}"` : ""} style="${st}"><b>${esc(it.name)}</b><span>${pct(it.pct)}</span><i>${esc(it.sub)}</i></button>`).join("");
     if (keepTip) { keepTip.hidden = true; hm.appendChild(keepTip); }
     if (animate) $$(".hmt", hm).forEach((t, i) => t.animate([{ opacity: 0, transform: "scale(.6)" }, { opacity: 1, transform: "none" }], { duration: 480, delay: Math.min(i, 30) * 22, easing: "cubic-bezier(.2,.9,.3,1.2)", fill: "backwards" }));
   }
