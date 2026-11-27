@@ -1048,7 +1048,7 @@
     dl.insertAdjacentHTML("beforeend", `
       <div class="dcard sc" data-sub="sc"><div class="aihead"><div><h3>選股器</h3></div><span class="sub scn"></span></div>
         <div class="scform">${SC_F.map(f => `<label><span>${f.l}</span><select data-f="${f.k}">${f.o.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></label>`).join("")}</div>
-        <div class="scpre"><button type="button" class="chip scsave">＋ 儲存目前條件</button><span class="scpl"></span></div>
+        <div class="scpre"><button type="button" class="chip scclr">清除目前條件</button><span class="scpl" hidden></span></div>
         <div class="scout"></div></div>
       <div class="dcard rv" data-sub="rv"><div class="aihead"><div><h3>月營收排行</h3></div><span class="sub rvn"></span></div>
         <div class="hmseg rvseg" role="group" aria-label="營收">${[["yu", "年增 ↑"], ["yd", "年增 ↓"], ["mu", "月增 ↑"], ["md", "月增 ↓"]].map(([k, l]) => `<button type="button" data-g="${k}" aria-pressed="${k === "yu"}">${l}</button>`).join("")}<i></i></div>
@@ -1076,8 +1076,8 @@
       sc.dispatchEvent(new Event("change"));
     });
     sc.addEventListener("click", e => {
-      const sv = e.target.closest(".scsave");
-      if (sv) { const v = {}; $$("select", sc).forEach(x => (v[x.dataset.f] = x.value)); const L = presets().filter(p => JSON.stringify(p.v) !== JSON.stringify(v)); L.unshift({ n: preName(v), v }); store.set(PK, L.slice(0, 8)); prePaint(); const nb = $(".scp", sc); if (nb) nb.animate([{ opacity: 0, transform: "scale(.7)" }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.2,.9,.3,1.2)" }); return; }
+      const sv = e.target.closest(".scclr");
+      if (sv) { $$("select", sc).forEach(x => { x.value = x.options[0].value; }); $$("[data-bi]", sc).forEach(x => x.setAttribute("aria-pressed", "false")); sc.dispatchEvent(new Event("change")); sv.animate([{ transform: "scale(1)" }, { transform: "scale(.94)" }, { transform: "none" }], { duration: 260, easing: "cubic-bezier(.34,1.4,.5,1)" }); return; }
       const x = e.target.closest("[data-px]"); if (x) { const L = presets(); L.splice(+x.dataset.px, 1); store.set(PK, L); prePaint(); return; }
       const pb = e.target.closest("[data-pi]"); if (pb) { const p = presets()[+pb.dataset.pi]; if (!p) return; $$("select", sc).forEach(sel => { if (p.v[sel.dataset.f] != null && [...sel.options].some(o => o.value === p.v[sel.dataset.f])) sel.value = p.v[sel.dataset.f]; }); sc.dispatchEvent(new Event("change")); }
     });
