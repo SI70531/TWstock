@@ -1025,7 +1025,7 @@
   let LST = "ls";
   function lstSub(k, animate) {
     const dl = $("#dpList"), bar = $(".lsub", dl); if (!bar) return;
-    const order = ["ls", "rk", "cp", "sc", "rv", "dv"];
+    const order = ["ls", "rk", "cp", "sc", "rv"];
     if (!order.includes(k)) k = "ls";
     const prev = LST; LST = k;
     try { if (animate) sessionStorage.setItem("twlst", k); } catch (e) {}
@@ -1710,7 +1710,7 @@
       <div class="dcard sx sfin"><div class="aihead"><div><h3>財報速覽</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       <div class="dcard sx sinst"><div class="aihead"><div><h3>三大法人買賣超</h3></div><span class="sub sxn"></span></div><div class="sxout"><p class="sub">載入中…</p></div></div>
       </div>
-      <div class="sgrid">
+      <div class="sgrid" tabindex="0" aria-label="個股資料">
         <div class="dcard ssnap"><h3>技術面快照</h3><div class="snaplist"><p class="sub">載入中…</p></div></div>
         <div class="dcard sfund"><h3>基本面與籌碼</h3><div class="fundlist"><p class="sub">載入中…</p></div></div>
         <div class="dcard snews"><h3>新聞與公告</h3><div class="newslist"><p class="sub">載入中…</p></div></div>
@@ -2475,7 +2475,7 @@
 
   /* ---------- the command palette (Ctrl+K): any stock, any tab, light / dark ---------- */
   let pal = null;
-  const PAGES = [["dpOverview", "總覽", "大盤、國際行情、漲跌幅排行"], ["dpChip", "籌碼", "籌碼溫度、法人、融資融券、注意股"], ["dpInd", "產業", "類股熱力圖、產業輪動、族群"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"], ["dpCal", "市場日曆", "除權息、股東會、結算日"]];
+  const PAGES = [["dpOverview", "總覽", "大盤、國際行情"], ["dpChip", "籌碼", "籌碼溫度、法人、融資融券、注意股"], ["dpInd", "產業", "類股熱力圖、產業輪動、族群"], ["dpList", "股票", "清單與自選1–5、點股票看個股分析"], ["dpHold", "持股與損益", "持股、損益、風險"], ["dpPre", "分析", "收盤摘要、盤前與盤中分析"], ["dpRev", "復盤", "預測對帳與命中率"], ["dpCal", "市場日曆", "除權息、股東會、結算日"]];
   function palOpen() {
     if (pal) { $("input", pal).focus(); return; }
     pal = document.createElement("div"); pal.className = "pal"; pal.setAttribute("role", "dialog"); pal.setAttribute("aria-modal", "true"); pal.setAttribute("aria-label", "搜尋");

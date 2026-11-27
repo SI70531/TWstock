@@ -53,6 +53,7 @@
       const mkt = $(".mkt", dl); (mkt || dl.lastElementChild).after(rk);
       rk.addEventListener("click", e => { const r = e.target.closest("[data-code]"); if (r) A.openStock(r.dataset.code, r); });
     }
+    const bd = $("#dpOverview > .board:not(.board2)"); if (bd && !bd.children.length) bd.remove();
   }
   async function mgLoad() {
     if (MG.loading) return; MG.loading = true;
@@ -84,6 +85,22 @@
         <div class="hmseg rotseg" role="group" aria-label="期間">${[["5", "近 5 日"], ["10", "近 10 日"]].map(([k, l]) => `<button type="button" data-g="${k}" aria-pressed="${k === "5"}">${l}</button>`).join("")}<i></i></div>
         <div class="rotout"><p class="sub">載入中…</p></div></div>
       <div class="dcard ir"><div class="aihead"><div><h3>產業強弱排行</h3></div><span class="sub irn"></span></div><div class="irout"><p class="sub">載入中…</p></div></div>`);
+    /* the three views of the sectors live in one card, one at a time */
+    const box = document.createElement("div"); box.className = "dcard indx wide";
+    const VIEWS = [["heat", "熱力圖", ".bd-heat"], ["rot", "輪動", ".rot"], ["ir", "強弱排行", ".ir"]];
+    box.innerHTML = `<div class="aihead"><div><h3>產業</h3></div><div class="hmseg indseg" role="group" aria-label="產業檢視">${VIEWS.map(([k, l]) => `<button type="button" data-iv="${k}" aria-pressed="false">${l}</button>`).join("")}<i></i></div></div><div class="indpanes"></div>`;
+    grid.prepend(box);
+    const panes = $(".indpanes", box), iseg = $(".indseg", box);
+    VIEWS.forEach(([k, , sel]) => { const c = $(sel, grid); if (!c) return; c.classList.remove("dcard", "wide"); c.classList.add("indpane"); c.dataset.iv = k; const h = $(":scope > .bd-h h3, :scope > .aihead h3", c); if (h) h.remove(); panes.appendChild(c); });
+    const ivShow = (k, anim) => {
+      const order = VIEWS.map(v => v[0]), prev = box.dataset.v || k, dir = order.indexOf(k) >= order.indexOf(prev) ? 1 : -1; box.dataset.v = k; A.store.set("twnew-indv", k);
+      $$("[data-iv]", iseg).forEach(b => b.setAttribute("aria-pressed", String(b.dataset.iv === k)));
+      $$(".indpane", panes).forEach(c => { const on = c.dataset.iv === k; c.hidden = !on; if (on && anim) c.animate([{ opacity: 0, transform: `translateX(${dir * 40}px)` }, { opacity: 1, transform: "none" }], { duration: 360, easing: "cubic-bezier(.16,1,.3,1)" }); });
+      requestAnimationFrame(() => { A.segMark(iseg); if (k === "heat") { A.paintHeat(anim); } else if (k === "rot") rotPaint(anim); else irPaint(anim); });
+    };
+    iseg.addEventListener("click", e => { const b = e.target.closest("[data-iv]"); if (b) ivShow(b.dataset.iv, true); });
+    if (window.ResizeObserver) new ResizeObserver(() => A.segMark(iseg)).observe(iseg);
+    ivShow(VIEWS.some(v => v[0] === A.store.get("twnew-indv", "heat")) ? A.store.get("twnew-indv", "heat") : "heat", false);
     const gp = $(".gp"); if (gp) { gp.removeAttribute("data-sub"); gp.hidden = false; grid.appendChild(gp); }
     const rot = $(".rot", grid), rseg = $(".rotseg", rot);
     rseg.addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (!b) return; $$("[data-g]", rseg).forEach(x => x.setAttribute("aria-pressed", String(x === b))); ROT.n = +b.dataset.g; A.segMark(rseg); rotPaint(true); });

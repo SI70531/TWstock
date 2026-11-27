@@ -174,7 +174,7 @@
   /* ================= 產業 → 估值比較 ================= */
   const IV = { k: "pe" };
   function buildVal(grid) {
-    const hm = $(".rot", grid) || $(".bd-heat", grid); if (!hm) return;
+    const hm = $(".indx", grid) || $(".rot", grid) || $(".bd-heat", grid); if (!hm) return;
     hm.insertAdjacentHTML("afterend", `<div class="dcard ival wide"><div class="aihead"><div><h3>產業估值比較</h3></div><span class="sub ivn"></span></div>${seg("ivseg", [["pe", "本益比"], ["yld", "殖利率"], ["pb", "股價淨值比"]], "pe")}<div class="ivout"><p class="sub">載入中…</p></div></div>`);
     const c = $(".ival", grid); bindSeg(c, ".ivseg", k => { IV.k = k; ivPaint(true); });
   }
