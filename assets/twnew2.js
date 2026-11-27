@@ -122,9 +122,11 @@
     const q = $(".cpq", card), sug = $(".cpsug", card);
     q.addEventListener("input", () => {
       const t = q.value.trim().toLowerCase(); if (!t) { sug.hidden = true; return; }
-      const L = A.DB.list.filter(s => stockish(s) && !cpCodes().includes(s.code) && (s.code.startsWith(t) || s.name.toLowerCase().includes(t))).slice(0, 6);
+      const L = A.DB.list.filter(s => /^\d{4,6}[A-Z]?$/i.test(s.code) && s.mkt !== "esb" && !cpCodes().includes(s.code) && (s.code.toLowerCase().startsWith(t) || s.name.toLowerCase().includes(t))).slice(0, 6);
+      if (!L.length && /^\d{4,6}[a-z]?$/.test(t) && !cpCodes().includes(t.toUpperCase())) L.push({ code: t.toUpperCase(), name: "加入" });
       sug.innerHTML = L.map(s => `<button type="button" data-add="${esc(s.code)}"><b>${esc(s.name)}</b><em>${esc(s.code)}</em></button>`).join(""); sug.hidden = !L.length;
     });
+    q.addEventListener("keydown", e => { if (e.key === "Enter") { const f = $("[data-add]", sug); if (f) { e.preventDefault(); f.click(); } } });
     card.addEventListener("click", e => {
       const a = e.target.closest("[data-add]"); if (a) { if (cpCodes().length < 4) { CP.codes.push(a.dataset.add); A.store.set(CK, CP.codes); } q.value = ""; sug.hidden = true; cpPaint(true); return; }
       const x = e.target.closest("[data-rm]"); if (x) { CP.codes = cpCodes().filter(c => c !== x.dataset.rm); A.store.set(CK, CP.codes); cpPaint(true); return; }
@@ -144,7 +146,7 @@
     if (card.hidden || codes.join() !== cpCodes().join()) return;
     const F = A.FUND.map || new Map(), C = (A.CHIP && A.CHIP.map) || new Map(), ind = {};
     A.heatGroups().forEach(g => g.list.forEach(s => { ind[s.code] = g.name; }));
-    const M = codes.map(c => { const s = A.DB.by.get(c), f = F.get(c) || {}, cs = CP.hist.get(c); return { c, s, f, chip: C.get(c), cs, r20: ret(cs, 20), r60: ret(cs, 60) }; });
+    const M = codes.map(c => { const s = A.DB.by.get(c) || { code: c, name: c, price: NaN, pct: NaN, chg: 0, vol: 0 }, f = F.get(c) || {}, cs = CP.hist.get(c); return { c, s, f, chip: C.get(c), cs, r20: ret(cs, 20), r60: ret(cs, 60) }; });
     const rowsDef = [
       ["現價", m => A.fmt(m.s.price, A.dig(m.s.price)), null], ["今日漲跌", m => A.pct(m.s.pct), m => m.s.pct, 1, m => tone(m.s.pct)],
       ["成交值", m => (m.s.price * m.s.vol / 1e5).toLocaleString("zh-TW", { maximumFractionDigits: 1 }) + " 億", m => m.s.price * m.s.vol, 1],
