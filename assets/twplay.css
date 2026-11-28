@@ -427,3 +427,6 @@ a, button, [role="button"], summary, label, input, select, .tp, .ixcard { touch-
 }
 
 
+
+.bd-lim { grid-column: span 6; } .bd-lim .bd-list { max-height: 420px; overflow: auto; }
+@media (max-width: 1100px) { .bd-vol, .bd-lim { grid-column: span 12; } }
