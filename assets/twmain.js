@@ -2576,6 +2576,7 @@
     /* shared with the 研究室 tab (assets/twlab.js) */
     api: { chartC: () => KV.c, listCodes: () => LISTS[listIdx()].slice(), canSort: () => /^w[1-5]$/.test(VIEW.preset) && VIEW.key === "ord" && !VIEW.q,
       setOrder: codes => { const i = listIdx(); LISTS[i] = codes.slice(); WATCH = LISTS[0]; saveLists(); if (i === 0) { alertSync(); paintTape(); } paintWatch(false); paintTable(false); },
+      groupMovers: () => { const seen = new Map(); GROUPS.forEach(([n, cs]) => cs.forEach(c => { const x = DB.by.get(c); if (x && x.price > 0 && ok(x.pct) && !seen.has(c)) seen.set(c, { s: x, g: n }); })); const a = [...seen.values()].sort((p, q) => q.s.pct - p.s.pct); return { up: a.slice(0, 8), down: a.slice(-8).reverse() }; },
       rowStar: code => { const i = listIdx(), had = LISTS[i].includes(code); toggleWatch(code, i); return !had; }, goBackNow: () => { const b = $("#dpStock .sback"); if (b && !b.hidden) b.click(); return !!(b && !b.hidden); }, whyOf, paintHeat, gpPaint, instLoad, ftLoad, paintStreak, heatGroups, heatTip, heatFocus, segMark, DB, FUND, CHIP, IDX, HIST, calc, sma, histMonth, loadHist, loadFund, loadChip, monthsBack, facts: code => { const h = HIST.get(code); if (!h) return null; const k = CODE; CODE = code; try { return facts(h.cs); } finally { CODE = k; } },
       refresh: () => Promise.all([rtPoll(), pmLoad(), pmLoad(true), clLoad()]).then(() => open(cur, true)),
       rtPoll, quoteNow,

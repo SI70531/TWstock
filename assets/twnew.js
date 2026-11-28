@@ -102,6 +102,8 @@
     if (window.ResizeObserver) new ResizeObserver(() => A.segMark(iseg)).observe(iseg);
     ivShow(VIEWS.some(v => v[0] === A.store.get("twnew-indv", "heat")) ? A.store.get("twnew-indv", "heat") : "heat", false);
     const gp = $(".gp"); if (gp) { gp.removeAttribute("data-sub"); gp.hidden = false; grid.appendChild(gp); }
+    grid.insertAdjacentHTML("beforeend", `<div class="dcard gpm"><div class="aihead"><div><h3>族群內領漲／領跌</h3></div><span class="sub">上方族群成員的個股前後 8 名</span></div><div class="gpmout"></div></div>`);
+    $(".gpm", grid).addEventListener("click", e => { const m = e.target.closest("[data-code]"); if (m) A.openStock(m.dataset.code); });
     const rot = $(".rot", grid), rseg = $(".rotseg", rot);
     rseg.addEventListener("click", e => { const b = e.target.closest("[data-g]"); if (!b) return; $$("[data-g]", rseg).forEach(x => x.setAttribute("aria-pressed", String(x === b))); ROT.n = +b.dataset.g; A.segMark(rseg); rotPaint(true); });
     if (window.ResizeObserver) new ResizeObserver(() => A.segMark(rseg)).observe(rseg);
@@ -141,8 +143,16 @@
     if (el.dataset.h === html) return; el.dataset.h = html; el.innerHTML = html;
     if (animate) { A.rise($$(".gpg", el), 22); $$(".gpbar i", el).forEach(grow); }
   }
+  function gpmPaint(animate) {
+    const el = $(".gpmout"); if (!el) return;
+    if (!A.DB.live || !A.DB.list.length) { el.innerHTML = `<p class="sub">讀不到資料。</p>`; return; }
+    const M = A.groupMovers(), col = (t, arr) => `<div class="instcol"><h4>${t}</h4>${arr.map(({ s, g }) => `<button type="button" class="instrow" data-code="${A.esc(s.code)}"><span class="nm"><b>${A.esc(s.name)}</b><em>${A.esc(s.code)}・${A.esc(g)}</em></span><span class="rr ${A.tone(s.pct)}">${A.fmt(s.price, A.dig(s.price))}<i>${A.pct(s.pct)}</i></span></button>`).join("")}</div>`;
+    const html = `<div class="instcols">${col("領漲", M.up)}${col("領跌", M.down)}</div>`;
+    if (el.dataset.h === html) return; el.dataset.h = html; el.innerHTML = html;
+    if (animate) A.rise($$(".instrow", el), 18);
+  }
   function paintInd(animate) {
-    A.paintHeat(animate); A.gpPaint(); irPaint(animate);
+    A.paintHeat(animate); A.gpPaint(); irPaint(animate); gpmPaint(animate);
     if (animate) { const gp = $(".gp"); if (gp) { A.rise($$(".gpg", gp), 22); $$(".gpbar i", gp).forEach(grow); } }
   }
 
