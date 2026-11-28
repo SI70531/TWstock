@@ -555,11 +555,16 @@
     if (c) $$(`.wlbtn.arm[data-code="${c}"]`).forEach(b => { b.classList.remove("arm"); b.textContent = "−"; });
   }
   function wlRemove(btn) {
-    const code = btn.dataset.code, li = listIdx();
-    if (ARM.code === code && ARM.list === li) { disarm(); toggleWatch(code, li); return; }
-    disarm();
-    ARM.code = code; ARM.list = li; ARM.t = setTimeout(disarm, 3000);
-    btn.classList.add("arm"); btn.textContent = "確定移除";
+    const code = btn.dataset.code, li = listIdx(), st = DB.by && DB.by.get(code), nm = st ? st.name : code;
+    if (document.querySelector(".wlcf-ov")) return;
+    const ov = document.createElement("div"); ov.className = "wlcf-ov";
+    ov.innerHTML = `<div class="wlcf-box" role="alertdialog" aria-label="移除自選股"><h3>移除自選股</h3><p>要把 <b>${esc(nm)}</b> ${esc(code)} 從自選${li + 1}移除嗎？</p><div class="wlcf-act"><button type="button" class="btn" data-a="no">取消</button><button type="button" class="btn wlcf-ok" data-a="ok">移除</button></div></div>`;
+    document.body.appendChild(ov);
+    ov.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 160 });
+    const box = ov.firstElementChild;
+    box.animate([{ opacity: 0, transform: "translateY(18px) scale(.94)" }, { opacity: 1, transform: "none" }], { duration: 300, easing: "cubic-bezier(.16,1,.3,1)" });
+    const close = () => { box.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(10px) scale(.96)" }], { duration: 150, fill: "forwards" }); ov.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: "forwards" }).onfinish = () => ov.remove(); };
+    ov.addEventListener("click", e => { if (e.target === ov) { close(); return; } const b = e.target.closest("[data-a]"); if (!b) return; if (b.dataset.a === "ok") toggleWatch(code, li); close(); });
   }
   function paintTable(animate) {
     const box = $("#dpList"); if (!$(".mtbl", box)) return;
