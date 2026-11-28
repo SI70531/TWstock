@@ -2095,7 +2095,7 @@
       pth.setAttribute("d", ys.map((v, k) => (k ? "L" : "M") + (k / n * 76).toFixed(2) + " " + Y(v)).join(""));
       const b = $(".spbase", svg); b.setAttribute("y1", Y(base)); b.setAttribute("y2", Y(base));
       svg.setAttribute("class", "spark up");
-      if (!svg.dataset.drawn) { svg.dataset.drawn = "1"; pth.setAttribute("pathLength", "1"); pth.classList.remove("spdraw"); void pth.getBoundingClientRect(); pth.classList.add("spdraw"); }
+      if (!svg.dataset.drawn) { svg.dataset.drawn = "1"; pth.setAttribute("pathLength", "1"); window.twSparkIn && window.twSparkIn(svg.closest(".ixcard")); }
     });
     if (!paintSparks.busy && $(".ixcard.ixwait:not([data-shown])")) { paintSparks.busy = true; try { paintIdx(); } finally { paintSparks.busy = false; } }   /* a card was waiting for its line: show number and line together now */
   }
@@ -2416,12 +2416,7 @@
     }
     rtPoll();
   }
-  function drawSpark() {
-    $$(".ixcard .spark").forEach((svg, i) => {
-      const pp = $("path", svg); if (!pp || !pp.getAttribute("d")) return;
-      svg.animate([{ clipPath: "inset(-4px 100% -4px 0)" }, { clipPath: "inset(-4px -4px -4px 0)" }], { duration: 900, delay: 400 + i * 80, easing: "ease-out", fill: "backwards" });
-    });
-  }
+  function drawSpark() { $$(".ixcard").forEach(c => window.twSparkIn && window.twSparkIn(c)); }
 
   tabs.forEach(b => b.addEventListener("click", () => open(b.dataset.p, true)));
   $(".dtabs").addEventListener("keydown", e => {

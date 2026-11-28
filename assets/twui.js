@@ -171,10 +171,17 @@
     const host = el.closest("[data-code],[data-k]"), id = host ? (host.dataset.code || host.dataset.k) : "";
     const pane = el.closest(".dpanel"); return (pane ? pane.id : "") + ":" + id + ":" + (el.className.split(" ")[0]) + ":" + (host ? "" : i);
   }
+  /* an index card's line draws on the same clock as its number: same start, same 700 ms, same ease-out-cubic, so both finish together */
+  window.twSparkIn = function (card) {
+    const svg = card && card.querySelector(".spark"), pp = svg && svg.querySelector("path"); if (!pp || !pp.getAttribute("d")) return;
+    const now = performance.now(); if (svg.__sk && now - svg.__sk < 250) return; svg.__sk = now;
+    if (svg.__sa) try { svg.__sa.cancel(); } catch (e) {}
+    svg.__sa = svg.animate([{ clipPath: "inset(-4px 100% -4px 0)" }, { clipPath: "inset(-4px -4px -4px 0)" }], { duration: 700, easing: "cubic-bezier(.215,.61,.355,1)" });
+  };
   function countTo(el, from, to, text) {
     if (window.TWSet && window.TWSet.calm()) { el.textContent = text; return; }
     const d = decs(text), t0 = performance.now(), dur = 700, prefix = text.match(/^[^\d-]*/)[0], suffix = text.match(/[^\d.,]*$/)[0];
-    RUN.add(el);
+    RUN.add(el); if (el.closest(".ixcard") && from === 0) window.twSparkIn(el.closest(".ixcard"));
     const nf = new Intl.NumberFormat("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }); el.style.willChange = "contents";
     const step = now => {
       if (el.dataset.txt && el.dataset.txt !== text) { RUN.delete(el); return; }   /* a newer quote arrived: let it stand */
