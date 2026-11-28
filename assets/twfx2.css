@@ -28,7 +28,7 @@ tr.fxdrag { outline: 1px solid var(--color-accent, #d8892b); }
 .fxedit .fxhid { display: block !important; }
 .fxedit .fxdim { opacity: .35; filter: grayscale(.6); }
 .fxedit > :not(.fxeditor):not(.fxovbtn) { transition: opacity .3s, filter .3s; }
-.fxeditor { position: sticky; top: 8px; z-index: 30; display: grid; gap: 10px; }
+.fxeditor { position: relative; z-index: 3; display: grid; gap: 10px; }
 .fxlist { display: grid; gap: 8px; }
 .fxrow { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 34px; border-radius: var(--r-md); background: color-mix(in oklch, var(--color-ink) 6%, transparent); border: 1px solid var(--glass-line-2); }
 .fxrow span { flex: 1; font-weight: 600; }

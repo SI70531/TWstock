@@ -131,6 +131,7 @@
     ed = document.createElement("div"); ed.className = "dcard fxeditor"; ed.style.order = 0; panel.prepend(ed);
     const S = ovSet(), order = [...S.order.filter(k => OV.some(x => x[0] === k)), ...OV.map(x => x[0]).filter(k => !S.order.includes(k))];
     ed.innerHTML = `<div class="bd-h"><h3>自訂總覽</h3><button type="button" class="btn fxdone">完成</button></div><div class="fxlist">${order.map(k => { const n = OV.find(x => x[0] === k)[1]; return `<div class="fxrow" data-k="${k}"><i class="dgrip fxg" aria-label="拖曳排序">⋮⋮</i><span>${n}</span><button type="button" class="fxeye" aria-pressed="${!S.hide.includes(k)}" aria-label="顯示或隱藏">${S.hide.includes(k) ? "已隱藏" : "顯示中"}</button></div>`; }).join("")}</div>`;
+    { const tb = $(".topbar"), h = tb ? tb.getBoundingClientRect().bottom : 0; ed.style.scrollMarginTop = Math.max(0, h + 12) + "px"; ed.scrollIntoView({ behavior: "smooth", block: "start" }); }
     ed.animate([{ opacity: 0, transform: "translateY(-12px)" }, { opacity: 1, transform: "none" }], { duration: 380, easing: "cubic-bezier(.16,1,.3,1)" });
     $$(".fxrow", ed).forEach((r, i) => r.animate([{ opacity: 0, transform: "translateX(-14px)" }, { opacity: 1, transform: "none" }], { duration: 360, delay: 120 + i * 60, fill: "backwards", easing: "cubic-bezier(.16,1,.3,1)" }));
     const save = () => { const rows = $$(".fxrow", ed), o = { order: rows.map(r => r.dataset.k), hide: rows.filter(r => $(".fxeye", r).getAttribute("aria-pressed") === "false").map(r => r.dataset.k) }; A.store.set(OK, o); ovApply(); };
