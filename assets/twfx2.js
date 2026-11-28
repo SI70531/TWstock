@@ -120,9 +120,9 @@
     const panel = $("#dpOverview"); if (!panel) return;
     const S = ovSet(), order = [...S.order.filter(k => OV.some(x => x[0] === k)), ...OV.map(x => x[0]).filter(k => !S.order.includes(k))];
     const editing = panel.classList.contains("fxedit");
-    order.forEach((k, i) => { const el = $(":scope > ." + k, panel); if (!el) return; el.style.order = i + 1; el.classList.toggle("fxhid", S.hide.includes(k)); el.classList.toggle("fxdim", editing && S.hide.includes(k)); });
-    const b4 = $(":scope > .board2", panel); if (b4) b4.style.order = order.indexOf("mstrip") + 1.5;   /* volume and limit cards sit right under the 成交金額 strip */
-    const ix = $(":scope > .ixdetail", panel); if (ix) ix.style.order = (order.indexOf("ixgrid") + 1) + 0.5;
+    order.forEach((k, i) => { const el = $(":scope > ." + k, panel); if (!el) return; el.style.order = (i + 1) * 10; el.classList.toggle("fxhid", S.hide.includes(k)); el.classList.toggle("fxdim", editing && S.hide.includes(k)); });
+    const b4 = $(":scope > .board2", panel); if (b4) b4.style.order = (order.indexOf("mstrip") + 1) * 10 + 5;   /* CSS order takes whole numbers only */   /* volume and limit cards sit right under the 成交金額 strip */
+    const ix = $(":scope > .ixdetail", panel); if (ix) ix.style.order = (order.indexOf("ixgrid") + 1) * 10 + 5;
   }
   function ovEditor() {
     const panel = $("#dpOverview"); if (!panel) return;
@@ -153,7 +153,7 @@
   }
   function ovButton() {
     const panel = $("#dpOverview"); if (!panel || $(":scope > .fxovbtn", panel)) return;
-    const b = document.createElement("button"); b.type = "button"; b.className = "chip fxovbtn"; b.style.order = 99; b.textContent = "⇅ 自訂總覽"; b.addEventListener("click", ovEditor); panel.appendChild(b);
+    const b = document.createElement("button"); b.type = "button"; b.className = "chip fxovbtn"; b.style.order = 9999; b.textContent = "⇅ 自訂總覽"; b.addEventListener("click", ovEditor); panel.appendChild(b);
   }
   document.addEventListener("twdash:overview-edit", ovEditor);
 
