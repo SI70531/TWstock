@@ -443,7 +443,7 @@
     ["外觀", "theme", [["system", "系統"], ["light", "淺色"], ["dark", "深色"]]],
     ["漲跌顏色", "ud", [["tw", "紅漲綠跌"], ["intl", "綠漲紅跌"]]],
     ["預設開啟頁面", "home", PAGES],
-    ["股票預設分頁", "lst", [["ls", "清單"], ["rk", "排行"], ["sc", "選股"], ["rv", "營收"]]],
+    ["股票預設分頁", "lst", [["ls", "清單"], ["rk", "排行"], ["cp", "比較"], ["sc", "選股"], ["rv", "營收"]]],
     ["日曆預設範圍", "cmine", [["0", "全部"], ["1", "我的"]]],
     ["日曆預設檢視", "cmode", [["list", "列表"], ["grid", "月曆"]]],
     ["行情更新頻率", "poll", [["auto", "自動"], ["5", "5 秒"], ["10", "10 秒"], ["manual", "手動"]]],
@@ -475,7 +475,7 @@
       const row = e.target.closest("[data-set]"), b = e.target.closest("[data-v]");
       if (row && b) {
         $$("[data-v]", row).forEach(x => x.setAttribute("aria-pressed", String(x === b)));
-        if (row.dataset.set === "theme") window.__twTheme && window.__twTheme.set(b.dataset.v); else window.TWSet.set(row.dataset.set, b.dataset.v);
+        if (row.dataset.set === "theme") window.__twTheme && window.__twTheme.set(b.dataset.v); else { window.TWSet.set(row.dataset.set, b.dataset.v); if (row.dataset.set === "lst") { try { sessionStorage.removeItem("twlst"); } catch (e) {} } }
         return;
       }
       if (e.target.closest("[data-backup]")) return backup();

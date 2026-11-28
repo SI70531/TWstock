@@ -492,7 +492,7 @@
     dl.insertAdjacentHTML("afterbegin", `<div class="anasub lsub" role="tablist" aria-label="股票">${[["ls", "清單"], ["rk", "排行"], ["cp", "比較"], ["sc", "選股"], ["rv", "營收"]].map(([k, l]) => `<button type="button" role="tab" data-sub="${k}">${l}</button>`).join("")}<i></i></div>`);
     mktc.dataset.sub = "ls"; dl.appendChild(mktc); instInit(instc); lstBuild(dl);
     $(".lsub", dl).addEventListener("click", e => { const b = e.target.closest("[data-sub]"); if (b) lstSub(b.dataset.sub, true); });
-    lstSub((() => { try { return sessionStorage.getItem("twlst") || (window.TWSet && window.TWSet.get("lst")) || "ls"; } catch (e) { return "ls"; } })(), false);
+    lstSub((() => { try { const rl = (performance.getEntriesByType("navigation")[0] || {}).type === "reload"; return (rl && sessionStorage.getItem("twlst")) || (window.TWSet && window.TWSet.get("lst")) || "ls"; } catch (e) { return "ls"; } })(), false);
     $(".wkgo", wkc).addEventListener("click", e => wkRun(e.currentTarget));
     pmLoad(); pmLoad(true); clLoad(); wkLoad(); wdLoad(); ftLoad();
     const dd = $(".bd-dist", box); if (dd) { dd.addEventListener("pointermove", distTip); dd.addEventListener("pointerleave", () => { const t = $(".bdtip", dd); if (t) t.hidden = true; }); }
