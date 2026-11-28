@@ -256,7 +256,7 @@
     SUG.rows = sugRows(inp.value);
     if (!SUG.rows.length) { sugClose(); return; }
     const r = inp.getBoundingClientRect(), below = innerHeight - r.bottom > 280;
-    el.style.cssText = `left:${r.left}px;width:${r.width}px;${below ? `top:${r.bottom + 6}px` : `bottom:${innerHeight - r.top + 6}px`}`;
+    const wMin = Math.min(310, innerWidth * .94), wW = Math.max(r.width, wMin); el.style.cssText = `left:${Math.max(8, Math.min(r.left, innerWidth - wW - 8))}px;width:${wW}px;${below ? `top:${r.bottom + 6}px` : `bottom:${innerHeight - r.top + 6}px`}`;
     el.innerHTML = SUG.rows.map((s, k) => `<button type="button" class="fxs-row${k === SUG.i ? " on" : ""}" data-k="${k}"><b>${A.esc(s.name)}</b><i>${s.extra ? "" : A.esc(s.code)}</i><span class="${A.tone(s.chg)}">${s.extra ? "" : Number.isFinite(s.price) ? A.fmt(s.price, A.dig(s.price)) : "讀不到"}</span><em class="${A.tone(s.chg)}">${Number.isFinite(s.pct) ? A.pct(s.pct) : ""}</em></button>`).join("");
   }
   function sugOpen(inp) {
