@@ -146,8 +146,10 @@
 .kbcard.setcard > .setpane { display: grid; gap: 14px; min-height: 220px; align-content: start; }
 .kbcard.setcard > .setpane[hidden] { display: none; }
 /* index cards: the source / time label drops to its own line instead of being cut off */
-.ixcard h3 { flex-wrap: wrap; row-gap: 2px; }
-.ixcard h3 .ixsrc { margin-left: auto; max-width: 100%; }
+.ixcard h3 { display: grid; grid-template-columns: minmax(0, 1fr); row-gap: 2px; align-items: start; }
+.ixcard h3 .ixn { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* every card has the same two header lines (name, then source and time), so the numbers below line up across the row */
+.ixcard h3 .ixsrc { margin: 0; justify-self: start; text-align: left; max-width: 100%; min-height: 1.35em; overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- twnew2: 籌碼 rankings, 排行 lists, 比較, 產業估值, 產業配置 ---- */
 .mgbar i.flat { background: var(--color-accent); }

@@ -407,6 +407,7 @@ a, button, [role="button"], summary, label, input, select, .tp, .ixcard { touch-
 /* odometer digits sit exactly on the text's own line, so nothing hops when the roll ends and the plain text comes back */
 .odo { height: 1lh; line-height: inherit; vertical-align: top; }
 .odo i { height: 1lh; line-height: inherit; }
-/* final word on odometer digits: clip (not hidden) keeps the normal text baseline, so the digit sits exactly where plain text does and the line never grows */
-.odo { display: inline-block; height: 1lh; line-height: inherit; overflow: clip; vertical-align: baseline; }
-.odo i { display: block; height: 1lh; line-height: inherit; }
+/* final word on odometer digits: clip (not hidden) keeps the normal text baseline, so the digit sits exactly where plain text does and the line never grows;
+   the line height is measured in script too, for browsers without the lh unit */
+.odo { display: inline-block; height: var(--odh, 1lh); line-height: inherit; overflow: hidden; overflow: clip; vertical-align: baseline; }
+.odo i { display: block; height: var(--odh, 1lh); line-height: inherit; }
