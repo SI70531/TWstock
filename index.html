@@ -21,6 +21,9 @@
       var q = matchMedia("(prefers-color-scheme: light)");
       function eff() { return m || (q.matches ? "light" : "dark"); }
       r.dataset.theme = eff(); r.classList.add("js");
+      /* the browser chrome (iPad / iPhone status bar text, address bar) follows this colour: dark text on the light theme, white on the dark one */
+      function bar() { var t = document.querySelector('meta[name="theme-color"]'); if (t) t.setAttribute("content", r.dataset.theme === "light" ? "#f1f4fa" : "#0b0f1a"); }
+      bar(); new MutationObserver(bar).observe(r, { attributes: true, attributeFilter: ["data-theme"] });
       window.__twTheme = {
         get mode() { return m || "system"; },
         set: function (x) {
