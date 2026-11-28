@@ -425,3 +425,7 @@ a, button, [role="button"], summary, label, input, select, .tp, .ixcard { touch-
   .app .dtabs button { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; text-align: center; }
   .app .dtabs button .tabic { margin: 0; vertical-align: 0; }
 }
+
+/* 族群／概念股: full width, the groups flow into as many columns as fit (no empty right half) */
+.nwgrid > .dcard.gp { grid-column: 1 / -1 !important; }
+.nwgrid > .dcard.gp .gpout { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: 0 12px; align-items: start; }
