@@ -417,3 +417,9 @@ a, button, [role="button"], summary, label, input, select, .tp, .ixcard { touch-
 .wlcf-box h3{margin:0;font-size:1.05rem}.wlcf-box p{margin:0;line-height:1.6}
 .wlcf-act{display:flex;gap:8px;justify-content:flex-end;margin-top:6px}
 .wlcf-ok{background:#e5484d;color:#fff;border-color:transparent}
+
+/* iPad held upright: the section tabs sit at the bottom edge, like the phone's bottom bar */
+@media (min-width: 721px) and (max-width: 1099px) and (orientation: portrait) {
+  .app .dtabs { position: fixed; top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); left: 50%; transform: translateX(-50%); z-index: calc(var(--z-sticky) + 2); max-width: calc(100vw - 24px); overflow-x: auto; box-shadow: 0 10px 34px rgba(0,0,0,.22); }
+  .app main { padding-bottom: 120px; }
+}
