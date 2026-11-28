@@ -121,6 +121,7 @@
     const S = ovSet(), order = [...S.order.filter(k => OV.some(x => x[0] === k)), ...OV.map(x => x[0]).filter(k => !S.order.includes(k))];
     const editing = panel.classList.contains("fxedit");
     order.forEach((k, i) => { const el = $(":scope > ." + k, panel); if (!el) return; el.style.order = i + 1; el.classList.toggle("fxhid", S.hide.includes(k)); el.classList.toggle("fxdim", editing && S.hide.includes(k)); });
+    const b4 = $(":scope > .board2", panel); if (b4) b4.style.order = order.indexOf("mstrip") + 1.5;   /* volume and limit cards sit right under the 成交金額 strip */
     const ix = $(":scope > .ixdetail", panel); if (ix) ix.style.order = (order.indexOf("ixgrid") + 1) + 0.5;
   }
   function ovEditor() {
